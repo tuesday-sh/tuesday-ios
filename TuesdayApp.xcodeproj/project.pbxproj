@@ -1,0 +1,602 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 54;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		14FCD7EFF9F906E298046497 /* ThemeTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A1E6997BE7A8AB0C7580E1 /* ThemeTokens.swift */; };
+		15289CE03D030A94C0B872A2 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED530245B95F923766AC31B /* HomeView.swift */; };
+		2998702AA634CE5D07BE11EB /* HacsConnectionConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AC52DF99E039F4E1E0E638 /* HacsConnectionConfig.swift */; };
+		2D6B0623C5AB85261A32D277 /* PilotSecrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3F3E27EC9FE3A5538B4C7698 /* PilotSecrets.plist */; };
+		4249BC45A55EC9B7B851C4F8 /* CandleGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF68A138C4A4BD27EDD0F17E /* CandleGraphView.swift */; };
+		6F24306E99A5AAFED85F09F9 /* PackageDiffRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC8C4EA1AD7F9A0CB42A581 /* PackageDiffRow.swift */; };
+		8EB46304DEC72DA76C931254 /* TuesdayAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6832B37E12A8B5B1AD49549D /* TuesdayAppUITests.swift */; };
+		99CD04F3B6F32D42188D46E9 /* TuesdayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2A659338ED7DE764E20879 /* TuesdayApp.swift */; };
+		9E83C1C705D81E42A5550731 /* MonitoredNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA62B1800661EC2FA68F88D7 /* MonitoredNode.swift */; };
+		A30FF0CE64969A5F81D76AF1 /* TuesdayRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E41B28F6629BDA8FE10D4DB /* TuesdayRepositoryProtocol.swift */; };
+		AC4D80D79ABF064AAAC129E3 /* NetworkMonitorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40246A7AF6DF660E3F41B8A /* NetworkMonitorService.swift */; };
+		B2A5CB0693A5524A9F1DCE70 /* WifiWarningOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 742442D1FF3316250C106CC7 /* WifiWarningOverlay.swift */; };
+		CA870CE25D354C6114D40A40 /* GeminiDeviceDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BA93C664CB1D6AD043E928 /* GeminiDeviceDiscoveryService.swift */; };
+		CD539C8D8292ED5DE1CFA30F /* MockHacsTuesdayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A5F408DA764F87B45EB0142 /* MockHacsTuesdayService.swift */; };
+		D159451FEF686F55DE319E7C /* AddNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872C88685EBA5A572C408E68 /* AddNodeView.swift */; };
+		D877359DAEE3FF068977F17A /* MonitoredNodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0446F2EDA8EA886755F276 /* MonitoredNodeTests.swift */; };
+		DD4B9EAEFD98949E96445836 /* CameraImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B14162A0FA4E2DF5457A404 /* CameraImagePicker.swift */; };
+		EA6E40E762D2EB2EAAE15C76 /* HacsPairingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5335105CB9650C002B84EB3 /* HacsPairingSheet.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A450995051B1BE3C1FB1907B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 60BFA6C2664E5D592F7B229A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2C0C68D26AE915835B34704;
+			remoteInfo = TuesdayApp;
+		};
+		B301C532761264624773388C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 60BFA6C2664E5D592F7B229A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D2C0C68D26AE915835B34704;
+			remoteInfo = TuesdayApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		24BA93C664CB1D6AD043E928 /* GeminiDeviceDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiDeviceDiscoveryService.swift; sourceTree = "<group>"; };
+		2A5F408DA764F87B45EB0142 /* MockHacsTuesdayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockHacsTuesdayService.swift; sourceTree = "<group>"; };
+		3E41B28F6629BDA8FE10D4DB /* TuesdayRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayRepositoryProtocol.swift; sourceTree = "<group>"; };
+		3F3E27EC9FE3A5538B4C7698 /* PilotSecrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = PilotSecrets.plist; sourceTree = "<group>"; };
+		47B47B8496EC16C24504FE26 /* TuesdayApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TuesdayApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6832B37E12A8B5B1AD49549D /* TuesdayAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayAppUITests.swift; sourceTree = "<group>"; };
+		6B14162A0FA4E2DF5457A404 /* CameraImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraImagePicker.swift; sourceTree = "<group>"; };
+		742442D1FF3316250C106CC7 /* WifiWarningOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WifiWarningOverlay.swift; sourceTree = "<group>"; };
+		81A1E6997BE7A8AB0C7580E1 /* ThemeTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeTokens.swift; sourceTree = "<group>"; };
+		872C88685EBA5A572C408E68 /* AddNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddNodeView.swift; sourceTree = "<group>"; };
+		97A0344668AB5DC1EBFA10D2 /* TuesdayAppUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TuesdayAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A3AC52DF99E039F4E1E0E638 /* HacsConnectionConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HacsConnectionConfig.swift; sourceTree = "<group>"; };
+		A40246A7AF6DF660E3F41B8A /* NetworkMonitorService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorService.swift; sourceTree = "<group>"; };
+		A90938019A3ED68BB0C238CC /* TuesdayAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TuesdayAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB2A659338ED7DE764E20879 /* TuesdayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayApp.swift; sourceTree = "<group>"; };
+		ADDC9BE8D753752FFEFA0003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C5335105CB9650C002B84EB3 /* HacsPairingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HacsPairingSheet.swift; sourceTree = "<group>"; };
+		CCC8C4EA1AD7F9A0CB42A581 /* PackageDiffRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageDiffRow.swift; sourceTree = "<group>"; };
+		CED530245B95F923766AC31B /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		EE0446F2EDA8EA886755F276 /* MonitoredNodeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitoredNodeTests.swift; sourceTree = "<group>"; };
+		EF68A138C4A4BD27EDD0F17E /* CandleGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandleGraphView.swift; sourceTree = "<group>"; };
+		FA62B1800661EC2FA68F88D7 /* MonitoredNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonitoredNode.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0126639C3500356C08C03486 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A3AC52DF99E039F4E1E0E638 /* HacsConnectionConfig.swift */,
+				FA62B1800661EC2FA68F88D7 /* MonitoredNode.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		61C6E235793194732F3C2061 /* TuesdayApp */ = {
+			isa = PBXGroup;
+			children = (
+				ADDC9BE8D753752FFEFA0003 /* Info.plist */,
+				AB2A659338ED7DE764E20879 /* TuesdayApp.swift */,
+				0126639C3500356C08C03486 /* Models */,
+				F716F54B6D36C24A22043FF0 /* Resources */,
+				8CF9C69881C6901C8717D339 /* Services */,
+				B1378BDA09A30BA8F9496028 /* Views */,
+			);
+			path = TuesdayApp;
+			sourceTree = "<group>";
+		};
+		63973C6733F110A35F245692 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				47B47B8496EC16C24504FE26 /* TuesdayApp.app */,
+				A90938019A3ED68BB0C238CC /* TuesdayAppTests.xctest */,
+				97A0344668AB5DC1EBFA10D2 /* TuesdayAppUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		8CF9C69881C6901C8717D339 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				24BA93C664CB1D6AD043E928 /* GeminiDeviceDiscoveryService.swift */,
+				2A5F408DA764F87B45EB0142 /* MockHacsTuesdayService.swift */,
+				A40246A7AF6DF660E3F41B8A /* NetworkMonitorService.swift */,
+				3E41B28F6629BDA8FE10D4DB /* TuesdayRepositoryProtocol.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		9E00710EDED1F028A0C2F38D /* TuesdayAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				EE0446F2EDA8EA886755F276 /* MonitoredNodeTests.swift */,
+			);
+			path = TuesdayAppTests;
+			sourceTree = "<group>";
+		};
+		B0AEAF86142FD1DE661A8342 = {
+			isa = PBXGroup;
+			children = (
+				61C6E235793194732F3C2061 /* TuesdayApp */,
+				9E00710EDED1F028A0C2F38D /* TuesdayAppTests */,
+				E55111D1B4AD69441D61840D /* TuesdayAppUITests */,
+				63973C6733F110A35F245692 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		B1378BDA09A30BA8F9496028 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				872C88685EBA5A572C408E68 /* AddNodeView.swift */,
+				C5335105CB9650C002B84EB3 /* HacsPairingSheet.swift */,
+				CED530245B95F923766AC31B /* HomeView.swift */,
+				C53E8A13BF1A25887FDBE934 /* Components */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		C53E8A13BF1A25887FDBE934 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				6B14162A0FA4E2DF5457A404 /* CameraImagePicker.swift */,
+				EF68A138C4A4BD27EDD0F17E /* CandleGraphView.swift */,
+				CCC8C4EA1AD7F9A0CB42A581 /* PackageDiffRow.swift */,
+				81A1E6997BE7A8AB0C7580E1 /* ThemeTokens.swift */,
+				742442D1FF3316250C106CC7 /* WifiWarningOverlay.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		E55111D1B4AD69441D61840D /* TuesdayAppUITests */ = {
+			isa = PBXGroup;
+			children = (
+				6832B37E12A8B5B1AD49549D /* TuesdayAppUITests.swift */,
+			);
+			path = TuesdayAppUITests;
+			sourceTree = "<group>";
+		};
+		F716F54B6D36C24A22043FF0 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				3F3E27EC9FE3A5538B4C7698 /* PilotSecrets.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B6D7EA9AEF1A1CA072176E8C /* TuesdayAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 53BEF99BD870C039309FC4C9 /* Build configuration list for PBXNativeTarget "TuesdayAppUITests" */;
+			buildPhases = (
+				1699BD7259007432A574605F /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				217E7CE90DA43DAEEF7B24AB /* PBXTargetDependency */,
+			);
+			name = TuesdayAppUITests;
+			productName = TuesdayAppUITests;
+			productReference = 97A0344668AB5DC1EBFA10D2 /* TuesdayAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		D2C0C68D26AE915835B34704 /* TuesdayApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9538F8C01F26AD5EF1DD896B /* Build configuration list for PBXNativeTarget "TuesdayApp" */;
+			buildPhases = (
+				923609CBFAD28E3140BDDF93 /* Sources */,
+				382C421F091030C2942F9713 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TuesdayApp;
+			productName = TuesdayApp;
+			productReference = 47B47B8496EC16C24504FE26 /* TuesdayApp.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E4611B201D9A5CA4360AC52F /* TuesdayAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 26EB4D29C45A8EAEE660AFD8 /* Build configuration list for PBXNativeTarget "TuesdayAppTests" */;
+			buildPhases = (
+				1B537BC51CD5AD8802DF9191 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5EA7A3A642DB86A21BA3C572 /* PBXTargetDependency */,
+			);
+			name = TuesdayAppTests;
+			productName = TuesdayAppTests;
+			productReference = A90938019A3ED68BB0C238CC /* TuesdayAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		60BFA6C2664E5D592F7B229A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					B6D7EA9AEF1A1CA072176E8C = {
+						DevelopmentTeam = GWBBWC9V34;
+						ProvisioningStyle = Automatic;
+						TestTargetID = D2C0C68D26AE915835B34704;
+					};
+					D2C0C68D26AE915835B34704 = {
+						DevelopmentTeam = GWBBWC9V34;
+						ProvisioningStyle = Automatic;
+					};
+					E4611B201D9A5CA4360AC52F = {
+						DevelopmentTeam = GWBBWC9V34;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = C9B6FBAD345BAFD8D08DCFB9 /* Build configuration list for PBXProject "TuesdayApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = B0AEAF86142FD1DE661A8342;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2C0C68D26AE915835B34704 /* TuesdayApp */,
+				E4611B201D9A5CA4360AC52F /* TuesdayAppTests */,
+				B6D7EA9AEF1A1CA072176E8C /* TuesdayAppUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		382C421F091030C2942F9713 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D6B0623C5AB85261A32D277 /* PilotSecrets.plist in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1699BD7259007432A574605F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8EB46304DEC72DA76C931254 /* TuesdayAppUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1B537BC51CD5AD8802DF9191 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D877359DAEE3FF068977F17A /* MonitoredNodeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		923609CBFAD28E3140BDDF93 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D159451FEF686F55DE319E7C /* AddNodeView.swift in Sources */,
+				DD4B9EAEFD98949E96445836 /* CameraImagePicker.swift in Sources */,
+				4249BC45A55EC9B7B851C4F8 /* CandleGraphView.swift in Sources */,
+				CA870CE25D354C6114D40A40 /* GeminiDeviceDiscoveryService.swift in Sources */,
+				2998702AA634CE5D07BE11EB /* HacsConnectionConfig.swift in Sources */,
+				EA6E40E762D2EB2EAAE15C76 /* HacsPairingSheet.swift in Sources */,
+				15289CE03D030A94C0B872A2 /* HomeView.swift in Sources */,
+				CD539C8D8292ED5DE1CFA30F /* MockHacsTuesdayService.swift in Sources */,
+				9E83C1C705D81E42A5550731 /* MonitoredNode.swift in Sources */,
+				AC4D80D79ABF064AAAC129E3 /* NetworkMonitorService.swift in Sources */,
+				6F24306E99A5AAFED85F09F9 /* PackageDiffRow.swift in Sources */,
+				14FCD7EFF9F906E298046497 /* ThemeTokens.swift in Sources */,
+				99CD04F3B6F32D42188D46E9 /* TuesdayApp.swift in Sources */,
+				A30FF0CE64969A5F81D76AF1 /* TuesdayRepositoryProtocol.swift in Sources */,
+				B2A5CB0693A5524A9F1DCE70 /* WifiWarningOverlay.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		217E7CE90DA43DAEEF7B24AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2C0C68D26AE915835B34704 /* TuesdayApp */;
+			targetProxy = A450995051B1BE3C1FB1907B /* PBXContainerItemProxy */;
+		};
+		5EA7A3A642DB86A21BA3C572 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D2C0C68D26AE915835B34704 /* TuesdayApp */;
+			targetProxy = B301C532761264624773388C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		007C483B49A4870C01468B01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = TuesdayApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.tuesday.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		4692BE1366692F0AC19B3488 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = GWBBWC9V34;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		616B814E9361DBCDAC34E064 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.tuesday.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TuesdayApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TuesdayApp";
+			};
+			name = Debug;
+		};
+		84D9F80482166C52BE098BC0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = TuesdayApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.tuesday.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B1DFFDDD8D2BD1EF9BDF92D9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = GWBBWC9V34;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		BC67125998CB6E4E246D8B41 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.tuesday.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TuesdayApp;
+			};
+			name = Debug;
+		};
+		CD260C8EBB0984A1BB3F8EE3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.tuesday.app.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = TuesdayApp;
+			};
+			name = Release;
+		};
+		F41F2108856B36D5D4F27DA3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = sh.tuesday.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TuesdayApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TuesdayApp";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		26EB4D29C45A8EAEE660AFD8 /* Build configuration list for PBXNativeTarget "TuesdayAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				616B814E9361DBCDAC34E064 /* Debug */,
+				F41F2108856B36D5D4F27DA3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		53BEF99BD870C039309FC4C9 /* Build configuration list for PBXNativeTarget "TuesdayAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC67125998CB6E4E246D8B41 /* Debug */,
+				CD260C8EBB0984A1BB3F8EE3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9538F8C01F26AD5EF1DD896B /* Build configuration list for PBXNativeTarget "TuesdayApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				007C483B49A4870C01468B01 /* Debug */,
+				84D9F80482166C52BE098BC0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C9B6FBAD345BAFD8D08DCFB9 /* Build configuration list for PBXProject "TuesdayApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4692BE1366692F0AC19B3488 /* Debug */,
+				B1DFFDDD8D2BD1EF9BDF92D9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 60BFA6C2664E5D592F7B229A /* Project object */;
+}
