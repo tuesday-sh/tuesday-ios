@@ -132,4 +132,52 @@ final class MonitoredNodeTests: XCTestCase {
         XCTAssertEqual(service.nodes.first?.inventoryState, .incompleteOrGuessed)
         XCTAssertEqual(service.nodes.first?.discoveredMetadata?.modelNumber, "UCG-Ultra")
     }
+
+    func test128LedMatrixAndActionFirstFiltering() {
+        let devices = BulletinsAndInventoryEngine.defaultRackPortDevices()
+        let matrix = BulletinsAndInventoryEngine.build128LedMatrix(devices: devices, zoneFilter: nil)
+
+        XCTAssertEqual(matrix.count, 128)
+        XCTAssertEqual(matrix.filter { $0.state == .ok }.count, 119)
+        XCTAssertEqual(matrix.filter { $0.state == .cveKev }.count, 3)
+        XCTAssertEqual(matrix.filter { $0.state == .eol }.count, 1)
+        XCTAssertEqual(matrix.filter { $0.state == .guessed }.count, 2)
+        XCTAssertEqual(matrix.filter { $0.state == .update }.count, 3)
+
+        let actionList = BulletinsAndInventoryEngine.filterActionFirstDevices(devices: devices, includeOk: false)
+        XCTAssertEqual(actionList.count, 9)
+        XCTAssertTrue(actionList.allSatisfy { $0.portState != .ok })
+        XCTAssertEqual(actionList.first?.portState, .cveKev)
+
+        let allList = BulletinsAndInventoryEngine.filterActionFirstDevices(devices: devices, includeOk: true)
+        XCTAssertEqual(allList.count, 12)
+    }
+
+    func testBulletinsAssemblyWithMuteOverrideAndBestGuessRules() {
+        let devices = BulletinsAndInventoryEngine.defaultRackPortDevices()
+        let payload = BulletinsAndInventoryEngine.assembleBulletins(
+            flavor: .tuesdayPro,
+            devices: devices,
+            mutedFeedSlugs: ["lg-esphome-iot"]
+        )
+
+        XCTAssertEqual(payload.matchedFeeds.count, 7)
+        XCTAssertEqual(payload.activeFeedCount, 5)
+        XCTAssertEqual(payload.mutedFeedCount, 1)
+        XCTAssertEqual(payload.provisionalFeedCount, 1)
+        XCTAssertEqual(payload.mutedHighSevOverrideCount, 1)
+        XCTAssertEqual(payload.provisionalHighSevCount, 1)
+        XCTAssertEqual(payload.aiBullets.count, 4)
+        XCTAssertEqual(payload.inbox.count, 6)
+
+        let lgBreakthrough = payload.inbox.first { $0.externalId == "CVE-2026-21099" }
+        XCTAssertEqual(lgBreakthrough?.brokeThroughMute, true)
+
+        let ecobeeGuess = payload.inbox.first { $0.externalId == "CVE-2026-88901" }
+        XCTAssertEqual(ecobeeGuess?.matchedByGuess, true)
+        XCTAssertTrue(ecobeeGuess?.candidateModels.contains("SmartThermostat Premium") ?? false)
+
+        XCTAssertNil(payload.inbox.first { $0.externalId == "REL-esphome-2026.10.2" })
+        XCTAssertNil(payload.inbox.first { $0.externalId == "REL-ecobee-4.8.7.220" })
+    }
 }

@@ -4,6 +4,11 @@ import Combine
 @MainActor
 public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
     @Published public private(set) var nodes: [MonitoredNode] = []
+    @Published public var rackDevices: [RackPortDevice] = BulletinsAndInventoryEngine.defaultRackPortDevices()
+    @Published public var brandFlavor: AppBrandFlavor = .tuesdayPro
+    @Published public var mutedFeedSlugs: Set<String> = ["lg-esphome-iot"]
+    @Published public var includeOkDevices: Bool = false
+    @Published public var selectedZoneFilter: TrustZone? = nil
     @Published public var hacsConfig: HacsConnectionConfig
     @Published public private(set) var isSyncing: Bool = false
 
@@ -28,6 +33,51 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
         } else {
             self.nodes = Self.defaultSeedNodes()
             persistState()
+        }
+    }
+
+    public func toggleBrandFlavor() {
+        brandFlavor = (brandFlavor == .tuesdayPro) ? .sureThingHome : .tuesdayPro
+    }
+
+    public func toggleIncludeOkDevices() {
+        includeOkDevices.toggle()
+    }
+
+    public func toggleMuteFeed(_ slug: String) {
+        if mutedFeedSlugs.contains(slug) {
+            mutedFeedSlugs.remove(slug)
+        } else {
+            mutedFeedSlugs.insert(slug)
+        }
+    }
+
+    public func confirmProvisionalDeviceModel(_ chosenModel: String) {
+        rackDevices = rackDevices.map { dev in
+            guard dev.confidenceTier == .provisionalGuess else { return dev }
+            var copy = dev
+            copy.confidenceTier = .confirmed
+            copy.portState = .cveKev
+            copy.name = "Hallway Ecobee \(chosenModel)"
+            copy.version = "4.8.7.210"
+            copy.targetVersion = "4.8.7.220"
+            copy.lifecycleTier = "Active"
+            copy.purls = ["pkg:generic/ecobee/smart-thermostat@4.8.7.210"]
+            copy.proHeadline = "Confirmed (\(chosenModel)): CVE-2026-88901 HomeKit Pairing Fix (4.8.7.220)"
+            copy.stnHeadline = "Confirmed (\(chosenModel)): Update thermostat firmware to 4.8.7.220"
+            return copy
+        }
+    }
+
+    public func rejectProvisionalDeviceModel() {
+        rackDevices = rackDevices.map { dev in
+            guard dev.confidenceTier == .provisionalGuess else { return dev }
+            var copy = dev
+            copy.confidenceTier = .opaqueUnknown
+            copy.excludedPurlPrefixes.append("pkg:generic/ecobee/*")
+            copy.proHeadline = "Ecobee Family Excluded • Use Plug & Tag Camera to Identify Exact Model"
+            copy.stnHeadline = "Not an Ecobee • Snap a photo of the thermostat label to identify"
+            return copy
         }
     }
 
@@ -211,25 +261,32 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
     }
 
     public func markNodeUpdatesApplied(nodeId: String) async {
-        guard let index = nodes.firstIndex(where: { $0.id == nodeId }) else { return }
-        let now = Date()
-        let current = nodes[index]
-        nodes[index] = MonitoredNode(
-            id: current.id,
-            hostname: current.hostname,
-            osDetails: current.osDetails,
-            agentVersion: current.agentVersion,
-            packageManager: current.packageManager,
-            haEntityId: current.haEntityId,
-            lastCheckIn: now,
-            pendingUpdates: [],
-            healthScore: 100.0,
-            inventoryState: current.inventoryState,
-            discoveredMetadata: current.discoveredMetadata,
-            referenceDate: now
-        )
-        hacsConfig.lastSyncedAt = now
-        persistState()
+        if let index = nodes.firstIndex(where: { $0.id == nodeId }) {
+            let now = Date()
+            let current = nodes[index]
+            nodes[index] = MonitoredNode(
+                id: current.id,
+                hostname: current.hostname,
+                osDetails: current.osDetails,
+                agentVersion: current.agentVersion,
+                packageManager: current.packageManager,
+                haEntityId: current.haEntityId,
+                lastCheckIn: now,
+                pendingUpdates: [],
+                healthScore: 100.0,
+                inventoryState: current.inventoryState,
+                discoveredMetadata: current.discoveredMetadata,
+                referenceDate: now
+            )
+            hacsConfig.lastSyncedAt = now
+            persistState()
+        }
+        if let rackIndex = rackDevices.firstIndex(where: { $0.id == nodeId }) {
+            rackDevices[rackIndex].portState = .ok
+            rackDevices[rackIndex].version = rackDevices[rackIndex].targetVersion ?? rackDevices[rackIndex].version
+            rackDevices[rackIndex].proHeadline = "Patched & Verified OK • 0 Active Advisories"
+            rackDevices[rackIndex].stnHeadline = "Everything OK • Latest software installed"
+        }
     }
 
     public func updateHacsConfig(_ config: HacsConnectionConfig) {
@@ -240,6 +297,10 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
     public func resetDemoData() {
         self.hacsConfig = HacsConnectionConfig()
         self.nodes = Self.defaultSeedNodes()
+        self.rackDevices = BulletinsAndInventoryEngine.defaultRackPortDevices()
+        self.mutedFeedSlugs = ["lg-esphome-iot"]
+        self.includeOkDevices = false
+        self.selectedZoneFilter = nil
         persistState()
     }
 
