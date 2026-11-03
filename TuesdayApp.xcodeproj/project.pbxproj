@@ -10,7 +10,6 @@
 		14FCD7EFF9F906E298046497 /* ThemeTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A1E6997BE7A8AB0C7580E1 /* ThemeTokens.swift */; };
 		15289CE03D030A94C0B872A2 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED530245B95F923766AC31B /* HomeView.swift */; };
 		2998702AA634CE5D07BE11EB /* HacsConnectionConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AC52DF99E039F4E1E0E638 /* HacsConnectionConfig.swift */; };
-		2D6B0623C5AB85261A32D277 /* PilotSecrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3F3E27EC9FE3A5538B4C7698 /* PilotSecrets.plist */; };
 		4249BC45A55EC9B7B851C4F8 /* CandleGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF68A138C4A4BD27EDD0F17E /* CandleGraphView.swift */; };
 		6F24306E99A5AAFED85F09F9 /* PackageDiffRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC8C4EA1AD7F9A0CB42A581 /* PackageDiffRow.swift */; };
 		8EB46304DEC72DA76C931254 /* TuesdayAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6832B37E12A8B5B1AD49549D /* TuesdayAppUITests.swift */; };
@@ -48,7 +47,6 @@
 		24BA93C664CB1D6AD043E928 /* GeminiDeviceDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiDeviceDiscoveryService.swift; sourceTree = "<group>"; };
 		2A5F408DA764F87B45EB0142 /* MockHacsTuesdayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockHacsTuesdayService.swift; sourceTree = "<group>"; };
 		3E41B28F6629BDA8FE10D4DB /* TuesdayRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayRepositoryProtocol.swift; sourceTree = "<group>"; };
-		3F3E27EC9FE3A5538B4C7698 /* PilotSecrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = PilotSecrets.plist; sourceTree = "<group>"; };
 		47B47B8496EC16C24504FE26 /* TuesdayApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TuesdayApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6832B37E12A8B5B1AD49549D /* TuesdayAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayAppUITests.swift; sourceTree = "<group>"; };
 		6B14162A0FA4E2DF5457A404 /* CameraImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraImagePicker.swift; sourceTree = "<group>"; };
@@ -165,7 +163,6 @@
 		F716F54B6D36C24A22043FF0 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				3F3E27EC9FE3A5538B4C7698 /* PilotSecrets.plist */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -269,7 +266,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2D6B0623C5AB85261A32D277 /* PilotSecrets.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

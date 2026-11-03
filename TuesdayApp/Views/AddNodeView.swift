@@ -586,9 +586,10 @@ public struct AddNodeView: View {
 
     private func enrollCandidate(_ candidate: DeviceCandidateMatch, state: InventoryConfidenceState) async {
         isSaving = true
+        let resolvedModel = accumulatedIdentifiers.modelNumber ?? candidate.modelNumber
         let metadata = DiscoveredDeviceMetadata(
             manufacturer: candidate.manufacturer,
-            modelNumber: accumulatedIdentifiers.modelNumber ?? candidate.modelNumber,
+            modelNumber: resolvedModel,
             deviceCategory: candidate.deviceCategory,
             serialNumber: accumulatedIdentifiers.serialNumber,
             macAddress: accumulatedIdentifiers.macAddress,
@@ -596,7 +597,15 @@ public struct AddNodeView: View {
             confidenceScore: candidate.confidencePercent,
             discoveryNotes: state == .incompleteOrGuessed
                 ? "Added via AI Photo Wizard as Incomplete/Guessed (\(candidate.confidencePercent)% confidence)"
-                : "Verified via GCP Gemini AI Photo Wizard (\(candidate.confidencePercent)% confidence)"
+                : "Verified via Tuesday Hosted AI Proxy (\(candidate.confidencePercent)% confidence)"
+        )
+        _ = await GeminiDeviceDiscoveryService.shared.confirmDeviceDiscovery(
+            inferredVendor: candidate.manufacturer,
+            inferredModel: candidate.modelNumber,
+            confirmedVendor: candidate.manufacturer,
+            confirmedModel: resolvedModel,
+            wasEdited: (resolvedModel != candidate.modelNumber) || (state == .incompleteOrGuessed),
+            accumulatedIdentifiers: accumulatedIdentifiers
         )
         let hostTitle = state == .incompleteOrGuessed
             ? "\(candidate.suggestedHostname) (guessed)"

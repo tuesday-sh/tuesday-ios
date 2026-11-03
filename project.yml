@@ -32,7 +32,7 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSCameraUsageDescription: "Tuesday.sh uses the camera to capture hardware device photos, barcodes, serial numbers, QR codes, and MAC labels for GCP Gemini AI device inventory discovery."
+        NSCameraUsageDescription: "Tuesday.sh uses the camera to capture hardware device photos, barcodes, serial numbers, QR codes, and MAC labels for hardware discovery. Photos are processed ephemerally in memory and are never stored on Tuesday.sh servers."
         NSPhotoLibraryUsageDescription: "Tuesday.sh uses your photo library to analyze photos of routers, switches, and IoT devices for inventory discovery."
         NSLocalNetworkUsageDescription: "Tuesday.sh connects to your Home Assistant HACS integration on your local Wi-Fi network."
     settings:

@@ -135,34 +135,32 @@ public struct GeminiDiscoveryTurnResult: Codable, Equatable {
     }
 }
 
+/// Hardware Vision Discovery Client for Tuesday.sh iOS.
+///
+/// SECURITY & PRIVACY ARCHITECTURE:
+/// - Zero LLM API keys are bundled or stored in the iOS app binary.
+/// - All hardware vision calls are proxied through Tuesday Server (`POST /api/v1/discovery/analyze`),
+///   which performs $0.00 Gold Catalog short-circuiting, routes across Elastix (qwen3.8-27b) and
+///   GCP Gemini (gemini-3.8-flash), emits unified telemetry to CloudWatch Omni (`hosted-ai-v1`),
+///   and enforces ephemeral RAM-only photo processing (zero photo storage on our servers).
 @MainActor
 public final class GeminiDeviceDiscoveryService {
     public static let shared = GeminiDeviceDiscoveryService()
+    public static let defaultServerBaseUrl = "https://api.tuesday.sh"
+    private static let pilotClientToken = "tuesday-pilot-v1-public-client-token"
+
+    private let sessionStickinessId = "tuesday-ios-" + String(UUID().uuidString.prefix(8)).lowercased()
+    private var turnCounter = 0
 
     public init() {}
-
-    public static func resolvePilotApiKey(overrideKey: String = "") -> String {
-        let trimmed = overrideKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty { return trimmed }
-
-        if let envKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !envKey.isEmpty {
-            return envKey
-        }
-        if let path = Bundle.main.path(forResource: "PilotSecrets", ofType: "plist"),
-           let dict = NSDictionary(contentsOfFile: path) as? [String: Any],
-           let key = dict["GEMINI_API_KEY"] as? String,
-           !key.isEmpty {
-            return key
-        }
-        return ""
-    }
 
     public func analyzeDeviceProgressive(
         images: [UIImage],
         accumulatedIdentifiers: ExtractedDeviceIdentifiers,
         userClueNotes: [String],
         apiKeyOverride: String = "",
-        modelName: String = "gemini-3.8-flash"
+        modelName: String = "qwen3.8-27b",
+        serverBaseUrl: String = GeminiDeviceDiscoveryService.defaultServerBaseUrl
     ) async -> GeminiDiscoveryTurnResult {
         if CommandLine.arguments.contains("--uitesting-mock-gemini") {
             return Self.fallbackHeuristicAnalysis(
@@ -173,23 +171,13 @@ public final class GeminiDeviceDiscoveryService {
             )
         }
 
-        let apiKey = Self.resolvePilotApiKey(overrideKey: apiKeyOverride)
-        guard !apiKey.isEmpty else {
-            return Self.fallbackHeuristicAnalysis(
-                accumulatedIdentifiers: accumulatedIdentifiers,
-                userClueNotes: userClueNotes,
-                imageCount: images.count,
-                usedLiveApi: false
-            )
-        }
-
+        turnCounter += 1
         do {
-            return try await callGeminiInteractionsApi(
+            return try await callTuesdayServerAnalyzeApi(
                 images: images,
                 accumulatedIdentifiers: accumulatedIdentifiers,
                 userClueNotes: userClueNotes,
-                apiKey: apiKey,
-                modelName: modelName
+                serverBaseUrl: serverBaseUrl.isEmpty ? Self.defaultServerBaseUrl : serverBaseUrl
             )
         } catch {
             return Self.fallbackHeuristicAnalysis(
@@ -201,125 +189,96 @@ public final class GeminiDeviceDiscoveryService {
         }
     }
 
-    private func callGeminiInteractionsApi(
-        images: [UIImage],
+    public func confirmDeviceDiscovery(
+        inferredVendor: String?,
+        inferredModel: String?,
+        confirmedVendor: String,
+        confirmedModel: String,
+        wasEdited: Bool,
         accumulatedIdentifiers: ExtractedDeviceIdentifiers,
-        userClueNotes: [String],
-        apiKey: String,
-        modelName: String
-    ) async throws -> GeminiDiscoveryTurnResult {
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/interactions") else {
-            throw URLError(.badURL)
+        serverBaseUrl: String = GeminiDeviceDiscoveryService.defaultServerBaseUrl
+    ) async -> Bool {
+        let trimmedBase = (serverBaseUrl.isEmpty ? Self.defaultServerBaseUrl : serverBaseUrl)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(trimmedBase)/api/v1/discovery/confirm") else {
+            return false
         }
 
-        var clueLines: [String] = []
-        for (type, value) in accumulatedIdentifiers.nonEmptyPairs {
-            clueLines.append("- \(type.rawValue): \(value)")
-        }
-        for note in userClueNotes where !note.isEmpty {
-            clueLines.append("- User Clue: \(note)")
-        }
-        let clueContext = clueLines.isEmpty ? "None provided yet." : clueLines.joined(separator: "\n")
-
-        let promptText = """
-        <instructions>
-        You are a hardware device inventory discovery assistant for Tuesday.sh (a home lab, router, switch, NAS, and IoT package/firmware telemetry platform).
-        Analyze the attached hardware device photo(s) along with any user-supplied identifiers (barcode, serial number, QR code, model number, or MAC address).
-        1. Extract any visible Barcode, Serial Number, QR Code payload, Model Number, or MAC Address from the photo(s) or user clues.
-        2. Rank 2 to 3 candidate hardware devices (manufacturer, modelNumber, displayName, deviceCategory, confidencePercent 1-99, reasoning, suggestedHostname, suggestedOsDetails, suggestedPackageManager from [apt, apk, brew, yum, docker, hacs, firmware]).
-        3. Formulate a concise `nextNarrowingQuestion` asking the user if there is a Barcode, Serial Number, QR Code, Model, or MAC Address on the device/sticker that can disambiguate the top candidates.
-        </instructions>
-        <accumulated_clues>
-        \(clueContext)
-        </accumulated_clues>
-        """
-
-        var inputItems: [[String: Any]] = [
-            ["type": "text", "text": promptText]
-        ]
-
-        for img in images.suffix(2) {
-            if let jpegData = Self.downscaledJpegData(from: img, maxDimension: 960) {
-                inputItems.append([
-                    "type": "image",
-                    "data": jpegData.base64EncodedString(),
-                    "mime_type": "image/jpeg"
-                ])
-            }
-        }
-
-        let schema: [String: Any] = [
-            "type": "object",
-            "properties": [
-                "visualSummary": ["type": "string"],
-                "nextNarrowingQuestion": ["type": "string"],
-                "recommendedClueTypes": [
-                    "type": "array",
-                    "items": ["type": "string"]
-                ],
-                "extractedIdentifiers": [
-                    "type": "object",
-                    "properties": [
-                        "barcode": ["type": "string"],
-                        "serialNumber": ["type": "string"],
-                        "qrCode": ["type": "string"],
-                        "modelNumber": ["type": "string"],
-                        "macAddress": ["type": "string"]
-                    ]
-                ],
-                "candidates": [
-                    "type": "array",
-                    "items": [
-                        "type": "object",
-                        "properties": [
-                            "manufacturer": ["type": "string"],
-                            "modelNumber": ["type": "string"],
-                            "displayName": ["type": "string"],
-                            "deviceCategory": ["type": "string"],
-                            "confidencePercent": ["type": "integer"],
-                            "reasoning": ["type": "string"],
-                            "suggestedHostname": ["type": "string"],
-                            "suggestedOsDetails": ["type": "string"],
-                            "suggestedPackageManager": ["type": "string"]
-                        ],
-                        "required": [
-                            "manufacturer",
-                            "modelNumber",
-                            "displayName",
-                            "deviceCategory",
-                            "confidencePercent",
-                            "reasoning",
-                            "suggestedHostname",
-                            "suggestedOsDetails",
-                            "suggestedPackageManager"
-                        ]
-                    ]
-                ]
-            ],
-            "required": [
-                "visualSummary",
-                "nextNarrowingQuestion",
-                "recommendedClueTypes",
-                "extractedIdentifiers",
-                "candidates"
-            ]
-        ]
-
-        let requestBody: [String: Any] = [
-            "model": modelName.isEmpty ? "gemini-3.8-flash" : modelName,
-            "input": inputItems,
-            "response_format": [
-                "type": "text",
-                "mime_type": "application/json",
-                "schema": schema
-            ]
+        let idsList = accumulatedIdentifiers.nonEmptyPairs.map { "\($0.0.rawValue): \($0.1)" }
+        let body: [String: Any] = [
+            "session_id": sessionStickinessId,
+            "client_platform": "ios",
+            "device_id": sessionStickinessId,
+            "inferred_vendor": inferredVendor ?? "",
+            "inferred_model": inferredModel ?? "",
+            "confirmed_vendor": confirmedVendor,
+            "confirmed_model": confirmedModel,
+            "was_edited": wasEdited,
+            "extracted_identifiers": idsList
         ]
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.timeoutInterval = 22.0
-        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
+        request.timeoutInterval = 12.0
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(sessionStickinessId, forHTTPHeaderField: "X-Tuesday-Device-ID")
+        request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
+        request.setValue(Self.pilotClientToken, forHTTPHeaderField: "X-Tuesday-Pilot-Token")
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return (200...299).contains(http.statusCode)
+        } catch {
+            return false
+        }
+    }
+
+    private func callTuesdayServerAnalyzeApi(
+        images: [UIImage],
+        accumulatedIdentifiers: ExtractedDeviceIdentifiers,
+        userClueNotes: [String],
+        serverBaseUrl: String
+    ) async throws -> GeminiDiscoveryTurnResult {
+        let trimmedBase = serverBaseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(trimmedBase)/api/v1/discovery/analyze") else {
+            throw URLError(.badURL)
+        }
+
+        var extractedDict: [String: String] = [:]
+        if let v = accumulatedIdentifiers.barcode, !v.isEmpty { extractedDict["barcode"] = v }
+        if let v = accumulatedIdentifiers.serialNumber, !v.isEmpty { extractedDict["serialNumber"] = v }
+        if let v = accumulatedIdentifiers.qrCode, !v.isEmpty { extractedDict["qrCode"] = v }
+        if let v = accumulatedIdentifiers.modelNumber, !v.isEmpty { extractedDict["modelNumber"] = v }
+        if let v = accumulatedIdentifiers.macAddress, !v.isEmpty { extractedDict["macAddress"] = v }
+
+        var imagesBase64: [String] = []
+        for img in images.suffix(2) {
+            if let jpegData = Self.downscaledJpegData(from: img, maxDimension: 640) {
+                imagesBase64.append(jpegData.base64EncodedString())
+            }
+        }
+
+        let requestBody: [String: Any] = [
+            "session_id": sessionStickinessId,
+            "turn_index": turnCounter,
+            "client_platform": "ios",
+            "device_id": sessionStickinessId,
+            "provider_override": "auto",
+            "extracted_identifiers": extractedDict,
+            "user_clue_notes": userClueNotes.filter { !$0.isEmpty },
+            "images_base64": imagesBase64
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 32.0
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(sessionStickinessId, forHTTPHeaderField: "X-Tuesday-Device-ID")
+        request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
+        request.setValue(Self.pilotClientToken, forHTTPHeaderField: "X-Tuesday-Pilot-Token")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -327,49 +286,26 @@ public final class GeminiDeviceDiscoveryService {
             throw URLError(.badServerResponse)
         }
 
-        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw URLError(.cannotParseResponse)
-        }
-
-        var jsonText: String? = root["output_text"] as? String
-        if jsonText == nil, let steps = root["steps"] as? [[String: Any]] {
-            for step in steps.reversed() {
-                if (step["type"] as? String) == "model_output",
-                   let contents = step["content"] as? [[String: Any]] {
-                    for item in contents {
-                        if let t = item["text"] as? String, !t.isEmpty {
-                            jsonText = t
-                            break
-                        }
-                    }
-                }
-                if jsonText != nil { break }
-            }
-        }
-
-        guard let unwrappedJson = jsonText,
-              let jsonData = unwrappedJson.data(using: .utf8) else {
-            throw URLError(.cannotDecodeContentData)
-        }
-
-        struct RawResponse: Decodable {
+        struct ServerTurnResponse: Decodable {
             let visualSummary: String
             let nextNarrowingQuestion: String
-            let recommendedClueTypes: [String]
-            let extractedIdentifiers: ExtractedDeviceIdentifiers
+            let recommendedClueTypes: [String]?
+            let extractedIdentifiersObject: ExtractedDeviceIdentifiers?
             let candidates: [DeviceCandidateMatch]
         }
 
-        let decoded = try JSONDecoder().decode(RawResponse.self, from: jsonData)
+        let decoded = try JSONDecoder().decode(ServerTurnResponse.self, from: data)
         var mergedIds = accumulatedIdentifiers
-        mergedIds.merge(decoded.extractedIdentifiers)
+        if let ext = decoded.extractedIdentifiersObject {
+            mergedIds.merge(ext)
+        }
 
         return GeminiDiscoveryTurnResult(
             visualSummary: decoded.visualSummary,
             nextNarrowingQuestion: decoded.nextNarrowingQuestion,
-            recommendedClueTypes: decoded.recommendedClueTypes.isEmpty
-                ? DeviceClueType.allCases.map(\.rawValue)
-                : decoded.recommendedClueTypes,
+            recommendedClueTypes: (decoded.recommendedClueTypes?.isEmpty == false)
+                ? decoded.recommendedClueTypes!
+                : DeviceClueType.allCases.map(\.rawValue),
             extractedIdentifiers: mergedIds,
             candidates: decoded.candidates,
             usedLiveGeminiApi: true
@@ -404,7 +340,7 @@ public final class GeminiDeviceDiscoveryService {
                         deviceCategory: "IoT Coordinator",
                         confidencePercent: hasSpecificClue ? 95 : 74,
                         reasoning: "Matches aluminum housing profile and SMA dipole antenna; commonly paired with Home Assistant ZHA / Zigbee2MQTT.",
-                        suggestedHostname: "sonoff-zigbee- coordinator",
+                        suggestedHostname: "sonoff-zigbee-coordinator",
                         suggestedOsDetails: "EZSP v7.4.4 / Home Assistant HACS ZHA",
                         suggestedPackageManager: "hacs"
                     ),
