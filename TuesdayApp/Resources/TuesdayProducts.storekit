@@ -1,0 +1,83 @@
+{
+  "identifier" : "F8A19D20-7C11-4E99-9B01-000000000101",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+
+  ],
+  "settings" : {
+    "_applicationInternalID" : "sh.tuesday.app",
+    "_developerTeamID" : "GWBBWC9V34",
+    "_lastSynchronizedDate" : 784152000.0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "tuesday_pro_group",
+      "localizations" : [
+        {
+          "description" : "Unlock up to 128 monitored nodes, HACS pairing, and Family Tech Lead delegation.",
+          "displayName" : "Tuesday.sh Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "Tuesday.sh Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "4.99",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "pro_monthly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Up to 128 nodes, Home Assistant HACS sync, and Family Bridge.",
+              "displayName" : "Tuesday.sh Pro (Monthly)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "sh.tuesday.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Tuesday.sh Pro Monthly",
+          "subscriptionGroupID" : "tuesday_pro_group",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "49.00",
+          "familyShareable" : true,
+          "groupNumber" : 1,
+          "internalID" : "pro_yearly_001",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Annual Tuesday.sh Pro plan (2 months free).",
+              "displayName" : "Tuesday.sh Pro (Annual)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "sh.tuesday.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Tuesday.sh Pro Annual",
+          "subscriptionGroupID" : "tuesday_pro_group",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

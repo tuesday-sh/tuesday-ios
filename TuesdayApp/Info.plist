@@ -20,8 +20,10 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSCameraUsageDescription</key>
-	<string>Tuesday.sh uses the camera to capture hardware device photos, barcodes, serial numbers, QR codes, and MAC labels for GCP Gemini AI device inventory discovery.</string>
+	<string>Tuesday.sh uses the camera to capture hardware device photos, barcodes, serial numbers, QR codes, and MAC labels for hardware discovery. Photos are processed ephemerally in memory and are never stored on Tuesday.sh servers.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Tuesday.sh connects to your Home Assistant HACS integration on your local Wi-Fi network.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
