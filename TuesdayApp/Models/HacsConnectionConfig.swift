@@ -1,5 +1,17 @@
 import Foundation
 
+public enum AiProviderType: String, Codable, CaseIterable {
+    case elastix = "elastix"
+    case gemini = "gemini"
+
+    public var displayName: String {
+        switch self {
+        case .elastix: return "Elastix.ai"
+        case .gemini: return "GCP Gemini"
+        }
+    }
+}
+
 public struct HacsConnectionConfig: Codable, Equatable {
     public var instanceName: String
     public var baseUrl: String
@@ -10,6 +22,9 @@ public struct HacsConnectionConfig: Codable, Equatable {
     public var trustedSsid: String
     public var isConnected: Bool
     public var lastSyncedAt: Date
+    public var aiProvider: AiProviderType
+    public var elastixApiKey: String
+    public var elastixModel: String
     public var geminiApiKey: String
     public var geminiModel: String
     public var tuesdayApiBaseUrl: String
@@ -24,6 +39,9 @@ public struct HacsConnectionConfig: Codable, Equatable {
         trustedSsid: String = "SureThing-Home-5G",
         isConnected: Bool = true,
         lastSyncedAt: Date = Date(),
+        aiProvider: AiProviderType = .elastix,
+        elastixApiKey: String = "",
+        elastixModel: String = "qwen3.8-27b",
         geminiApiKey: String = "",
         geminiModel: String = "gemini-3.8-flash",
         tuesdayApiBaseUrl: String = "http://100.108.40.3:3000"
@@ -37,6 +55,9 @@ public struct HacsConnectionConfig: Codable, Equatable {
         self.trustedSsid = trustedSsid
         self.isConnected = isConnected
         self.lastSyncedAt = lastSyncedAt
+        self.aiProvider = aiProvider
+        self.elastixApiKey = elastixApiKey
+        self.elastixModel = elastixModel
         self.geminiApiKey = geminiApiKey
         self.geminiModel = geminiModel
         self.tuesdayApiBaseUrl = tuesdayApiBaseUrl
@@ -52,6 +73,9 @@ public struct HacsConnectionConfig: Codable, Equatable {
         case trustedSsid
         case isConnected
         case lastSyncedAt
+        case aiProvider
+        case elastixApiKey
+        case elastixModel
         case geminiApiKey
         case geminiModel
         case tuesdayApiBaseUrl
@@ -68,6 +92,9 @@ public struct HacsConnectionConfig: Codable, Equatable {
         self.trustedSsid = try container.decodeIfPresent(String.self, forKey: .trustedSsid) ?? "SureThing-Home-5G"
         self.isConnected = try container.decodeIfPresent(Bool.self, forKey: .isConnected) ?? true
         self.lastSyncedAt = try container.decodeIfPresent(Date.self, forKey: .lastSyncedAt) ?? Date()
+        self.aiProvider = try container.decodeIfPresent(AiProviderType.self, forKey: .aiProvider) ?? .elastix
+        self.elastixApiKey = try container.decodeIfPresent(String.self, forKey: .elastixApiKey) ?? ""
+        self.elastixModel = try container.decodeIfPresent(String.self, forKey: .elastixModel) ?? "qwen3.8-27b"
         self.geminiApiKey = try container.decodeIfPresent(String.self, forKey: .geminiApiKey) ?? ""
         self.geminiModel = try container.decodeIfPresent(String.self, forKey: .geminiModel) ?? "gemini-3.8-flash"
         self.tuesdayApiBaseUrl = try container.decodeIfPresent(String.self, forKey: .tuesdayApiBaseUrl) ?? "http://100.108.40.3:3000"

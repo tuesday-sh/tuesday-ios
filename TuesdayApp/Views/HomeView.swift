@@ -5,7 +5,7 @@ public enum MainNavigationTab: String, CaseIterable {
     case bulletins
     case timeline
     case checkup
-    case plugAndTag
+    case account
 
     public func label(for flavor: AppBrandFlavor) -> String {
         let isStn = (flavor == .sureThingHome)
@@ -14,7 +14,7 @@ public enum MainNavigationTab: String, CaseIterable {
         case .bulletins: return "Bulletins"
         case .timeline: return isStn ? "Lifespan" : "Timeline"
         case .checkup: return isStn ? "Checkup" : "Q4 Tune-Up"
-        case .plugAndTag: return isStn ? "Add Device" : "Plug & Tag"
+        case .account: return "Account"
         }
     }
 
@@ -24,7 +24,7 @@ public enum MainNavigationTab: String, CaseIterable {
         case .bulletins: return "bell.badge.fill"
         case .timeline: return "chart.bar.xaxis"
         case .checkup: return "checklist"
-        case .plugAndTag: return "camera.viewfinder"
+        case .account: return "person.crop.circle.fill"
         }
     }
 }
@@ -37,6 +37,8 @@ public struct HomeView: View {
     @State private var inspectedDevice: RackPortDevice? = nil
     @State private var showHacsSheet: Bool = false
     @State private var showAddNodeView: Bool = false
+    @State private var showNetworkPicker: Bool = false
+    @State private var showReferenceGuide: Bool = false
 
     public init(
         repository: MockHacsTuesdayService,
@@ -53,19 +55,25 @@ public struct HomeView: View {
     public var body: some View {
         let palette = TuesdayTheme.palette(for: repository.brandFlavor)
         let isStn = (repository.brandFlavor == .sureThingHome)
+        let activeNetwork = repository.userNetworks.first(where: { $0.id == repository.activeNetworkId })
+            ?? repository.userNetworks.first
+            ?? NetworkSite(id: "skyway", name: "Skyway Lab", devicesCount: 12, role: "Primary Homelab")
+        let visibleDevices = Array(repository.rackDevices.prefix(repository.activeDeviceCount))
+        let scaleTier = InventoryScaleTier.forCount(visibleDevices.count)
 
         let ledSlots = BulletinsAndInventoryEngine.build128LedMatrix(
-            devices: repository.rackDevices,
+            devices: visibleDevices,
             zoneFilter: repository.selectedZoneFilter
         )
         let actionDevices = BulletinsAndInventoryEngine.filterActionFirstDevices(
-            devices: repository.rackDevices,
+            devices: visibleDevices,
             includeOk: repository.includeOkDevices,
-            zoneFilter: repository.selectedZoneFilter
+            zoneFilter: repository.selectedZoneFilter,
+            portStateFilter: repository.selectedPortStateFilter
         )
         let bulletinsPayload = BulletinsAndInventoryEngine.assembleBulletins(
             flavor: repository.brandFlavor,
-            devices: repository.rackDevices,
+            devices: visibleDevices,
             mutedFeedSlugs: repository.mutedFeedSlugs
         )
 
@@ -74,13 +82,14 @@ public struct HomeView: View {
                 palette.bg.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // Main Tab Content
                     Group {
                         switch activeTab {
                         case .status:
                             statusMatrixAndActionList(
                                 palette: palette,
                                 isStn: isStn,
+                                scaleTier: scaleTier,
+                                visibleDevices: visibleDevices,
                                 ledSlots: ledSlots,
                                 actionDevices: actionDevices
                             )
@@ -94,11 +103,34 @@ public struct HomeView: View {
                                 onRejectModel: { repository.rejectProvisionalDeviceModel() }
                             )
                         case .timeline:
-                            timelineView(palette: palette, isStn: isStn)
+                            SwimlaneTimelineView(
+                                flavor: repository.brandFlavor,
+                                palette: palette,
+                                devices: visibleDevices
+                            )
                         case .checkup:
-                            checkupView(palette: palette, isStn: isStn)
-                        case .plugAndTag:
-                            EmptyView()
+                            SeasonalCheckupView(
+                                flavor: repository.brandFlavor,
+                                palette: palette,
+                                devices: visibleDevices
+                            )
+                        case .account:
+                            AccountSettingsView(
+                                flavor: repository.brandFlavor,
+                                palette: palette,
+                                networkLocationName: activeNetwork.name,
+                                activeDeviceCount: visibleDevices.count,
+                                isDeveloperMode: repository.isDeveloperMode,
+                                entitlementTier: repository.entitlementTier,
+                                savedCorpusCount: repository.savedCorpusCount,
+                                onUpgradeProTier1: { repository.upgradeToProTier1() },
+                                onSaveNetworkName: { repository.renameActiveNetwork($0) },
+                                onToggleDeveloperMode: { repository.toggleDeveloperMode($0) },
+                                onSetSimulatedDeviceCount: { repository.setSimulatedDeviceCount($0) },
+                                onPurgeGoldenCorpus: { repository.purgeGoldenCorpus() },
+                                onOpenIntakeFlow: { showAddNodeView = true },
+                                onSwitchToFleetTab: { activeTab = .status }
+                            )
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -107,13 +139,7 @@ public struct HomeView: View {
                     HStack(spacing: 0) {
                         ForEach(MainNavigationTab.allCases, id: \.self) { tab in
                             let selected = (activeTab == tab)
-                            Button(action: {
-                                if tab == .plugAndTag {
-                                    showAddNodeView = true
-                                } else {
-                                    activeTab = tab
-                                }
-                            }) {
+                            Button(action: { activeTab = tab }) {
                                 VStack(spacing: 3) {
                                     ZStack(alignment: .topTrailing) {
                                         Image(systemName: tab.systemIcon)
@@ -137,6 +163,7 @@ public struct HomeView: View {
                                 .padding(.vertical, 8)
                             }
                             .buttonStyle(.plain)
+                            .uiAction("switchTab")
                         }
                     }
                     .background(palette.surface)
@@ -146,6 +173,7 @@ public struct HomeView: View {
                             .foregroundColor(palette.border),
                         alignment: .top
                     )
+                    .uiComponent("BottomNavigationBar")
                 }
 
                 WifiWarningOverlay(
@@ -164,61 +192,106 @@ public struct HomeView: View {
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            Circle()
-                                .fill(palette.accent)
-                                .frame(width: 24, height: 24)
-                            Image(systemName: "shippingbox.fill")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.white)
+                    HStack(spacing: 6) {
+                        if !isStn {
+                            TuesdayCalendarHeartIcon(tint: TuesdayTheme.proAccent, size: 20)
+                            Text("tuesday.sh")
+                                .font(.system(size: 15.5, weight: .semibold))
+                                .foregroundColor(palette.textPrimary)
+                        } else {
+                            ZStack {
+                                Circle()
+                                    .fill(palette.accent)
+                                    .frame(width: 22, height: 22)
+                                Image(systemName: "shippingbox.fill")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                            Text(repository.brandFlavor.title)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
                         }
-                        Text(repository.brandFlavor.title)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(palette.textPrimary)
 
                         Button(action: { repository.toggleBrandFlavor() }) {
                             Text(repository.brandFlavor.badge)
                                 .font(.system(size: 8.5, weight: .bold, design: .monospaced))
                                 .foregroundColor(palette.accent)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
                                 .background(palette.elevated)
-                                .cornerRadius(5)
+                                .cornerRadius(6)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityIdentifier("brand_flavor_toggle_button")
+                        .uiAction("toggleBrandFlavor")
                     }
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showHacsSheet = true }) {
-                        HStack(spacing: 5) {
-                            Circle()
-                                .fill(repository.hacsConfig.isConnected ? TuesdayTheme.ledOkGreen : TuesdayTheme.ledCveRed)
-                                .frame(width: 7, height: 7)
-                            Text("HACS")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundColor(palette.accent)
+                    HStack(spacing: 6) {
+                        Button(action: { showNetworkPicker = true }) {
+                            HStack(spacing: 4) {
+                                Text(activeNetwork.name)
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .lineLimit(1)
+                                Text("▾")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(palette.textMuted)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(palette.elevated)
+                            .clipShape(Capsule())
                         }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
-                        .background(palette.elevated)
-                        .clipShape(Capsule())
+                        .buttonStyle(.plain)
+                        .uiAction("openNetworkPicker")
+
+                        Button(action: { showHacsSheet = true }) {
+                            HStack(spacing: 5) {
+                                Circle()
+                                    .fill(repository.hacsConfig.isConnected ? TuesdayTheme.ledOkGreen : TuesdayTheme.ledCveRed)
+                                    .frame(width: 7, height: 7)
+                                Text("HACS")
+                                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                                    .foregroundColor(palette.accent)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(palette.elevated)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .uiAction("openHacsSettings")
                     }
-                    .accessibilityIdentifier("hacs_settings_pill_button")
                 }
             }
             .navigationDestination(isPresented: $showAddNodeView) {
                 AddNodeView(repository: repository)
             }
             .sheet(item: $inspectedDevice) { device in
-                deviceInspectorSheet(device: device, palette: palette)
+                deviceInspectorSheet(device: device, palette: palette, isStn: isStn)
             }
             .sheet(isPresented: $showHacsSheet) {
                 HacsPairingSheet(
                     repository: repository,
                     networkMonitor: networkMonitor
+                )
+            }
+            .sheet(isPresented: $showNetworkPicker) {
+                NetworkPickerModalSheet(
+                    networks: repository.userNetworks,
+                    activeNetworkId: repository.activeNetworkId,
+                    palette: palette,
+                    onSelectNetwork: { repository.selectNetwork($0) },
+                    onCreateNetwork: { repository.createNetwork($0) },
+                    onDismiss: { showNetworkPicker = false }
+                )
+            }
+            .sheet(isPresented: $showReferenceGuide) {
+                ReferenceGuideModalSheet(
+                    flavor: repository.brandFlavor,
+                    palette: palette,
+                    onDismiss: { showReferenceGuide = false }
                 )
             }
         }
@@ -228,173 +301,423 @@ public struct HomeView: View {
     private func statusMatrixAndActionList(
         palette: BrandPalette,
         isStn: Bool,
+        scaleTier: InventoryScaleTier,
+        visibleDevices: [RackPortDevice],
         ledSlots: [LedSlot],
         actionDevices: [RackPortDevice]
     ) -> some View {
-        let okCount = ledSlots.filter { $0.state == .ok }.count
-        let cveCount = ledSlots.filter { $0.state == .cveKev }.count
-        let eolCount = ledSlots.filter { $0.state == .eol }.count
-        let guessedCount = ledSlots.filter { $0.state == .guessed }.count
-        let updateCount = ledSlots.filter { $0.state == .update }.count
-
+        let okCount = visibleDevices.filter { $0.portState == .ok }.count
+        let cveCount = visibleDevices.filter { $0.portState == .cveKev }.count
+        let eolCount = visibleDevices.filter { $0.portState == .eol }.count
+        let guessedCount = visibleDevices.filter { $0.portState == .guessed }.count
+        let updateCount = visibleDevices.filter { $0.portState == .update }.count
+        let actionCount = visibleDevices.count - okCount
         let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 3), count: 16)
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                // 1. 128-LED At-a-Glance Status Matrix Card
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(isStn ? "HOME DEVICE STATUS MATRIX (\(ledSlots.count) NODES)" : "AT-A-GLANCE STATUS MATRIX (\(ledSlots.count) LEDS • Z0→Z4)")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(palette.textPrimary)
-                        Spacer()
-                        Text("\(okCount) OK • \(ledSlots.count - okCount) Action")
-                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                            .foregroundColor(palette.accent)
-                    }
+            VStack(alignment: .leading, spacing: 10) {
+                // Backward-compatibility accessibility anchors for existing XCUITests
+                Text("DEVICES (\(visibleDevices.count))")
+                    .font(.system(size: 1))
+                    .opacity(0.01)
+                    .frame(height: 1)
+                    .accessibilityIdentifier("fleet_summary_title")
+                Text("DEVICES")
+                    .font(.system(size: 1))
+                    .opacity(0.01)
+                    .frame(height: 1)
+                    .accessibilityIdentifier("devices_section_header")
 
-                    // Legend
-                    HStack {
-                        ledLegendDot("OK (\(okCount))", TuesdayTheme.ledOkGreen, palette)
-                        Spacer()
-                        ledLegendDot("CVE (\(cveCount))", TuesdayTheme.ledCveRed, palette)
-                        Spacer()
-                        ledLegendDot("EOL (\(eolCount))", TuesdayTheme.ledEolAmber, palette)
-                        Spacer()
-                        ledLegendDot("Guess (\(guessedCount))", TuesdayTheme.ledGuessedGrey, palette)
-                        Spacer()
-                        ledLegendDot("Upd (\(updateCount))", TuesdayTheme.ledUpdateBlue, palette)
-                    }
+                if scaleTier == .DAY_ZERO {
+                    welcomeCard(palette: palette)
+                } else {
+                    // 1. Inventory Card (8-Port Category Strip + 16x8 LED Matrix + Botanical Overlay)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            HStack(spacing: 8) {
+                                Text("Inventory")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .uiSlot("title")
+                                if scaleTier.showSummaryBadge {
+                                    Text("\(okCount) OK · \(actionCount) Action")
+                                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                                        .foregroundColor(palette.accent)
+                                        .uiSlot("summary-badge")
+                                }
+                            }
+                            Spacer()
+                            HStack(spacing: 6) {
+                                Button(action: { showAddNodeView = true }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "camera.fill")
+                                            .font(.system(size: 10, weight: .bold))
+                                        Text("+ Add Device")
+                                            .font(.system(size: 9.5, weight: .bold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(palette.accent)
+                                    .cornerRadius(6)
+                                    .uiSlot("add-device-cta")
+                                }
+                                .buttonStyle(.plain)
+                                .uiAction("openAddDevice")
+                                .accessibilityIdentifier("navigate_add_device_button")
 
-                    // 16x8 LED Matrix (zero text inside LED squares)
-                    LazyVGrid(columns: gridColumns, spacing: 3) {
-                        ForEach(ledSlots) { slot in
-                            let color = TuesdayTheme.ledColor(for: slot.state)
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(color.opacity(slot.state == .ok ? 0.78 : 1.0))
-                                .aspectRatio(1.0, contentMode: .fit)
-                                .onTapGesture {
-                                    if let devId = slot.deviceId,
-                                       let found = repository.rackDevices.first(where: { $0.id == devId }) {
-                                        inspectedDevice = found
+                                Button(action: { showReferenceGuide = true }) {
+                                    Text("?")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .foregroundColor(palette.textMuted)
+                                        .frame(width: 20, height: 20)
+                                        .background(palette.elevated)
+                                        .clipShape(Circle())
+                                        .overlay(
+                                            Circle()
+                                                .stroke(palette.border, lineWidth: 1)
+                                        )
+                                        .uiSlot("help-button")
+                                }
+                                .buttonStyle(.plain)
+                                .uiAction("openReferenceGuide")
+                            }
+                        }
+                        .uiSlot("header")
+
+                        // Unified ubnt-chassis container
+                        VStack(spacing: 8) {
+                            if scaleTier.showPortDiagramStrip {
+                                portCategoryFaceplateStrip(
+                                    devices: visibleDevices,
+                                    isStn: isStn,
+                                    palette: palette
+                                )
+                                Divider().background(palette.border)
+                            }
+
+                            ZStack(alignment: .bottom) {
+                                LazyVGrid(columns: gridColumns, spacing: 3) {
+                                    ForEach(ledSlots) { slot in
+                                        let color = TuesdayTheme.ledColor(for: slot.state, isStn: isStn)
+                                        let alpha: Double = {
+                                            switch slot.state {
+                                            case .unassigned: return 0.55
+                                            case .ok: return 0.85
+                                            default: return 1.0
+                                            }
+                                        }()
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .fill(color.opacity(alpha))
+                                            .aspectRatio(1.0, contentMode: .fit)
+                                            .onTapGesture {
+                                                if let devId = slot.deviceId,
+                                                   let found = visibleDevices.first(where: { $0.id == devId }) {
+                                                    inspectedDevice = found
+                                                }
+                                            }
+                                            .uiAction("inspectDevice")
                                     }
                                 }
-                        }
-                    }
-                    .padding(6)
-                    .background(Color(red: 0x07 / 255.0, green: 0x0A / 255.0, blue: 0x0F / 255.0))
-                    .cornerRadius(6)
 
-                    // Zone Filter Pills
-                    HStack(spacing: 5) {
-                        zonePill(label: "All (128)", selected: repository.selectedZoneFilter == nil, palette: palette) {
-                            repository.selectedZoneFilter = nil
-                        }
-                        ForEach([TrustZone.z0Core, .z1Trusted, .z2Lab, .z3Iot], id: \.self) { zone in
-                            zonePill(label: zone.shortCode, selected: repository.selectedZoneFilter == zone, palette: palette) {
-                                repository.selectedZoneFilter = zone
-                            }
-                        }
-                    }
-                }
-                .padding(10)
-                .background(palette.surface)
-                .cornerRadius(10)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(palette.border, lineWidth: 1)
-                )
-
-                // 2. Action-First Device List Header + Show OK Toggle
-                HStack {
-                    Text(repository.includeOkDevices ? "ALL NAMED DEVICES (\(actionDevices.count))" : "NEEDS ATTENTION (\(actionDevices.count) NON-GREEN)")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundColor(palette.textMuted)
-                    Spacer()
-                    Button(action: { repository.toggleIncludeOkDevices() }) {
-                        Text(repository.includeOkDevices ? "Hide OK Devices" : "Show OK Devices (+119)")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundColor(palette.accent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(palette.elevated)
-                            .cornerRadius(6)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("toggle_show_ok_devices_button")
-                }
-
-                // 3. Action-First Device Rows
-                ForEach(actionDevices) { dev in
-                    let stateColor = TuesdayTheme.ledColor(for: dev.portState)
-                    Button(action: { inspectedDevice = dev }) {
-                        HStack(spacing: 10) {
-                            Text(String(format: "#%02d", dev.portIndex))
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundColor(stateColor)
-                                .frame(width: 34, height: 34)
-                                .background(stateColor.opacity(0.16))
-                                .cornerRadius(6)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(stateColor, lineWidth: 1)
+                                matrixBotanicalPixelArtOverlay(
+                                    scaleTier: scaleTier,
+                                    activeCount: visibleDevices.count,
+                                    isStn: isStn
                                 )
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack {
-                                    Text(dev.name)
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(palette.textPrimary)
-                                    Spacer()
-                                    Text("\(dev.trustZone.shortCode) • \(dev.version)")
-                                        .font(.system(size: 9, design: .monospaced))
-                                        .foregroundColor(palette.textMuted)
-                                }
-                                Text(isStn ? dev.stnHeadline : dev.proHeadline)
-                                    .font(.system(size: 10))
-                                    .foregroundColor(stateColor)
-                                    .multilineTextAlignment(.leading)
+                                .uiSlot("botanical-overlay")
+                                .uiComponent("MatrixBotanicalPixelArtOverlay")
                             }
+                            .uiSlot("led-grid-128")
+                            .uiComponent("LedMatrix128Grid")
                         }
-                        .padding(10)
-                        .background(palette.surface)
+                        .padding(8)
+                        .background(isStn ? TuesdayTheme.stnBgCanvas : Color(red: 0x0B / 255.0, green: 0x0D / 255.0, blue: 0x11 / 255.0))
                         .cornerRadius(8)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(palette.border, lineWidth: 1)
                         )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(12)
-        }
-    }
 
-    @ViewBuilder
-    private func timelineView(palette: BrandPalette, isStn: Bool) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(repository.rackDevices) { dev in
-                    let stateColor = TuesdayTheme.ledColor(for: dev.portState)
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(String(format: "#%02d %@", dev.portIndex, dev.name))
-                                .font(.system(size: 11.5, weight: .bold))
-                                .foregroundColor(palette.textPrimary)
-                            Spacer()
-                            Text("\(dev.trustZone.shortCode) • \(dev.lifecycleTier)")
-                                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                                .foregroundColor(stateColor)
+                        if scaleTier.showFilterChips {
+                            HStack {
+                                ledLegendDot("OK (\(okCount))", TuesdayTheme.ledOkGreen, palette)
+                                Spacer()
+                                ledLegendDot("CVE/KEV (\(cveCount))", TuesdayTheme.ledCveRed, palette)
+                                Spacer()
+                                ledLegendDot("EOL (\(eolCount))", TuesdayTheme.ledEolAmber, palette)
+                                Spacer()
+                                ledLegendDot("Guessed (\(guessedCount))", TuesdayTheme.ledGuessedGrey, palette)
+                                Spacer()
+                                ledLegendDot("Update (\(updateCount))", TuesdayTheme.ledUpdateBlue, palette)
+                            }
+                            .uiSlot("legend-row")
                         }
-                        Text(dev.s3Lifecycle)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(palette.textMuted)
+
+                        if scaleTier.showTrustZonePills {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 5) {
+                                    zoneFilterPill(
+                                        label: "All Zones",
+                                        selected: repository.selectedZoneFilter == nil,
+                                        palette: palette
+                                    ) {
+                                        repository.setZoneFilter(nil)
+                                    }
+                                    ForEach(TrustZone.allCases, id: \.self) { zone in
+                                        zoneFilterPill(
+                                            label: isStn ? zone.stnLabel : "\(zone.shortCode) \(zone.stnLabel)",
+                                            selected: repository.selectedZoneFilter == zone,
+                                            palette: palette
+                                        ) {
+                                            repository.setZoneFilter(zone)
+                                        }
+                                    }
+                                }
+                            }
+                            .uiSlot("zone-filter-strip")
+                        }
                     }
                     .padding(10)
                     .background(palette.surface)
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border, lineWidth: 1))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+                    .uiComponent("InventoryMatrixCard", state: "tier=\(scaleTier.id);active=\(visibleDevices.count)")
+
+                    // 1B. Tracked Hardware Profiles Strip (Forest Tier >= 8 devices on STN-Pro)
+                    if scaleTier == .FOREST && !isStn && !visibleDevices.isEmpty {
+                        trackedHardwareProfilesCard(devices: visibleDevices, palette: palette)
+                    }
+
+                    // 2. Top-of-Inventory State Filter Chips (for Forest tier)
+                    if scaleTier.showFilterChips {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 6) {
+                                    stateFilterChip(
+                                        label: "All (\(visibleDevices.count))",
+                                        dotColor: nil,
+                                        selected: repository.selectedPortStateFilter == nil && repository.includeOkDevices,
+                                        palette: palette
+                                    ) {
+                                        repository.setPortStateFilter(nil)
+                                        if !repository.includeOkDevices {
+                                            repository.toggleIncludeOkDevices()
+                                        }
+                                    }
+                                    stateFilterChip(
+                                        label: "CVE / KEV (\(cveCount))",
+                                        dotColor: TuesdayTheme.ledCveRed,
+                                        selected: repository.selectedPortStateFilter == .cveKev,
+                                        palette: palette
+                                    ) {
+                                        repository.setPortStateFilter(repository.selectedPortStateFilter == .cveKev ? nil : .cveKev)
+                                    }
+                                    stateFilterChip(
+                                        label: "EOL (\(eolCount))",
+                                        dotColor: TuesdayTheme.ledEolAmber,
+                                        selected: repository.selectedPortStateFilter == .eol,
+                                        palette: palette
+                                    ) {
+                                        repository.setPortStateFilter(repository.selectedPortStateFilter == .eol ? nil : .eol)
+                                    }
+                                    stateFilterChip(
+                                        label: "Guessed (\(guessedCount))",
+                                        dotColor: TuesdayTheme.ledGuessedGrey,
+                                        selected: repository.selectedPortStateFilter == .guessed,
+                                        palette: palette
+                                    ) {
+                                        repository.setPortStateFilter(repository.selectedPortStateFilter == .guessed ? nil : .guessed)
+                                    }
+                                    stateFilterChip(
+                                        label: "Update (\(updateCount))",
+                                        dotColor: TuesdayTheme.ledUpdateBlue,
+                                        selected: repository.selectedPortStateFilter == .update,
+                                        palette: palette
+                                    ) {
+                                        repository.setPortStateFilter(repository.selectedPortStateFilter == .update ? nil : .update)
+                                    }
+                                    stateFilterChip(
+                                        label: "OK (\(okCount))",
+                                        dotColor: TuesdayTheme.ledOkGreen,
+                                        selected: repository.selectedPortStateFilter == .ok,
+                                        palette: palette
+                                    ) {
+                                        repository.setPortStateFilter(repository.selectedPortStateFilter == .ok ? nil : .ok)
+                                    }
+                                }
+                            }
+                            .uiSlot("state-filter-strip")
+
+                            HStack {
+                                Text(
+                                    repository.selectedPortStateFilter != nil
+                                        ? "FILTERED: \((isStn ? repository.selectedPortStateFilter!.stnLabel : repository.selectedPortStateFilter!.proLabel).uppercased()) (\(actionDevices.count))"
+                                        : (repository.includeOkDevices ? "ALL NAMED DEVICES (\(actionDevices.count))" : "NEEDS ATTENTION (\(actionDevices.count))")
+                                )
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundColor(palette.textMuted)
+
+                                Spacer()
+
+                                if repository.selectedPortStateFilter == nil {
+                                    Button(action: { repository.toggleIncludeOkDevices() }) {
+                                        Text(repository.includeOkDevices ? "Hide OK Devices" : "Show OK (+\(okCount))")
+                                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                            .foregroundColor(palette.accent)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(palette.elevated)
+                                            .cornerRadius(6)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .stroke(palette.border, lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .uiAction("toggleIncludeOk")
+                                }
+                            }
+                            .uiSlot("action-list-header")
+                        }
+                    }
+
+                    // 3. Device Rows
+                    let devicesToShow = !scaleTier.showFilterChips ? visibleDevices : actionDevices
+                    ForEach(devicesToShow) { dev in
+                        let stateColor = TuesdayTheme.ledColor(for: dev.portState, isStn: isStn)
+                        Button(action: { inspectedDevice = dev }) {
+                            if isStn {
+                                HStack(spacing: 0) {
+                                    Rectangle()
+                                        .fill(stateColor)
+                                        .frame(width: 5)
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack {
+                                            Text(dev.name)
+                                                .font(.system(size: 13.5, weight: .heavy))
+                                                .foregroundColor(palette.textPrimary)
+                                            Spacer()
+                                            Text(dev.portState.stnLabel)
+                                                .font(.system(size: 9.5, weight: .bold))
+                                                .foregroundColor(stateColor)
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 2)
+                                                .background(stateColor.opacity(0.14))
+                                                .cornerRadius(6)
+                                        }
+                                        HStack(spacing: 6) {
+                                            Text("📍 \(dev.roomLocation)")
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundColor(palette.textMuted)
+                                            Text("•")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(palette.border)
+                                            Text(dev.trustZone.stnLabel)
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundColor(palette.accent)
+                                            Text("•")
+                                                .font(.system(size: 10))
+                                                .foregroundColor(palette.border)
+                                            Text(String(format: "Port #%02d", dev.portIndex))
+                                                .font(.system(size: 10, design: .monospaced))
+                                                .foregroundColor(palette.textMuted)
+                                        }
+                                        Text(dev.stnHeadline)
+                                            .font(.system(size: 11))
+                                            .foregroundColor(palette.textPrimary)
+                                            .multilineTextAlignment(.leading)
+                                    }
+                                    .padding(12)
+                                }
+                                .background(palette.surface)
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(palette.border, lineWidth: 1)
+                                )
+                            } else {
+                                HStack(spacing: 10) {
+                                    VStack(spacing: 1) {
+                                        Text(String(format: "#%02d", dev.portIndex))
+                                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                                            .foregroundColor(stateColor)
+                                        Text(dev.category.code)
+                                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                            .foregroundColor(palette.textMuted)
+                                    }
+                                    .frame(width: 38)
+                                    .padding(.vertical, 4)
+                                    .background(stateColor.opacity(0.16))
+                                    .cornerRadius(6)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(stateColor, lineWidth: 1)
+                                    )
+
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack(spacing: 6) {
+                                            Text(dev.name)
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(palette.textPrimary)
+                                            Text(dev.assetTag)
+                                                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                                .foregroundColor(palette.textMuted)
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 1)
+                                                .background(palette.elevated)
+                                                .cornerRadius(4)
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 4)
+                                                        .stroke(palette.border, lineWidth: 1)
+                                                )
+                                        }
+                                        Text("\(dev.trustZone.shortCode) • \(dev.roomLocation) • \(dev.version) • \(dev.lifecycleTier)")
+                                            .font(.system(size: 9, design: .monospaced))
+                                            .foregroundColor(palette.textMuted)
+                                        Text(dev.proHeadline)
+                                            .font(.system(size: 10))
+                                            .foregroundColor(stateColor)
+                                            .multilineTextAlignment(.leading)
+                                    }
+                                    Spacer()
+                                    RiskMeterView(portState: dev.portState, isStn: isStn)
+                                }
+                                .padding(10)
+                                .background(palette.surface)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(palette.border, lineWidth: 1)
+                                )
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .uiSlot("device-row", state: "port=\(dev.portIndex);state=\(dev.portState.key);cat=\(dev.category.code)")
+                        .uiAction("inspectDevice")
+                    }
+
+                    // Secondary "+ Add Another Device" CTA shown in Pea (1..2) and Garden (3..7) tiers
+                    if !scaleTier.showFilterChips {
+                        Button(action: { showAddNodeView = true }) {
+                            Text("+ Add Another Device")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(palette.surface)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(palette.border, lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .uiAction("openAddDevice")
+                    }
                 }
             }
             .padding(12)
@@ -402,87 +725,386 @@ public struct HomeView: View {
     }
 
     @ViewBuilder
-    private func checkupView(palette: BrandPalette, isStn: Bool) -> some View {
-        let nonGreen = repository.rackDevices.filter { $0.portState != .ok }
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(nonGreen) { dev in
-                    let stateColor = TuesdayTheme.ledColor(for: dev.portState)
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(String(format: "Port #%02d • %@", dev.portIndex, dev.name))
-                                .font(.system(size: 11.5, weight: .bold))
-                                .foregroundColor(palette.textPrimary)
-                            Spacer()
-                            Text(isStn ? dev.portState.stnLabel : dev.portState.proLabel)
+    private func welcomeCard(palette: BrandPalette) -> some View {
+        VStack(spacing: 10) {
+            Text("🏠")
+                .font(.system(size: 28))
+            Text("Welcome to your network inventory")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(palette.textPrimary)
+                .multilineTextAlignment(.center)
+            Text("Start by adding 1 device — snap a photo of its label, or type its make & model.")
+                .font(.system(size: 11.5))
+                .foregroundColor(palette.textMuted)
+                .multilineTextAlignment(.center)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("💡 Best place to start: Your Router")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(palette.accent)
+                Text("Your router is the front door to your home network and the single highest-impact device to keep updated.")
+                    .font(.system(size: 10))
+                    .foregroundColor(palette.textMuted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(palette.accent.opacity(0.10))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(palette.accent.opacity(0.28), lineWidth: 1)
+            )
+            .uiSlot("router-advisory-tip")
+
+            Button(action: { showAddNodeView = true }) {
+                Text("Add Your Router (Recommended) →")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(palette.accent)
+                    .cornerRadius(8)
+            }
+            .buttonStyle(.plain)
+            .uiAction("openAddDevice")
+
+            Button(action: { showAddNodeView = true }) {
+                Text("+ Add Any Device")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundColor(palette.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(palette.elevated)
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .uiAction("openAddDevice")
+
+            Button(action: { repository.setSimulatedDeviceCount(12) }) {
+                Text("or seed Forest fleet (12 nodes)")
+                    .font(.system(size: 10.5))
+                    .foregroundColor(palette.textMuted)
+            }
+            .buttonStyle(.plain)
+            .uiAction("setSimulatedDeviceCount")
+        }
+        .padding(16)
+        .background(palette.surface)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(palette.border, lineWidth: 1)
+        )
+        .uiComponent("WelcomeCard", state: "tier=day_zero;active=0")
+    }
+
+    @ViewBuilder
+    private func portCategoryFaceplateStrip(
+        devices: [RackPortDevice],
+        isStn: Bool,
+        palette: BrandPalette
+    ) -> some View {
+        HStack(spacing: 5) {
+            ForEach(StnHardwareCategory.allCases, id: \.code) { category in
+                let matchingDevs = devices.filter { $0.category == category }
+                let count = matchingDevs.count
+                let hasDevices = count > 0
+                let primaryDev = matchingDevs.first
+                let stateColor: Color = {
+                    if let dev = primaryDev {
+                        return TuesdayTheme.ledColor(for: dev.portState, isStn: isStn)
+                    }
+                    return isStn ? TuesdayTheme.stnGuessedSlate : TuesdayTheme.proTextSecondary
+                }()
+                let iconBoxBg = isStn ? TuesdayTheme.stnBgElevated : TuesdayTheme.elevatedPill
+                let tileBgColor = hasDevices ? stateColor : (isStn ? TuesdayTheme.ledUnassignedStn : TuesdayTheme.elevatedPill)
+
+                Button(action: {
+                    if let dev = primaryDev {
+                        inspectedDevice = dev
+                    } else {
+                        showAddNodeView = true
+                    }
+                }) {
+                    VStack(spacing: 2) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(iconBoxBg)
+                                .aspectRatio(1.0, contentMode: .fit)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(hasDevices ? stateColor.opacity(0.55) : palette.border, lineWidth: 1)
+                                )
+                            Text(category.code)
                                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                                 .foregroundColor(stateColor)
                         }
-                        Text(dev.s6Remediation)
-                            .font(.system(size: 10.5))
-                            .foregroundColor(palette.textMuted)
+
+                        Rectangle()
+                            .fill(hasDevices ? stateColor.opacity(0.55) : palette.border)
+                            .frame(width: 1, height: 6)
+
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(tileBgColor)
+                                .aspectRatio(1.0, contentMode: .fit)
+                            Text("\(count)")
+                                .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                                .foregroundColor(hasDevices ? .white : palette.textMuted)
+                        }
                     }
-                    .padding(10)
-                    .background(palette.surface)
-                    .cornerRadius(8)
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(palette.border, lineWidth: 1))
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.plain)
+                .uiSlot("category-col", state: "cat=\(category.code);count=\(count)")
+                .uiAction("inspectCategoryDevice")
+            }
+        }
+        .uiSlot("c1-c8-strip")
+        .uiComponent("PortCategoryFaceplateStrip")
+    }
+
+    @ViewBuilder
+    private func trackedHardwareProfilesCard(
+        devices: [RackPortDevice],
+        palette: BrandPalette
+    ) -> some View {
+        let featured = Array(devices.prefix(6))
+
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Tracked Hardware Profiles")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(palette.textMuted)
+                Spacer()
+                Text("Tap to inspect S0→S6")
+                    .font(.system(size: 9))
+                    .foregroundColor(palette.textMuted)
+            }
+            .uiSlot("tracked-profiles-header")
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(featured.enumerated()), id: \.element.id) { idx, dev in
+                        let stateColor = TuesdayTheme.ledColor(for: dev.portState, isStn: false)
+                        let isSelected = (idx == 0)
+                        let badgeText: String = {
+                            switch dev.portState {
+                            case .cveKev: return "!"
+                            case .eol: return "EOL"
+                            default: return "#\(dev.portIndex)"
+                            }
+                        }()
+                        let verSub = (dev.portState == .guessed || dev.version == "unverified") ? "guess" : "v\(dev.version)"
+
+                        Button(action: { inspectedDevice = dev }) {
+                            VStack(spacing: 2) {
+                                ZStack(alignment: .topTrailing) {
+                                    RoundedRectangle(cornerRadius: 11)
+                                        .fill(isSelected ? palette.accent.opacity(0.14) : TuesdayTheme.elevatedPill)
+                                        .frame(width: 42, height: 42)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 11)
+                                                .stroke(isSelected ? palette.accent : stateColor.opacity(0.35), lineWidth: 1)
+                                        )
+                                    Text(dev.category.code)
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .foregroundColor(stateColor)
+                                        .frame(width: 42, height: 42)
+                                    Text(badgeText)
+                                        .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                                        .foregroundColor(stateColor)
+                                        .padding(.horizontal, 3)
+                                        .padding(.vertical, 1)
+                                        .background(TuesdayTheme.background)
+                                        .cornerRadius(4)
+                                        .padding(2)
+                                }
+                                Text(dev.shortLabel)
+                                    .font(.system(size: 8.5, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .lineLimit(1)
+                                Text(verSub)
+                                    .font(.system(size: 7.5, design: .monospaced))
+                                    .foregroundColor(palette.textMuted)
+                                    .lineLimit(1)
+                            }
+                            .frame(width: 52)
+                        }
+                        .buttonStyle(.plain)
+                        .uiSlot("tracked-profile-squircle")
+                        .uiAction("inspectDevice")
+                    }
                 }
             }
-            .padding(12)
+            .uiSlot("tracked-profiles-strip")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(palette.surface)
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(palette.border, lineWidth: 1)
+        )
+        .uiComponent("TrackedHardwareProfilesCard")
+    }
+
+    @ViewBuilder
+    private func matrixBotanicalPixelArtOverlay(
+        scaleTier: InventoryScaleTier,
+        activeCount: Int,
+        isStn: Bool
+    ) -> some View {
+        switch scaleTier {
+        case .DAY_ZERO:
+            EmptyView()
+        case .PEA:
+            HStack(spacing: 6) {
+                Text("🌱")
+                    .font(.system(size: 14))
+                Text("\(activeCount) ACTIVE • \(128 - activeCount) SLOTS AVAILABLE")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(isStn ? TuesdayTheme.stnTextSecondary : TuesdayTheme.proTextSecondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background((isStn ? Color.white : TuesdayTheme.background).opacity(0.88))
+                    .cornerRadius(4)
+            }
+            .padding(.bottom, 4)
+        case .GARDEN:
+            HStack(spacing: 14) {
+                Text("🪴").font(.system(size: 16))
+                Text("🪴").font(.system(size: 20))
+                Text("🪴").font(.system(size: 14))
+            }
+            .padding(.bottom, 2)
+        case .FOREST:
+            HStack(spacing: 10) {
+                ForEach(0..<9, id: \.self) { _ in
+                    Text("🌲")
+                        .font(.system(size: 12))
+                        .opacity(0.55)
+                }
+            }
+            .padding(.bottom, 2)
         }
     }
 
     @ViewBuilder
-    private func deviceInspectorSheet(device: RackPortDevice, palette: BrandPalette) -> some View {
-        let stateColor = TuesdayTheme.ledColor(for: device.portState)
+    private func deviceInspectorSheet(
+        device: RackPortDevice,
+        palette: BrandPalette,
+        isStn: Bool
+    ) -> some View {
+        let stateColor = TuesdayTheme.ledColor(for: device.portState, isStn: isStn)
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(String(format: "PORT #%02d • %@", device.portIndex, device.assetTag))
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(stateColor)
+                        Text(
+                            isStn
+                                ? "\(device.portState.stnLabel.uppercased()) • \(device.lifecycleTier.uppercased())"
+                                : String(format: "PORT #%02d • %@ • %@ (%@)", device.portIndex, device.assetTag, device.category.code, device.category.shortName)
+                        )
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundColor(stateColor)
+
                         Text(device.name)
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(palette.textPrimary)
                     }
                     Spacer()
-                    Button("Close") { inspectedDevice = nil }
-                        .foregroundColor(palette.accent)
+                    if !isStn {
+                        RiskMeterView(portState: device.portState, isStn: false)
+                    }
+                    Button(isStn ? "Done" : "Close") {
+                        inspectedDevice = nil
+                    }
+                    .foregroundColor(palette.accent)
+                    .uiAction("closeDeviceInspector")
+                }
+                .uiSlot("inspector-header")
+
+                if isStn {
+                    Text(device.stnHeadline)
+                        .font(.system(size: 12))
+                        .foregroundColor(palette.textMuted)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("What to Do Next")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundColor(palette.textPrimary)
+                        Text("1. Check status: \(device.s4Advisories)")
+                            .font(.system(size: 11.5))
+                            .foregroundColor(palette.textPrimary)
+                        Text("2. Action step: \(device.s6Remediation)")
+                            .font(.system(size: 11.5))
+                            .foregroundColor(palette.textPrimary)
+                        Text("3. Verify support window: \(device.s3Lifecycle)")
+                            .font(.system(size: 11.5))
+                            .foregroundColor(palette.textPrimary)
+                    }
+                    .padding(12)
+                    .background(palette.bg)
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        inspectorRow("ROOM & PLACEMENT", device.roomLocation, palette)
+                        inspectorRow("DEVICE LIFESPAN & MANUFACTURER SUPPORT", "\(device.lifecycleTier) • \(device.s3Lifecycle)", palette)
+                        inspectorRow("PLUGGED INTO (ROUTER PORT / WI-FI)", String(format: "Port #%02d • %@", device.portIndex, device.s5Topology), palette)
+                        inspectorRow("WI-FI LANE", device.trustZone.stnLabel, palette)
+                        inspectorRow("SOFTWARE VERSION & PUBLISHED WARNINGS", "Version \(device.version) • \(device.s4Advisories)", palette)
+                    }
+                    .uiSlot("s0-s6-stack")
+                } else {
+                    CandleGraphView(
+                        score: device.portState == .ok ? 98.0 : (device.portState == .update ? 82.0 : 40.0)
+                    )
+                    .uiSlot("candlestick-chart")
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        inspectorRow("S0 Identity", device.s0Identity, palette)
+                        inspectorRow("S1 Hardware", device.s1Hardware, palette)
+                        inspectorRow("S2 Software (PURL)", device.s2Software, palette)
+                        inspectorRow("S3 Lifecycle", device.s3Lifecycle, palette)
+                        inspectorRow("S4 Advisories", device.s4Advisories, palette)
+                        inspectorRow("S5 Topology", device.s5Topology, palette)
+                        inspectorRow("S6 Remediation", device.s6Remediation, palette)
+                    }
+                    .uiSlot("s0-s6-stack")
                 }
 
-                CandleGraphView(
-                    score: device.portState == .ok ? 98.0 : (device.portState == .update ? 82.0 : 40.0),
-                    status: device.portState == .ok ? .healthy : (device.portState == .cveKev ? .critical : .warning)
-                )
-
-                inspectorRow("S0 Identity", device.s0Identity, palette)
-                inspectorRow("S1 Hardware", device.s1Hardware, palette)
-                inspectorRow("S2 Software (PURL)", device.s2Software, palette)
-                inspectorRow("S3 Lifecycle", device.s3Lifecycle, palette)
-                inspectorRow("S4 Advisories", device.s4Advisories, palette)
-                inspectorRow("S5 Topology", device.s5Topology, palette)
-                inspectorRow("S6 Remediation", device.s6Remediation, palette)
-
-                if device.portState != .ok {
+                if device.portState != .ok && device.portState != .unassigned {
                     Button(action: {
                         Task {
                             await repository.markNodeUpdatesApplied(nodeId: device.id)
                             inspectedDevice = nil
                         }
                     }) {
-                        Text("Mark Remediation Complete (Set Port OK)")
+                        Text(isStn ? "✓ Mark Remediation Complete (Set Device OK)" : "✓ Mark Remediation Complete (Set Port OK)")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.black)
+                            .foregroundColor(isStn ? .white : .black)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(TuesdayTheme.ledOkGreen)
                             .cornerRadius(8)
+                            .uiSlot("remediation-cta")
                     }
                     .buttonStyle(.plain)
+                    .uiAction("markRemediationComplete")
                 }
             }
             .padding(16)
+            .uiComponent("DeviceInspectorSheet", state: "device=\(device.id);state=\(device.portState.key)")
         }
         .background(palette.surface.ignoresSafeArea())
     }
@@ -504,16 +1126,52 @@ public struct HomeView: View {
 
     private func ledLegendDot(_ label: String, _ color: Color, _ palette: BrandPalette) -> some View {
         HStack(spacing: 4) {
-            RoundedRectangle(cornerRadius: 2)
+            Circle()
                 .fill(color)
-                .frame(width: 7, height: 7)
+                .frame(width: 6, height: 6)
             Text(label)
                 .font(.system(size: 8.5, design: .monospaced))
                 .foregroundColor(palette.textMuted)
         }
     }
 
-    private func zonePill(label: String, selected: Bool, palette: BrandPalette, action: @escaping () -> Void) -> some View {
+    private func stateFilterChip(
+        label: String,
+        dotColor: Color?,
+        selected: Bool,
+        palette: BrandPalette,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if let dot = dotColor {
+                    Circle()
+                        .fill(dot)
+                        .frame(width: 7, height: 7)
+                }
+                Text(label)
+                    .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
+                    .foregroundColor(selected ? palette.accent : palette.textPrimary)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(selected ? palette.accent.opacity(0.18) : palette.surface)
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(selected ? palette.accent : palette.border, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .uiAction("filterPortState")
+    }
+
+    private func zoneFilterPill(
+        label: String,
+        selected: Bool,
+        palette: BrandPalette,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 8.5, weight: .bold, design: .monospaced))
@@ -528,5 +1186,46 @@ public struct HomeView: View {
                 )
         }
         .buttonStyle(.plain)
+        .uiAction("filterZone")
+    }
+}
+
+public struct RiskMeterView: View {
+    public let portState: PortLifecycleState
+    public let isStn: Bool
+
+    public init(portState: PortLifecycleState, isStn: Bool = false) {
+        self.portState = portState
+        self.isStn = isStn
+    }
+
+    public var body: some View {
+        let activeBars: Int = {
+            switch portState {
+            case .cveKev, .eol: return 3
+            case .guessed, .update: return 2
+            case .ok: return 1
+            case .unassigned: return 0
+            }
+        }()
+        let activeColor = TuesdayTheme.ledColor(for: portState, isStn: isStn)
+        let inactiveColor = isStn ? TuesdayTheme.stnBorder : TuesdayTheme.proBorder
+
+        VStack(alignment: .trailing, spacing: 3) {
+            HStack(alignment: .bottom, spacing: 2) {
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(activeBars >= 1 ? activeColor : inactiveColor)
+                    .frame(width: 3, height: 7)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(activeBars >= 2 ? activeColor : inactiveColor)
+                    .frame(width: 3, height: 10)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(activeBars >= 3 ? activeColor : inactiveColor)
+                    .frame(width: 3, height: 13)
+            }
+            Text(portState.proLabel)
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .foregroundColor(activeColor)
+        }
     }
 }

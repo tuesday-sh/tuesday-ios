@@ -19,6 +19,7 @@ public struct BulletinsView: View {
                         Text(isStn ? "✨ AI HOME BRIEFING • ACTIVE FEEDS" : "✦ AI BULLETIN DIGEST • UNMUTED FEEDS")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundColor(palette.accent)
+                            .uiComponent("AiSummaryCard")
                         Spacer()
                         Text("\(payload.activeFeedCount)/\(payload.matchedFeeds.count) Active")
                             .font(.system(size: 9, weight: .medium, design: .monospaced))
@@ -62,12 +63,14 @@ public struct BulletinsView: View {
                     RoundedRectangle(cornerRadius: 10)
                         .stroke(palette.accent.opacity(0.45), lineWidth: 1)
                 )
+                .uiSlot("ai-summary-card", state: "active=\(payload.activeFeedCount);muted=\(payload.mutedFeedCount)")
 
                 // 2. Matched Device Feeds Header
                 HStack {
                     Text(isStn ? "MATCHED FEEDS FOR YOUR HOME (\(payload.matchedFeeds.count))" : "MATCHED FEEDS (\(payload.matchedFeeds.count) OF 148 BACKEND)")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundColor(palette.textMuted)
+                        .uiComponent("MatchedFeedsSection")
                     Spacer()
                     Text("141 Unmatched Hidden")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
@@ -121,6 +124,7 @@ public struct BulletinsView: View {
                                         .cornerRadius(5)
                                 }
                                 .buttonStyle(.plain)
+                                .uiAction("toggleMuteFeed")
                             }
                         }
 
@@ -137,6 +141,7 @@ public struct BulletinsView: View {
                                             .cornerRadius(4)
                                     }
                                     .buttonStyle(.plain)
+                                    .uiAction("confirmGuessedModel")
                                 }
                                 Button(action: onRejectModel) {
                                     Text("✕ Not Mine")
@@ -148,6 +153,7 @@ public struct BulletinsView: View {
                                         .cornerRadius(4)
                                 }
                                 .buttonStyle(.plain)
+                                .uiAction("rejectGuessedModel")
                             }
                         }
                     }
@@ -158,6 +164,7 @@ public struct BulletinsView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(isProvisional ? TuesdayTheme.ledGuessedGrey : palette.border, lineWidth: 1)
                     )
+                    .uiSlot("matched-feed-row", state: "slug=\(feed.slug);muted=\(feed.isMuted)")
                 }
 
                 // 4. Bulletin Inbox Header
@@ -165,6 +172,7 @@ public struct BulletinsView: View {
                     Text(isStn ? "HOME BULLETIN INBOX (\(payload.inbox.count))" : "BULLETIN INBOX (\(payload.inbox.count) ITEMS)")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundColor(palette.textMuted)
+                        .uiComponent("BulletinInboxList")
                     Spacer()
                     Text("Gold Lake Snapshot • 0 Live Calls")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
@@ -239,6 +247,7 @@ public struct BulletinsView: View {
                                         .cornerRadius(4)
                                 }
                                 .buttonStyle(.plain)
+                                .uiAction("confirmGuessedModel")
 
                                 Button(action: onRejectModel) {
                                     Text("✕ Not My Model")
@@ -250,6 +259,7 @@ public struct BulletinsView: View {
                                         .cornerRadius(4)
                                 }
                                 .buttonStyle(.plain)
+                                .uiAction("rejectGuessedModel")
                             }
                             .padding(.top, 2)
                         }
@@ -261,9 +271,11 @@ public struct BulletinsView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(palette.border, lineWidth: 1)
                     )
+                    .uiSlot("bulletin-inbox-item", state: "id=\(item.externalId);type=\(item.bulletinType)")
                 }
             }
             .padding(12)
         }
+        .uiComponent("BulletinsScreen", state: "inbox=\(payload.inbox.count)")
     }
 }

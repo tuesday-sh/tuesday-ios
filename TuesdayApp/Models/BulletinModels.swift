@@ -19,12 +19,22 @@ public enum AppBrandFlavor: String, Codable, CaseIterable {
     }
 }
 
+/// 6-State Port Lifecycle Taxonomy:
+/// CVE_KEV("cve_kev", "CVE / KEV", "Safety / Security Alert", 1)
+/// EOL("eol", "EOL", "Retired / EOL", 2)
+/// GUESSED("guessed", "GUESSED", "Unknown / Guessed", 3)
+/// UPDATE("update", "UPDATE", "Update Available", 4)
+/// OK("ok", "OK", "Everything OK", 5)
+/// UNASSIGNED("unassigned", "Empty Slot", "Empty Slot", 6)
 public enum PortLifecycleState: String, Codable, CaseIterable {
     case cveKev = "cve_kev"
     case eol = "eol"
     case guessed = "guessed"
     case update = "update"
     case ok = "ok"
+    case unassigned = "unassigned"
+
+    public var key: String { rawValue }
 
     public var severityPriority: Int {
         switch self {
@@ -33,36 +43,250 @@ public enum PortLifecycleState: String, Codable, CaseIterable {
         case .guessed: return 3
         case .update: return 4
         case .ok: return 5
+        case .unassigned: return 6
         }
     }
 
     public var proLabel: String {
         switch self {
-        case .cveKev: return "CVE / KEV / RECALL"
-        case .eol: return "END-OF-LIFE (EOL)"
-        case .guessed: return "UNKNOWN / GUESSED"
-        case .update: return "UPDATE AVAILABLE"
-        case .ok: return "LIFECYCLE OK"
+        case .cveKev: return "CVE / KEV"
+        case .eol: return "EOL"
+        case .guessed: return "GUESSED"
+        case .update: return "UPDATE"
+        case .ok: return "OK"
+        case .unassigned: return "Empty Slot"
         }
     }
 
     public var stnLabel: String {
         switch self {
-        case .cveKev: return "Action Required"
-        case .eol: return "Replace Soon (Retired)"
-        case .guessed: return "Unidentified Device"
+        case .cveKev: return "Safety / Security Alert"
+        case .eol: return "Retired / EOL"
+        case .guessed: return "Unknown / Guessed"
         case .update: return "Update Available"
         case .ok: return "Everything OK"
+        case .unassigned: return "Empty Slot"
         }
     }
 }
 
+/// Progressive Disclosure Scale Tiers (Botanical Spine):
+/// - DAY_ZERO("day_zero", "Day 0", 0, 0)
+/// - PEA("pea", "Pea", 1, 2, "🌱")
+/// - GARDEN("garden", "Garden", 3, 7, "🪴")
+/// - FOREST("forest", "Forest", 8, 128, "🌲")
+public enum InventoryScaleTier: String, Codable, CaseIterable {
+    case DAY_ZERO = "day_zero"
+    case PEA = "pea"
+    case GARDEN = "garden"
+    case FOREST = "forest"
+
+    public static let dayZero: InventoryScaleTier = .DAY_ZERO
+    public static let pea: InventoryScaleTier = .PEA
+    public static let garden: InventoryScaleTier = .GARDEN
+    public static let forest: InventoryScaleTier = .FOREST
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .DAY_ZERO: return "Day 0"
+        case .PEA: return "Pea"
+        case .GARDEN: return "Garden"
+        case .FOREST: return "Forest"
+        }
+    }
+
+    public var showSummaryBadge: Bool {
+        switch self {
+        case .DAY_ZERO, .PEA: return false
+        case .GARDEN, .FOREST: return true
+        }
+    }
+
+    public var showPortDiagramStrip: Bool {
+        self == .FOREST
+    }
+
+    public var showFilterChips: Bool {
+        self == .FOREST
+    }
+
+    public var showTrustZonePills: Bool {
+        self == .FOREST
+    }
+
+    public var botanicalOverlayEmoji: String {
+        switch self {
+        case .DAY_ZERO: return ""
+        case .PEA: return "🌱"
+        case .GARDEN: return "🪴"
+        case .FOREST: return "🌲"
+        }
+    }
+
+    public static func forCount(_ count: Int) -> InventoryScaleTier {
+        if count <= 0 { return .DAY_ZERO }
+        if count <= 2 { return .PEA }
+        if count <= 7 { return .GARDEN }
+        return .FOREST
+    }
+}
+
+/// SureThingNet Standard Categories (Scale C: C1_GATEWAY .. C8_GUEST)
+/// - C1_GATEWAY("C1", 1, "L3", "Gateway / WAN", "Wi-Fi Router / Gateway")
+/// - C2_SWITCH("C2", 2, "L2", "Switch Backbone", "Wired Switch Hub")
+/// - C3_AP("C3", 3, "L1/2", "Wireless AP", "Wi-Fi Access Point")
+/// - C4_SERVER("C4", 4, "L4–7", "Compute / Server", "Home Server & Storage")
+/// - C5_CAMERA("C5", 5, "L7", "Vision / Camera", "Smart Camera")
+/// - C6_IOT("C6", 6, "L7", "Smart Home / IoT", "Smart Home Hub")
+/// - C7_CLIENT("C7", 7, "L7", "Workstation / Client", "Personal Computer / Phone")
+/// - C8_GUEST("C8", 8, "L8", "Guest / Human (L8)", "Guest / Visitor Device")
+public enum StnHardwareCategory: String, Codable, CaseIterable {
+    case C1_GATEWAY = "C1"
+    case C2_SWITCH = "C2"
+    case C3_AP = "C3"
+    case C4_SERVER = "C4"
+    case C5_CAMERA = "C5"
+    case C6_IOT = "C6"
+    case C7_CLIENT = "C7"
+    case C8_GUEST = "C8"
+
+    public static let c1Gateway: StnHardwareCategory = .C1_GATEWAY
+    public static let c2Switch: StnHardwareCategory = .C2_SWITCH
+    public static let c3Ap: StnHardwareCategory = .C3_AP
+    public static let c4Server: StnHardwareCategory = .C4_SERVER
+    public static let c5Camera: StnHardwareCategory = .C5_CAMERA
+    public static let c6Iot: StnHardwareCategory = .C6_IOT
+    public static let c7Client: StnHardwareCategory = .C7_CLIENT
+    public static let c8Guest: StnHardwareCategory = .C8_GUEST
+
+    public var code: String { rawValue }
+
+    public var portSlot: Int {
+        switch self {
+        case .C1_GATEWAY: return 1
+        case .C2_SWITCH: return 2
+        case .C3_AP: return 3
+        case .C4_SERVER: return 4
+        case .C5_CAMERA: return 5
+        case .C6_IOT: return 6
+        case .C7_CLIENT: return 7
+        case .C8_GUEST: return 8
+        }
+    }
+
+    public var osiLayer: String {
+        switch self {
+        case .C1_GATEWAY: return "L3"
+        case .C2_SWITCH: return "L2"
+        case .C3_AP: return "L1/2"
+        case .C4_SERVER: return "L4–7"
+        case .C5_CAMERA: return "L7"
+        case .C6_IOT: return "L7"
+        case .C7_CLIENT: return "L7"
+        case .C8_GUEST: return "L8"
+        }
+    }
+
+    public var proLabel: String {
+        switch self {
+        case .C1_GATEWAY: return "Gateway / WAN"
+        case .C2_SWITCH: return "Switch Backbone"
+        case .C3_AP: return "Wireless AP"
+        case .C4_SERVER: return "Compute / Server"
+        case .C5_CAMERA: return "Vision / Camera"
+        case .C6_IOT: return "Smart Home / IoT"
+        case .C7_CLIENT: return "Workstation / Client"
+        case .C8_GUEST: return "Guest / Human (L8)"
+        }
+    }
+
+    public var stnLabel: String {
+        switch self {
+        case .C1_GATEWAY: return "Wi-Fi Router / Gateway"
+        case .C2_SWITCH: return "Wired Switch Hub"
+        case .C3_AP: return "Wi-Fi Access Point"
+        case .C4_SERVER: return "Home Server & Storage"
+        case .C5_CAMERA: return "Smart Camera"
+        case .C6_IOT: return "Smart Home Hub"
+        case .C7_CLIENT: return "Personal Computer / Phone"
+        case .C8_GUEST: return "Guest / Visitor Device"
+        }
+    }
+
+    public var shortName: String {
+        switch self {
+        case .C1_GATEWAY: return "Gateway"
+        case .C2_SWITCH: return "Switch"
+        case .C3_AP: return "Wi-Fi AP"
+        case .C4_SERVER: return "Server"
+        case .C5_CAMERA: return "Camera"
+        case .C6_IOT: return "Smart IoT"
+        case .C7_CLIENT: return "Client"
+        case .C8_GUEST: return "Guest L8"
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .C1_GATEWAY: return "Perimeter firewall, WAN uplink, NAT, DHCP server, and default gateway."
+        case .C2_SWITCH: return "Physical distribution plane, 802.1Q VLAN trunking, and PoE power delivery."
+        case .C3_AP: return "Radio-frequency access point translating wireless airwaves into wired Ethernet."
+        case .C4_SERVER: return "Storage (NAS), local DNS, container virtualization, and homelab workloads."
+        case .C5_CAMERA: return "Surveillance video, real-time RTSP/WebRTC streams, and perimeter sensing."
+        case .C6_IOT: return "Home automation controllers, sensor bridges, and constrained smart peripherals."
+        case .C7_CLIENT: return "Primary trusted user devices carrying user identities, keys, and productivity data."
+        case .C8_GUEST: return "Isolated perimeter for ephemeral human visitors, guest Wi-Fi, and user policy."
+        }
+    }
+
+    public var examples: String {
+        switch self {
+        case .C1_GATEWAY: return "UDM-Pro, UXG-Pro, Firewalla, pfSense"
+        case .C2_SWITCH: return "USW-24-PoE, Enterprise 8 PoE, Catalyst"
+        case .C3_AP: return "U6-Pro, U7-Pro, Netgear AP, Eero"
+        case .C4_SERVER: return "TrueNAS, Unraid, Proxmox VE, Synology"
+        case .C5_CAMERA: return "UniFi Protect G5, Owlet Cam, Reolink"
+        case .C6_IOT: return "Home Assistant, Hubitat, Hue, Ecobee"
+        case .C7_CLIENT: return "MacBook Pro, ThinkPad, Linux PC, iPad"
+        case .C8_GUEST: return "Guest Portal, Visitor Laptop, Cast Client"
+        }
+    }
+}
+
+public struct NetworkSite: Identifiable, Codable, Equatable {
+    public let id: String
+    public var name: String
+    public var devicesCount: Int
+    public var role: String
+
+    public init(id: String, name: String, devicesCount: Int, role: String) {
+        self.id = id
+        self.name = name
+        self.devicesCount = devicesCount
+        self.role = role
+    }
+}
+
+/// Trust Zones (Z0_CORE .. Z4_GUEST):
+/// Z0_CORE("z0_core", "Z0", "Core Gear", "Wi-Fi & Network Gear", 16)
+/// Z1_TRUSTED("z1_trusted", "Z1", "Trusted", "Main Home Wi-Fi", 32)
+/// Z2_LAB("z2_lab", "Z2", "Homelab", "Home Storage", 24)
+/// Z3_IOT("z3_iot", "Z3", "Smart Home", "Smart Home Lane", 40)
+/// Z4_GUEST("z4_guest", "Z4", "Guest", "Guest Wi-Fi", 16)
 public enum TrustZone: String, Codable, CaseIterable {
     case z0Core = "z0_core"
     case z1Trusted = "z1_trusted"
     case z2Lab = "z2_lab"
     case z3Iot = "z3_iot"
     case z4Guest = "z4_guest"
+
+    public static let Z0_CORE: TrustZone = .z0Core
+    public static let Z1_TRUSTED: TrustZone = .z1Trusted
+    public static let Z2_LAB: TrustZone = .z2Lab
+    public static let Z3_IOT: TrustZone = .z3Iot
+    public static let Z4_GUEST: TrustZone = .z4Guest
 
     public var shortCode: String {
         switch self {
@@ -71,6 +295,26 @@ public enum TrustZone: String, Codable, CaseIterable {
         case .z2Lab: return "Z2"
         case .z3Iot: return "Z3"
         case .z4Guest: return "Z4"
+        }
+    }
+
+    public var displayLabel: String {
+        switch self {
+        case .z0Core: return "Core Gear"
+        case .z1Trusted: return "Trusted"
+        case .z2Lab: return "Homelab"
+        case .z3Iot: return "Smart Home"
+        case .z4Guest: return "Guest"
+        }
+    }
+
+    public var stnLabel: String {
+        switch self {
+        case .z0Core: return "Wi-Fi & Network Gear"
+        case .z1Trusted: return "Main Home Wi-Fi"
+        case .z2Lab: return "Home Storage"
+        case .z3Iot: return "Smart Home Lane"
+        case .z4Guest: return "Guest Wi-Fi"
         }
     }
 
@@ -106,6 +350,7 @@ public struct RackPortDevice: Identifiable, Codable, Equatable {
     public var portIndex: Int
     public var portState: PortLifecycleState
     public var trustZone: TrustZone
+    public var category: StnHardwareCategory
     public var assetTag: String
     public var shortLabel: String
     public var name: String
@@ -126,6 +371,60 @@ public struct RackPortDevice: Identifiable, Codable, Equatable {
     public var s4Advisories: String
     public var s5Topology: String
     public var s6Remediation: String
+
+    public init(
+        id: String,
+        portIndex: Int,
+        portState: PortLifecycleState,
+        trustZone: TrustZone,
+        category: StnHardwareCategory = .C6_IOT,
+        assetTag: String,
+        shortLabel: String,
+        name: String,
+        roomLocation: String,
+        version: String,
+        targetVersion: String? = nil,
+        lifecycleTier: String,
+        purls: [String],
+        confidenceTier: DeviceConfidenceTier = .confirmed,
+        candidateModels: [String] = [],
+        excludedPurlPrefixes: [String] = [],
+        proHeadline: String,
+        stnHeadline: String,
+        s0Identity: String,
+        s1Hardware: String,
+        s2Software: String,
+        s3Lifecycle: String,
+        s4Advisories: String,
+        s5Topology: String,
+        s6Remediation: String
+    ) {
+        self.id = id
+        self.portIndex = portIndex
+        self.portState = portState
+        self.trustZone = trustZone
+        self.category = category
+        self.assetTag = assetTag
+        self.shortLabel = shortLabel
+        self.name = name
+        self.roomLocation = roomLocation
+        self.version = version
+        self.targetVersion = targetVersion
+        self.lifecycleTier = lifecycleTier
+        self.purls = purls
+        self.confidenceTier = confidenceTier
+        self.candidateModels = candidateModels
+        self.excludedPurlPrefixes = excludedPurlPrefixes
+        self.proHeadline = proHeadline
+        self.stnHeadline = stnHeadline
+        self.s0Identity = s0Identity
+        self.s1Hardware = s1Hardware
+        self.s2Software = s2Software
+        self.s3Lifecycle = s3Lifecycle
+        self.s4Advisories = s4Advisories
+        self.s5Topology = s5Topology
+        self.s6Remediation = s6Remediation
+    }
 }
 
 public struct LedSlot: Identifiable, Equatable {
@@ -201,37 +500,35 @@ public enum BulletinsAndInventoryEngine {
         zoneFilter: TrustZone? = nil
     ) -> [LedSlot] {
         var slots: [LedSlot] = []
-        var runningIndex = 1
-        for zone in TrustZone.allCases {
-            if let filter = zoneFilter, filter != zone { continue }
-            let inZone = devices
-                .filter { $0.trustZone == zone }
-                .sorted { $0.portState.severityPriority < $1.portState.severityPriority }
+        let filtered = zoneFilter != nil ? devices.filter { $0.trustZone == zoneFilter } : devices
 
-            for dev in inZone {
+        var runningIndex = 1
+        for dev in filtered {
+            if runningIndex <= 128 {
                 slots.append(
                     LedSlot(
                         id: runningIndex,
                         state: dev.portState,
-                        trustZone: zone,
+                        trustZone: dev.trustZone,
                         deviceId: dev.id
                     )
                 )
                 runningIndex += 1
             }
+        }
 
-            let remainingOk = max(0, zone.slotCount - inZone.count)
-            for _ in 0..<remainingOk {
-                slots.append(
-                    LedSlot(
-                        id: runningIndex,
-                        state: .ok,
-                        trustZone: zone,
-                        deviceId: nil
-                    )
+        let totalCap = zoneFilter?.slotCount ?? 128
+        let remainingUnassigned = max(0, totalCap - slots.count)
+        for _ in 0..<remainingUnassigned {
+            slots.append(
+                LedSlot(
+                    id: runningIndex,
+                    state: .unassigned,
+                    trustZone: zoneFilter ?? .z3Iot,
+                    deviceId: nil
                 )
-                runningIndex += 1
-            }
+            )
+            runningIndex += 1
         }
         return slots
     }
@@ -239,17 +536,30 @@ public enum BulletinsAndInventoryEngine {
     public static func filterActionFirstDevices(
         devices: [RackPortDevice],
         includeOk: Bool = false,
-        zoneFilter: TrustZone? = nil
+        zoneFilter: TrustZone? = nil,
+        portStateFilter: PortLifecycleState? = nil
     ) -> [RackPortDevice] {
         return devices
             .filter { zoneFilter == nil || $0.trustZone == zoneFilter }
-            .filter { includeOk || $0.portState != .ok }
+            .filter {
+                if let pf = portStateFilter {
+                    return $0.portState == pf
+                }
+                return includeOk || $0.portState != .ok
+            }
             .sorted { lhs, rhs in
                 if lhs.portState.severityPriority != rhs.portState.severityPriority {
                     return lhs.portState.severityPriority < rhs.portState.severityPriority
                 }
                 return lhs.trustZone.orderIndex < rhs.trustZone.orderIndex
             }
+    }
+
+    public static func getCategoryDeviceCount(
+        category: StnHardwareCategory,
+        devices: [RackPortDevice]
+    ) -> Int {
+        devices.filter { $0.category == category }.count
     }
 
     public static func assembleBulletins(
@@ -282,7 +592,6 @@ public enum BulletinsAndInventoryEngine {
                 return matchesPrefix && !excluded
             }
 
-            // Rule 3: Umbrella Cap — max 1 feed per provisionalGuess device
             if dev.confidenceTier == .provisionalGuess {
                 matchedForDevice = Array(matchedForDevice.prefix(1))
             }
@@ -386,6 +695,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 1,
                 portState: .cveKev,
                 trustZone: .z0Core,
+                category: .C1_GATEWAY,
                 assetTag: "STN-GW-01",
                 shortLabel: "UDM-Pro",
                 name: "Main Rack UniFi Dream Machine Pro",
@@ -412,6 +722,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 2,
                 portState: .eol,
                 trustZone: .z0Core,
+                category: .C3_AP,
                 assetTag: "STN-AP-00",
                 shortLabel: "R7000 AP",
                 name: "Basement Netgear R7000",
@@ -438,6 +749,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 3,
                 portState: .ok,
                 trustZone: .z0Core,
+                category: .C3_AP,
                 assetTag: "STN-AP-01",
                 shortLabel: "U7-Pro",
                 name: "Living Room Ceiling UniFi U7 Pro",
@@ -464,7 +776,8 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 4,
                 portState: .ok,
                 trustZone: .z1Trusted,
-                assetTag: "STN-CL-01",
+                category: .C2_SWITCH,
+                assetTag: "STN-SW-01",
                 shortLabel: "Switch 2",
                 name: "Living Room Nintendo Switch 2",
                 roomLocation: "1F Media Console",
@@ -477,7 +790,7 @@ public enum BulletinsAndInventoryEngine {
                 excludedPurlPrefixes: [],
                 proHeadline: "pkg:generic/nintendo/horizon-os@19.0.1 • Enrolled via Plug & Tag",
                 stnHeadline: "Up to date (19.0.1) • Warranty receipt saved",
-                s0Identity: "STN-CL-01 • 1F Media Console • Z1 Trusted",
+                s0Identity: "STN-SW-01 • 1F Media Console • Z1 Trusted",
                 s1Hardware: "Nintendo Switch 2 (BEE-001)",
                 s2Software: "pkg:generic/nintendo/horizon-os@19.0.1",
                 s3Lifecycle: "Active Support",
@@ -490,6 +803,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 5,
                 portState: .update,
                 trustZone: .z1Trusted,
+                category: .C7_CLIENT,
                 assetTag: "STN-CL-02",
                 shortLabel: "MacBook M4",
                 name: "Aaron's MacBook Pro 16 (M4 Max)",
@@ -516,6 +830,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 6,
                 portState: .guessed,
                 trustZone: .z2Lab,
+                category: .C4_SERVER,
                 assetTag: "STN-LAB-09",
                 shortLabel: "Unknown Pi",
                 name: "Unidentified Raspberry Pi 5 Node",
@@ -542,6 +857,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 7,
                 portState: .ok,
                 trustZone: .z2Lab,
+                category: .C4_SERVER,
                 assetTag: "STN-NAS-01",
                 shortLabel: "unraid-lml",
                 name: "Unraid Storage Server (lml)",
@@ -568,6 +884,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 8,
                 portState: .update,
                 trustZone: .z2Lab,
+                category: .C4_SERVER,
                 assetTag: "STN-LAB-02",
                 shortLabel: "Proxmox VE",
                 name: "Homelab Hypervisor (pve-node-01)",
@@ -594,6 +911,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 9,
                 portState: .cveKev,
                 trustZone: .z3Iot,
+                category: .C5_CAMERA,
                 assetTag: "STN-CAM-01",
                 shortLabel: "Baby Cam",
                 name: "Nursery Baby Monitor",
@@ -620,6 +938,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 10,
                 portState: .cveKev,
                 trustZone: .z3Iot,
+                category: .C6_IOT,
                 assetTag: "STN-IOT-01",
                 shortLabel: "LG OLED",
                 name: "Living Room LG OLED TV",
@@ -646,6 +965,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 11,
                 portState: .update,
                 trustZone: .z3Iot,
+                category: .C6_IOT,
                 assetTag: "STN-IOT-04",
                 shortLabel: "Garage ESP",
                 name: "Garage Door Relay ESP32",
@@ -672,6 +992,7 @@ public enum BulletinsAndInventoryEngine {
                 portIndex: 12,
                 portState: .guessed,
                 trustZone: .z3Iot,
+                category: .C6_IOT,
                 assetTag: "STN-IOT-09",
                 shortLabel: "Thermostat",
                 name: "Hallway Smart Thermostat",

@@ -138,7 +138,8 @@ final class MonitoredNodeTests: XCTestCase {
         let matrix = BulletinsAndInventoryEngine.build128LedMatrix(devices: devices, zoneFilter: nil)
 
         XCTAssertEqual(matrix.count, 128)
-        XCTAssertEqual(matrix.filter { $0.state == .ok }.count, 119)
+        XCTAssertEqual(matrix.filter { $0.state == .ok }.count, 3)
+        XCTAssertEqual(matrix.filter { $0.state == .unassigned }.count, 116)
         XCTAssertEqual(matrix.filter { $0.state == .cveKev }.count, 3)
         XCTAssertEqual(matrix.filter { $0.state == .eol }.count, 1)
         XCTAssertEqual(matrix.filter { $0.state == .guessed }.count, 2)

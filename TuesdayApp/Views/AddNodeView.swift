@@ -52,6 +52,7 @@ public struct AddNodeView: View {
                 }
                 .padding(20)
             }
+            .uiComponent("AddDeviceWizard", state: "mode=\(mode.rawValue)")
         }
         .navigationTitle("Add Device")
         .navigationBarTitleDisplayMode(.inline)
@@ -86,6 +87,7 @@ public struct AddNodeView: View {
                         Text(item.rawValue)
                             .font(.system(size: 13, weight: .bold))
                     }
+                    .uiAction("switchEnrollmentMode")
                     .foregroundStyle(isSelected ? .black : Color(white: 0.78))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
@@ -98,6 +100,7 @@ public struct AddNodeView: View {
         .padding(4)
         .background(TuesdayTheme.cardSurface)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .uiSlot("enrollment-mode-tabs", state: "mode=\(mode.rawValue)")
     }
 
     // MARK: - AI Photo Wizard Content
@@ -133,9 +136,26 @@ public struct AddNodeView: View {
 
                 Spacer()
 
-                Text("GCP Gemini 3.8 Flash")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color(white: 0.6))
+                HStack(spacing: 4) {
+                    ForEach(AiProviderType.allCases) { provider in
+                        let isSelected = repository.hacsConfig.aiProvider == provider
+                        Button {
+                            var updated = repository.hacsConfig
+                            updated.aiProvider = provider
+                            repository.updateHacsConfig(updated)
+                        } label: {
+                            Text(provider.shortLabel)
+                                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                .foregroundStyle(isSelected ? .black : Color(white: 0.7))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(isSelected ? TuesdayTheme.hacsCyan : TuesdayTheme.elevatedPill)
+                                .clipShape(RoundedRectangle(cornerRadius: 5))
+                        }
+                        .buttonStyle(.plain)
+                        .uiAction("switchAiProvider")
+                    }
+                }
             }
 
             Text("Inventory Device by Photo")
@@ -148,6 +168,7 @@ public struct AddNodeView: View {
                 .foregroundStyle(Color(white: 0.68))
                 .lineSpacing(2)
         }
+        .uiSlot("wizard-step-header", state: "step=\(capturedImages.isEmpty ? 1 : 2)")
     }
 
     private var photoCaptureCard: some View {
@@ -195,6 +216,7 @@ public struct AddNodeView: View {
                         Text(capturedImages.isEmpty ? "Take Device Photo" : "Snap Sticker / Label")
                             .font(.system(size: 13, weight: .bold))
                     }
+                    .uiAction("captureHardwarePhoto")
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -274,6 +296,7 @@ public struct AddNodeView: View {
                 .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .uiSlot("photo-capture-card", state: "photos=\(capturedImages.count)")
     }
 
     private var analyzingProgressCard: some View {
@@ -305,6 +328,7 @@ public struct AddNodeView: View {
                 Image(systemName: "sparkles")
                     .foregroundStyle(TuesdayTheme.hacsCyan)
                     .font(.system(size: 16, weight: .bold))
+                    .uiComponent("AiDiscoveryPanel")
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -329,6 +353,50 @@ public struct AddNodeView: View {
                         .accessibilityIdentifier("wizard_narrowing_question_label")
                 }
             }
+
+            // Golden Corpus Bar
+            HStack(spacing: 8) {
+                Text("📦 Golden Corpus • \(repository.savedCorpusCount) Saved")
+                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(TuesdayTheme.healthyGreen)
+                Spacer()
+                Button {
+                    capturedImages.removeAll()
+                    discoveryResult = nil
+                    accumulatedIdentifiers = ExtractedDeviceIdentifiers()
+                } label: {
+                    Text("✕ Discard")
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color(white: 0.7))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(TuesdayTheme.elevatedPill)
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
+                .buttonStyle(.plain)
+                .uiAction("discardCaptureSession")
+
+                Button {
+                    repository.recordCorpusAndScanNext()
+                    capturedImages.removeAll()
+                    discoveryResult = nil
+                    accumulatedIdentifiers = ExtractedDeviceIdentifiers()
+                } label: {
+                    Text("📸 Save & Scan Next")
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(TuesdayTheme.healthyGreen)
+                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                }
+                .buttonStyle(.plain)
+                .uiAction("scanNextDevice")
+            }
+            .padding(8)
+            .background(TuesdayTheme.background)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .uiSlot("golden-corpus-bar", state: "saved=\(repository.savedCorpusCount)")
 
             if !accumulatedIdentifiers.nonEmptyPairs.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
@@ -407,6 +475,7 @@ public struct AddNodeView: View {
                     } label: {
                         Text("Refine")
                             .font(.system(size: 13, weight: .bold))
+                            .uiAction("refineDiscoveryClue")
                             .foregroundStyle(.black)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 11)
@@ -417,6 +486,7 @@ public struct AddNodeView: View {
                     .accessibilityIdentifier("wizard_refine_clue_button")
                 }
             }
+            .uiSlot("clue-refinement-form")
         }
         .padding(16)
         .background(TuesdayTheme.cardSurface)
@@ -425,6 +495,7 @@ public struct AddNodeView: View {
                 .stroke(TuesdayTheme.hacsCyan.opacity(0.35), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .uiSlot("ai-discovery-panel", state: "candidates=\(result.candidates.count)")
     }
 
     private func candidateMatchesSection(result: GeminiDiscoveryTurnResult) -> some View {
@@ -474,6 +545,7 @@ public struct AddNodeView: View {
                             Text("Confirm Match & Add to Inventory")
                                 .font(.system(size: 13, weight: .bold))
                         }
+                        .uiAction("enrollConfirmedDevice")
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 11)
@@ -490,6 +562,7 @@ public struct AddNodeView: View {
                         .stroke(index == 0 ? badgeColor.opacity(0.45) : Color.white.opacity(0.10), lineWidth: 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .uiSlot("candidate-match-card", state: "model=\(candidate.modelNumber);confidence=\(candidate.confidencePercent)")
             }
         }
     }
@@ -524,6 +597,7 @@ public struct AddNodeView: View {
                     Text("Add as Incomplete / Best-Guess Device")
                         .font(.system(size: 13, weight: .bold))
                 }
+                .uiAction("enrollGuessedDevice")
                 .foregroundStyle(TuesdayTheme.warningAmber)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -540,6 +614,7 @@ public struct AddNodeView: View {
         .padding(14)
         .background(TuesdayTheme.cardSurface)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .uiSlot("incomplete-guess-fallback-card")
     }
 
     private func handleCapturedPhoto(_ image: UIImage) {

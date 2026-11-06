@@ -1,0 +1,136 @@
+name: "Packablock Mobile CI/CD/CA (iOS + pkablk + pkaput + TestFlight Internal)"
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify-and-attest:
+    name: "Verify iOS SwiftUI Contract, Ledger, Attest SBOM & Publish DNSLink"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify SwiftUI v1.2 Contract, Tokens & StoreKit 2 Pro Tier 1 Surface
+        run: |
+          test -f project.yml
+          test -f TuesdayApp/Views/Components/UiSyncContract.swift
+          test -f TuesdayApp/Views/Components/ThemeTokens.swift
+          test -f TuesdayApp/Views/AccountAndReferenceViews.swift
+          test -f TuesdayApp/Views/TimelineAndCheckupViews.swift
+          grep -q 'UNASSIGNED("unassigned"' TuesdayApp/Models/BulletinModels.swift
+          grep -q 'Z0_CORE' TuesdayApp/Models/BulletinModels.swift
+          grep -q 'upgradeToProTier1' TuesdayApp/Services/MockHacsTuesdayService.swift
+          echo "✅ SwiftUI v1.2 source & taxonomy contract verified."
+
+      - name: Setup Bun & Packablock Client (pkablk)
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Verify Packablock Supply Chain Ledger (packablock.yaml)
+        run: |
+          bun install -g github:Packablock/packablock-client
+          pkablk check packablock.yaml
+          pkablk audit packablock.yaml --visualize
+
+      - name: Set up Go 1.24 (for pkaput Continuous Attestation Engine)
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: false
+
+      - name: Run pkaput Squash-Release, CycloneDX SBOM & DNSLink Attestation (examples.packablock.com)
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          PKABLK_REGISTRY_URL: ${{ secrets.PKABLK_REGISTRY_URL }}
+          PKABLK_API_KEY: ${{ secrets.PKABLK_API_KEY }}
+        run: |
+          git clone --depth 1 https://github.com/aaronbronow/continuous-attestation.git /tmp/ca
+          go build -C /tmp/ca -o /tmp/ca/bin/pkaput ./cmd/pkaput
+          mkdir -p test/coredns test/fixtures
+          cp /tmp/ca/test/coredns/db.layers.example.internal test/coredns/db.layers.example.internal
+          cp /tmp/ca/test/fixtures/packablock.policy.yaml test/fixtures/packablock.policy.yaml
+          cp /tmp/ca/test/fixtures/ed25519.key.json test/fixtures/ed25519.key.json
+
+          # 1. Record release step & verify Packablock chain via pkaput + official pkablk CLI
+          /tmp/ca/bin/pkaput commit-step \
+            --chain packablock.yaml \
+            --pkg "TuesdayApp-SwiftUI" \
+            --from "1.1.0" \
+            --to "1.2.0" \
+            --reason "M1 iOS Brand v1.2 & StoreKit 2 Pro Tier 1 release"
+          pkablk check packablock.yaml
+          /tmp/ca/bin/pkaput check packablock.yaml
+
+          # 2. Squash OCI layers, generate CycloneDX v1.5 SBOM + DSSEv1 + CARv1 bundle
+          /tmp/ca/bin/pkaput squash-release \
+            --chain packablock.yaml \
+            --layers 3 \
+            --output-tag "tuesday-ios:${GITHUB_SHA::7}" \
+            --storage local
+
+          # 3. Publish RFC 4648 Base32 DNSLink TXT record to examples.packablock.com & verify 3 Zero-Trust Gates
+          /tmp/ca/bin/pkaput publish-dns --domain "examples.packablock.com" --provider coredns
+          if [ -n "$CF_API_TOKEN" ] && [ -n "$CF_ZONE_ID" ]; then
+            /tmp/ca/bin/pkaput publish-dns --domain "examples.packablock.com" --provider cloudflare
+          fi
+          /tmp/ca/bin/pkaput preflight-gate \
+            --file bin/layers/flattened.tar.gz \
+            --domain "examples.packablock.com" \
+            --policy test/fixtures/packablock.policy.yaml \
+            --query-pkg "TuesdayApp-SwiftUI" \
+            --query-version "1.2.0"
+
+      - name: Upload Continuous Attestation Artifacts (CycloneDX SBOM, DSSEv1, CARv1)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuesday-ios-ca-bundle-${{ github.sha }}
+          path: |
+            packablock.yaml
+            bin/release-bundle.car
+            bin/layers/flattened.tar.gz
+            bin/ipfs-cache/
+
+  deploy-testflight-internal:
+    name: "Gate 1A: Archive & Upload IPA to App Store Connect (TestFlight Internal)"
+    needs: verify-and-attest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_TESTFLIGHT_DEPLOY == 'true'
+    runs-on: macos-15
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate Xcode Project via XcodeGen & Archive IPA
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -project TuesdayApp.xcodeproj \
+            -scheme TuesdayApp \
+            -configuration Release \
+            -archivePath build/TuesdayApp.xcarchive \
+            archive
+
+      - name: Upload Archive to TestFlight Internal via App Store Connect API
+        env:
+          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$API_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8
+          xcrun altool --upload-app \
+            --type ios \
+            --file build/TuesdayApp.ipa \
+            --apiKey "$API_KEY_ID" \
+            --apiIssuer "$ISSUER_ID"

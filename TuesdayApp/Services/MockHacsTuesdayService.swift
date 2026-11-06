@@ -9,9 +9,23 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
     @Published public var mutedFeedSlugs: Set<String> = ["lg-esphome-iot"]
     @Published public var includeOkDevices: Bool = false
     @Published public var selectedZoneFilter: TrustZone? = nil
+    @Published public var selectedPortStateFilter: PortLifecycleState? = nil
+    @Published public var userNetworks: [NetworkSite] = MockHacsTuesdayService.defaultNetworks()
+    @Published public var activeNetworkId: String = "skyway"
+    @Published public var activeDeviceCount: Int = 12
+    @Published public var isDeveloperMode: Bool = false
+    @Published public var savedCorpusCount: Int = 2
     @Published public var hacsConfig: HacsConnectionConfig
     @Published public private(set) var isSyncing: Bool = false
     @Published public var entitlementTier: String = "free"
+
+    public static func defaultNetworks() -> [NetworkSite] {
+        return [
+            NetworkSite(id: "skyway", name: "Skyway Lab", devicesCount: 12, role: "Primary Homelab"),
+            NetworkSite(id: "main_home", name: "Main Home Wi-Fi", devicesCount: 7, role: "Residential"),
+            NetworkSite(id: "orcas", name: "Orcas Island Cabin", devicesCount: 3, role: "Remote Site")
+        ]
+    }
 
     private let nodesCacheKey = "tuesday_mock_nodes_v1"
     private let configCacheKey = "tuesday_mock_hacs_config_v1"
@@ -54,6 +68,62 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
 
     public func toggleIncludeOkDevices() {
         includeOkDevices.toggle()
+    }
+
+    public func setZoneFilter(_ zone: TrustZone?) {
+        selectedZoneFilter = zone
+    }
+
+    public func setPortStateFilter(_ state: PortLifecycleState?) {
+        selectedPortStateFilter = state
+    }
+
+    public func selectNetwork(_ networkId: String) {
+        guard let found = userNetworks.first(where: { $0.id == networkId }) else { return }
+        activeNetworkId = found.id
+        activeDeviceCount = found.devicesCount
+    }
+
+    public func createNetwork(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let newId = "net-\(Int(Date().timeIntervalSince1970))"
+        let site = NetworkSite(id: newId, name: trimmed, devicesCount: 0, role: "New Location")
+        userNetworks.append(site)
+        activeNetworkId = newId
+        activeDeviceCount = 0
+    }
+
+    public func renameActiveNetwork(_ newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        userNetworks = userNetworks.map { net in
+            guard net.id == activeNetworkId else { return net }
+            var copy = net
+            copy.name = trimmed
+            return copy
+        }
+    }
+
+    public func toggleDeveloperMode(_ enabled: Bool) {
+        isDeveloperMode = enabled
+    }
+
+    public func setSimulatedDeviceCount(_ count: Int) {
+        let clamped = max(0, min(12, count))
+        activeDeviceCount = clamped
+        userNetworks = userNetworks.map { net in
+            guard net.id == activeNetworkId else { return net }
+            var copy = net
+            copy.devicesCount = clamped
+            return copy
+        }
+    }
+
+    public func purgeGoldenCorpus() -> Int {
+        let removed = savedCorpusCount
+        savedCorpusCount = 0
+        return removed
     }
 
     public func toggleMuteFeed(_ slug: String) {
@@ -302,6 +372,7 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
             s6Remediation: isGuessed ? "Confirm exact model on Bulletins tab." : "No action required."
         )
         rackDevices.insert(newRackDev, at: 0)
+        activeDeviceCount = min(128, activeDeviceCount + 1)
         syncInventoryCreateAsync(device: newRackDev, metadata: discoveredMetadata)
 
         hacsConfig.lastSyncedAt = now
@@ -432,6 +503,12 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
         self.mutedFeedSlugs = ["lg-esphome-iot"]
         self.includeOkDevices = false
         self.selectedZoneFilter = nil
+        self.selectedPortStateFilter = nil
+        self.userNetworks = Self.defaultNetworks()
+        self.activeNetworkId = "skyway"
+        self.activeDeviceCount = 12
+        self.isDeveloperMode = false
+        self.savedCorpusCount = 2
         persistState()
     }
 

@@ -135,6 +135,7 @@ public struct HacsPairingSheet: View {
                         } label: {
                             Text("Save HACS Integration Settings")
                                 .font(.system(size: 16, weight: .bold))
+                                .uiAction("saveHacsConfig")
                                 .foregroundStyle(.black)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
@@ -177,6 +178,7 @@ public struct HacsPairingSheet: View {
                         } label: {
                             Text("Reset Demo Fleet Data")
                                 .font(.system(size: 13, weight: .semibold))
+                                .uiAction("resetDemoData")
                                 .foregroundStyle(Color(white: 0.72))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
@@ -185,6 +187,7 @@ public struct HacsPairingSheet: View {
                     }
                     .padding(20)
                 }
+                .uiComponent("HacsSettingsSheet", state: "connected=\(isConnected)")
             }
             .navigationTitle("HACS Integration")
             .navigationBarTitleDisplayMode(.inline)
@@ -236,6 +239,7 @@ public struct HacsPairingSheet: View {
                 .stroke(TuesdayTheme.hacsCyan.opacity(0.35), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .uiSlot("hacs-bridge-header", state: "connected=\(isConnected)")
     }
 
     private func formField(
