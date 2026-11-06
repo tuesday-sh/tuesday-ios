@@ -1,0 +1,12 @@
+lockfiles:
+  project.yml:
+    packages: []
+---
+$yaml-chain-meta:
+  version: 1.0.0
+  block_index: 0
+  timestamp: 2026-11-06T19:32:16.208Z
+  hashing_strategy: raw
+  data_hash: 5d5d2e009cb952347c80707525ced2ae82bcc8997b593c63ba286f500749898f
+  prev_meta_hash: "0000000000000000000000000000000000000000000000000000000000000000"
+  meta_hash: 86b5e06d1a6a90cfc7dff65bae54a0d170cc72f9db5865cbfaefbdff0ac41047

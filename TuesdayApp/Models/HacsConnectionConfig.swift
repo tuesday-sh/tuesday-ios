@@ -12,6 +12,7 @@ public struct HacsConnectionConfig: Codable, Equatable {
     public var lastSyncedAt: Date
     public var geminiApiKey: String
     public var geminiModel: String
+    public var tuesdayApiBaseUrl: String
 
     public init(
         instanceName: String = "Home Assistant (HACS)",
@@ -24,7 +25,8 @@ public struct HacsConnectionConfig: Codable, Equatable {
         isConnected: Bool = true,
         lastSyncedAt: Date = Date(),
         geminiApiKey: String = "",
-        geminiModel: String = "gemini-3.8-flash"
+        geminiModel: String = "gemini-3.8-flash",
+        tuesdayApiBaseUrl: String = "http://100.108.40.3:3000"
     ) {
         self.instanceName = instanceName
         self.baseUrl = baseUrl
@@ -37,6 +39,7 @@ public struct HacsConnectionConfig: Codable, Equatable {
         self.lastSyncedAt = lastSyncedAt
         self.geminiApiKey = geminiApiKey
         self.geminiModel = geminiModel
+        self.tuesdayApiBaseUrl = tuesdayApiBaseUrl
     }
 
     enum CodingKeys: String, CodingKey {
@@ -51,6 +54,7 @@ public struct HacsConnectionConfig: Codable, Equatable {
         case lastSyncedAt
         case geminiApiKey
         case geminiModel
+        case tuesdayApiBaseUrl
     }
 
     public init(from decoder: Decoder) throws {
@@ -66,5 +70,6 @@ public struct HacsConnectionConfig: Codable, Equatable {
         self.lastSyncedAt = try container.decodeIfPresent(Date.self, forKey: .lastSyncedAt) ?? Date()
         self.geminiApiKey = try container.decodeIfPresent(String.self, forKey: .geminiApiKey) ?? ""
         self.geminiModel = try container.decodeIfPresent(String.self, forKey: .geminiModel) ?? "gemini-3.8-flash"
+        self.tuesdayApiBaseUrl = try container.decodeIfPresent(String.self, forKey: .tuesdayApiBaseUrl) ?? "http://100.108.40.3:3000"
     }
 }

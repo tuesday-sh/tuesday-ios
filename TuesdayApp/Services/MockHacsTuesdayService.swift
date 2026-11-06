@@ -11,13 +11,25 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
     @Published public var selectedZoneFilter: TrustZone? = nil
     @Published public var hacsConfig: HacsConnectionConfig
     @Published public private(set) var isSyncing: Bool = false
+    @Published public var entitlementTier: String = "free"
 
     private let nodesCacheKey = "tuesday_mock_nodes_v1"
     private let configCacheKey = "tuesday_mock_hacs_config_v1"
+    private let clientDeviceIdKey = "tuesday_ios_client_device_id_v1"
+    private let entitlementTierKey = "tuesday_ios_entitlement_tier_v1"
     private let defaults: UserDefaults
+    private let clientDeviceId: String
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        if let existingId = defaults.string(forKey: clientDeviceIdKey), !existingId.isEmpty {
+            self.clientDeviceId = existingId
+        } else {
+            let generated = "ios-" + String(UUID().uuidString.prefix(8)).lowercased()
+            defaults.set(generated, forKey: clientDeviceIdKey)
+            self.clientDeviceId = generated
+        }
+        self.entitlementTier = defaults.string(forKey: entitlementTierKey) ?? "free"
 
         if let data = defaults.data(forKey: configCacheKey),
            let decoded = try? JSONDecoder().decode(HacsConnectionConfig.self, from: data) {
@@ -53,8 +65,10 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
     }
 
     public func confirmProvisionalDeviceModel(_ chosenModel: String) {
+        var targetId: String?
         rackDevices = rackDevices.map { dev in
             guard dev.confidenceTier == .provisionalGuess else { return dev }
+            targetId = dev.id
             var copy = dev
             copy.confidenceTier = .confirmed
             copy.portState = .cveKev
@@ -67,17 +81,31 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
             copy.stnHeadline = "Confirmed (\(chosenModel)): Update thermostat firmware to 4.8.7.220"
             return copy
         }
+        if let devId = targetId {
+            syncInventoryPatchAsync(deviceId: devId, payload: ["confirmed_candidate_model": chosenModel])
+        }
     }
 
     public func rejectProvisionalDeviceModel() {
+        var targetId: String?
         rackDevices = rackDevices.map { dev in
             guard dev.confidenceTier == .provisionalGuess else { return dev }
+            targetId = dev.id
             var copy = dev
             copy.confidenceTier = .opaqueUnknown
             copy.excludedPurlPrefixes.append("pkg:generic/ecobee/*")
             copy.proHeadline = "Ecobee Family Excluded • Use Plug & Tag Camera to Identify Exact Model"
             copy.stnHeadline = "Not an Ecobee • Snap a photo of the thermostat label to identify"
             return copy
+        }
+        if let devId = targetId {
+            syncInventoryPatchAsync(
+                deviceId: devId,
+                payload: [
+                    "confidence_tier": "opaque_unknown",
+                    "add_excluded_purl_prefix": "pkg:generic/ecobee/*"
+                ]
+            )
         }
     }
 
@@ -245,6 +273,37 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
             referenceDate: now
         )
         nodes.insert(newNode, at: 0)
+        let nextPort = (rackDevices.map(\.portIndex).max() ?? 12) + 1
+        let isGuessed = (inventoryState == .incompleteOrGuessed)
+        let newRackDev = RackPortDevice(
+            id: newNode.id,
+            portIndex: min(nextPort, 128),
+            portState: isGuessed ? .guessed : .ok,
+            trustZone: .z3Iot,
+            assetTag: "STN-NEW-\(nextPort)",
+            shortLabel: String(hostname.prefix(12)),
+            name: hostname,
+            roomLocation: "Newly Enrolled",
+            version: isGuessed ? "unverified" : "2026.10.1",
+            targetVersion: "2026.10.1",
+            lifecycleTier: isGuessed ? "Provisional Guess" : "Active",
+            purls: ["pkg:generic/enrolled/\(hostname.lowercased())"],
+            confidenceTier: isGuessed ? .provisionalGuess : .confirmed,
+            candidateModels: isGuessed ? [discoveredMetadata?.modelNumber ?? "Generic IoT Node"] : [],
+            excludedPurlPrefixes: [],
+            proHeadline: osDetails,
+            stnHeadline: osDetails,
+            s0Identity: "STN-NEW-\(nextPort) • Newly Enrolled • Z3 IoT",
+            s1Hardware: discoveredMetadata?.manufacturer ?? hostname,
+            s2Software: osDetails,
+            s3Lifecycle: isGuessed ? "Provisional Guess" : "Active Support",
+            s4Advisories: "0 Active CVEs",
+            s5Topology: "Z3 IoT",
+            s6Remediation: isGuessed ? "Confirm exact model on Bulletins tab." : "No action required."
+        )
+        rackDevices.insert(newRackDev, at: 0)
+        syncInventoryCreateAsync(device: newRackDev, metadata: discoveredMetadata)
+
         hacsConfig.lastSyncedAt = now
         isSyncing = false
         persistState()
@@ -286,6 +345,78 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
             rackDevices[rackIndex].version = rackDevices[rackIndex].targetVersion ?? rackDevices[rackIndex].version
             rackDevices[rackIndex].proHeadline = "Patched & Verified OK • 0 Active Advisories"
             rackDevices[rackIndex].stnHeadline = "Everything OK • Latest software installed"
+            syncInventoryPatchAsync(deviceId: nodeId, payload: ["mark_remediated": true])
+        }
+    }
+
+    public func upgradeToProTier1(productId: String = "sh.tuesday.pro.tier1.annual") {
+        entitlementTier = "pro_tier_1"
+        defaults.set("pro_tier_1", forKey: entitlementTierKey)
+        let base = hacsConfig.tuesdayApiBaseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let devId = clientDeviceId
+        Task.detached {
+            guard let url = URL(string: "\(base)/api/v1/billing/verify") else { return }
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.timeoutInterval = 10.0
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(devId, forHTTPHeaderField: "X-Tuesday-Device-ID")
+            req.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
+            let body: [String: Any] = [
+                "platform": "ios",
+                "product_id": productId,
+                "transaction_jws": "sk2_jws_\(UUID().uuidString)"
+            ]
+            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: req)
+        }
+    }
+
+    private func syncInventoryCreateAsync(device: RackPortDevice, metadata: DiscoveredDeviceMetadata?) {
+        let base = hacsConfig.tuesdayApiBaseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let devId = clientDeviceId
+        let body: [String: Any] = [
+            "id": device.id,
+            "port_index": device.portIndex,
+            "trust_zone": device.trustZone.rawValue,
+            "port_state": device.portState.rawValue,
+            "confidence_tier": device.confidenceTier.rawValue,
+            "asset_tag": device.assetTag,
+            "short_label": device.shortLabel,
+            "name": device.name,
+            "vendor": metadata?.manufacturer ?? "Generic",
+            "model_number": metadata?.modelNumber ?? device.shortLabel,
+            "room_location": device.roomLocation,
+            "version": device.version,
+            "target_version": device.targetVersion ?? device.version,
+            "purls": device.purls
+        ]
+        Task.detached {
+            guard let url = URL(string: "\(base)/api/v1/inventory") else { return }
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.timeoutInterval = 10.0
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(devId, forHTTPHeaderField: "X-Tuesday-Device-ID")
+            req.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            _ = try? await URLSession.shared.data(for: req)
+        }
+    }
+
+    private func syncInventoryPatchAsync(deviceId: String, payload: [String: Any]) {
+        let base = hacsConfig.tuesdayApiBaseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let devId = clientDeviceId
+        Task.detached {
+            guard let url = URL(string: "\(base)/api/v1/inventory/\(deviceId)") else { return }
+            var req = URLRequest(url: url)
+            req.httpMethod = "PATCH"
+            req.timeoutInterval = 10.0
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(devId, forHTTPHeaderField: "X-Tuesday-Device-ID")
+            req.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
+            req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+            _ = try? await URLSession.shared.data(for: req)
         }
     }
 

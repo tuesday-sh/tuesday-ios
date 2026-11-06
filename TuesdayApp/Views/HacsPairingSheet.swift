@@ -143,6 +143,33 @@ public struct HacsPairingSheet: View {
                         }
                         .accessibilityIdentifier("hacs_save_button")
 
+                        if repository.entitlementTier != "pro_tier_1" {
+                            Button {
+                                repository.upgradeToProTier1()
+                            } label: {
+                                Text("⚡ Upgrade to Tuesday Pro Tier 1 (StoreKit 2 • <=128 Ports)")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 13)
+                                    .background(TuesdayTheme.hacsCyan)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                            .accessibilityIdentifier("upgrade_pro_tier_1_button")
+                        } else {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundStyle(TuesdayTheme.healthyGreen)
+                                Text("Pro Tier 1 Entitlement Active (<=128 Ports)")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(TuesdayTheme.healthyGreen)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(TuesdayTheme.healthyGreen.opacity(0.14))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+
                         Button {
                             repository.resetDemoData()
                             networkMonitor.simulateWifiDisconnected = false
