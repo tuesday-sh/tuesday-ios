@@ -10,10 +10,10 @@ public enum MainNavigationTab: String, CaseIterable {
     public func label(for flavor: AppBrandFlavor) -> String {
         let isStn = (flavor == .sureThingHome)
         switch self {
-        case .status: return isStn ? "Home" : "Status"
+        case .status: return isStn ? "Home Grid" : "My Net"
         case .bulletins: return "Bulletins"
         case .timeline: return isStn ? "Lifespan" : "Timeline"
-        case .checkup: return isStn ? "Checkup" : "Q4 Tune-Up"
+        case .checkup: return "Check-Up"
         case .account: return "Account"
         }
     }
@@ -39,6 +39,8 @@ public struct HomeView: View {
     @State private var showAddNodeView: Bool = false
     @State private var showNetworkPicker: Bool = false
     @State private var showReferenceGuide: Bool = false
+    @State private var bulletinDismissed: Bool = false
+    @State private var bulletinSnoozed: Bool = false
 
     public init(
         repository: MockHacsTuesdayService,
@@ -100,19 +102,23 @@ public struct HomeView: View {
                                 payload: bulletinsPayload,
                                 onToggleMuteFeed: { repository.toggleMuteFeed($0) },
                                 onConfirmModel: { repository.confirmProvisionalDeviceModel($0) },
-                                onRejectModel: { repository.rejectProvisionalDeviceModel() }
+                                onRejectModel: { repository.rejectProvisionalDeviceModel() },
+                                onOpenFeedsSettings: { activeTab = .account }
                             )
                         case .timeline:
                             SwimlaneTimelineView(
                                 flavor: repository.brandFlavor,
                                 palette: palette,
-                                devices: visibleDevices
+                                devices: visibleDevices,
+                                onOpenReferenceGuide: { showReferenceGuide = true },
+                                onInspectDevice: { inspectedDevice = $0 }
                             )
                         case .checkup:
                             SeasonalCheckupView(
                                 flavor: repository.brandFlavor,
                                 palette: palette,
-                                devices: visibleDevices
+                                devices: visibleDevices,
+                                onOpenReferenceGuide: { showReferenceGuide = true }
                             )
                         case .account:
                             AccountSettingsView(
@@ -123,6 +129,8 @@ public struct HomeView: View {
                                 isDeveloperMode: repository.isDeveloperMode,
                                 entitlementTier: repository.entitlementTier,
                                 savedCorpusCount: repository.savedCorpusCount,
+                                matchedFeeds: bulletinsPayload.matchedFeeds,
+                                onToggleMuteFeed: { repository.toggleMuteFeed($0) },
                                 onUpgradeProTier1: { repository.upgradeToProTier1() },
                                 onSaveNetworkName: { repository.renameActiveNetwork($0) },
                                 onToggleDeveloperMode: { repository.toggleDeveloperMode($0) },
@@ -294,6 +302,55 @@ public struct HomeView: View {
                     onDismiss: { showReferenceGuide = false }
                 )
             }
+            .onOpenURL { url in
+                handleDeepLink(url)
+            }
+        }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme == "tuesday" else { return }
+        let host = url.host?.lowercased() ?? ""
+        let pathComponents = url.pathComponents.filter { $0 != "/" && !$0.isEmpty }
+        let primary = host.isEmpty ? (pathComponents.first?.lowercased() ?? "") : host
+
+        switch primary {
+        case "status", "fleet", "home", "grid":
+            activeTab = .status
+        case "bulletins", "inbox":
+            activeTab = .bulletins
+        case "timeline", "lifespan", "swimlane":
+            activeTab = .timeline
+        case "checkup", "audit":
+            activeTab = .checkup
+        case "account", "settings":
+            activeTab = .account
+        case "add-device", "add_device", "intake", "wizard":
+            showAddNodeView = true
+        case "hacs", "hacs-settings":
+            showHacsSheet = true
+        case "network-picker", "networks", "sites":
+            showNetworkPicker = true
+        case "reference-guide", "reference", "standards":
+            showReferenceGuide = true
+        case "toggle-flavor", "flavor":
+            repository.toggleBrandFlavor()
+        case "reset-demo", "reset":
+            bulletinDismissed = false
+            bulletinSnoozed = false
+            repository.setSimulatedDeviceCount(0)
+            activeTab = .status
+        case "seed", "seed-forest", "demo":
+            let count = pathComponents.first.flatMap { Int($0) } ?? 12
+            repository.setSimulatedDeviceCount(count)
+            activeTab = .status
+        case "device":
+            let deviceId = pathComponents.first ?? ""
+            if let dev = repository.rackDevices.first(where: { $0.id.caseInsensitiveCompare(deviceId) == .orderedSame }) {
+                inspectedDevice = dev
+            }
+        default:
+            break
         }
     }
 
@@ -328,9 +385,12 @@ public struct HomeView: View {
                     .frame(height: 1)
                     .accessibilityIdentifier("devices_section_header")
 
-                if scaleTier == .DAY_ZERO {
-                    welcomeCard(palette: palette)
-                } else {
+                // Always show WelcomeCard / Notched Readiness Bulletin at top of Home view if not dismissed
+                if !bulletinDismissed || scaleTier == .DAY_ZERO {
+                    welcomeCard(palette: palette, scaleTier: scaleTier, activeCount: visibleDevices.count)
+                }
+
+                if scaleTier != .DAY_ZERO {
                     // 1. Inventory Card (8-Port Category Strip + 16x8 LED Matrix + Botanical Overlay)
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -478,13 +538,7 @@ public struct HomeView: View {
                             .uiSlot("zone-filter-strip")
                         }
                     }
-                    .padding(10)
-                    .background(palette.surface)
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(palette.border, lineWidth: 1)
-                    )
+                    .padding(.vertical, 4)
                     .uiComponent("InventoryMatrixCard", state: "tier=\(scaleTier.id);active=\(visibleDevices.count)")
 
                     // 1B. Tracked Hardware Profiles Strip (Forest Tier >= 8 devices on STN-Pro)
@@ -585,114 +639,93 @@ public struct HomeView: View {
                         }
                     }
 
-                    // 3. Device Rows
+                    // 3. Device Rows (Unboxed with 1pt hairline dividers, no STN-... asset tags)
                     let devicesToShow = !scaleTier.showFilterChips ? visibleDevices : actionDevices
                     ForEach(devicesToShow) { dev in
                         let stateColor = TuesdayTheme.ledColor(for: dev.portState, isStn: isStn)
                         Button(action: { inspectedDevice = dev }) {
-                            if isStn {
-                                HStack(spacing: 0) {
-                                    Rectangle()
-                                        .fill(stateColor)
-                                        .frame(width: 5)
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        HStack {
-                                            Text(dev.name)
-                                                .font(.system(size: 13.5, weight: .heavy))
+                            VStack(spacing: 0) {
+                                Divider().background(palette.border)
+                                if isStn {
+                                    HStack(spacing: 0) {
+                                        Rectangle()
+                                            .fill(stateColor)
+                                            .frame(width: 4)
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            HStack {
+                                                Text(dev.name)
+                                                    .font(.system(size: 13.5, weight: .heavy))
+                                                    .foregroundColor(palette.textPrimary)
+                                                Spacer()
+                                                Text(dev.portState.stnLabel)
+                                                    .font(.system(size: 9.5, weight: .bold))
+                                                    .foregroundColor(stateColor)
+                                                    .padding(.horizontal, 7)
+                                                    .padding(.vertical, 2)
+                                                    .background(stateColor.opacity(0.14))
+                                                    .cornerRadius(6)
+                                            }
+                                            HStack(spacing: 6) {
+                                                Text("📍 \(dev.roomLocation)")
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundColor(palette.textMuted)
+                                                Text("•")
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(palette.border)
+                                                Text(dev.trustZone.stnLabel)
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundColor(palette.accent)
+                                                Text("•")
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(palette.border)
+                                                Text(String(format: "Port #%02d", dev.portIndex))
+                                                    .font(.system(size: 10, design: .monospaced))
+                                                    .foregroundColor(palette.textMuted)
+                                            }
+                                            Text(dev.stnHeadline)
+                                                .font(.system(size: 11))
                                                 .foregroundColor(palette.textPrimary)
-                                            Spacer()
-                                            Text(dev.portState.stnLabel)
-                                                .font(.system(size: 9.5, weight: .bold))
+                                                .multilineTextAlignment(.leading)
+                                        }
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 10)
+                                    }
+                                } else {
+                                    HStack(spacing: 10) {
+                                        VStack(spacing: 1) {
+                                            Text(String(format: "#%02d", dev.portIndex))
+                                                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
                                                 .foregroundColor(stateColor)
-                                                .padding(.horizontal, 7)
-                                                .padding(.vertical, 2)
-                                                .background(stateColor.opacity(0.14))
-                                                .cornerRadius(6)
-                                        }
-                                        HStack(spacing: 6) {
-                                            Text("📍 \(dev.roomLocation)")
-                                                .font(.system(size: 10, weight: .semibold))
-                                                .foregroundColor(palette.textMuted)
-                                            Text("•")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(palette.border)
-                                            Text(dev.trustZone.stnLabel)
-                                                .font(.system(size: 10, weight: .semibold))
-                                                .foregroundColor(palette.accent)
-                                            Text("•")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(palette.border)
-                                            Text(String(format: "Port #%02d", dev.portIndex))
-                                                .font(.system(size: 10, design: .monospaced))
+                                            Text(dev.category.code)
+                                                .font(.system(size: 8, weight: .bold, design: .monospaced))
                                                 .foregroundColor(palette.textMuted)
                                         }
-                                        Text(dev.stnHeadline)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(palette.textPrimary)
-                                            .multilineTextAlignment(.leading)
-                                    }
-                                    .padding(12)
-                                }
-                                .background(palette.surface)
-                                .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(palette.border, lineWidth: 1)
-                                )
-                            } else {
-                                HStack(spacing: 10) {
-                                    VStack(spacing: 1) {
-                                        Text(String(format: "#%02d", dev.portIndex))
-                                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                                            .foregroundColor(stateColor)
-                                        Text(dev.category.code)
-                                            .font(.system(size: 8, weight: .bold, design: .monospaced))
-                                            .foregroundColor(palette.textMuted)
-                                    }
-                                    .frame(width: 38)
-                                    .padding(.vertical, 4)
-                                    .background(stateColor.opacity(0.16))
-                                    .cornerRadius(6)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(stateColor, lineWidth: 1)
-                                    )
+                                        .frame(width: 38)
+                                        .padding(.vertical, 4)
+                                        .background(stateColor.opacity(0.16))
+                                        .cornerRadius(6)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(stateColor, lineWidth: 1)
+                                        )
 
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        HStack(spacing: 6) {
+                                        VStack(alignment: .leading, spacing: 3) {
                                             Text(dev.name)
                                                 .font(.system(size: 12, weight: .bold))
                                                 .foregroundColor(palette.textPrimary)
-                                            Text(dev.assetTag)
-                                                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                            Text("\(dev.trustZone.shortCode) • \(dev.roomLocation) • \(dev.version) • \(dev.lifecycleTier)")
+                                                .font(.system(size: 9, design: .monospaced))
                                                 .foregroundColor(palette.textMuted)
-                                                .padding(.horizontal, 5)
-                                                .padding(.vertical, 1)
-                                                .background(palette.elevated)
-                                                .cornerRadius(4)
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 4)
-                                                        .stroke(palette.border, lineWidth: 1)
-                                                )
+                                            Text(dev.proHeadline)
+                                                .font(.system(size: 10))
+                                                .foregroundColor(stateColor)
+                                                .multilineTextAlignment(.leading)
                                         }
-                                        Text("\(dev.trustZone.shortCode) • \(dev.roomLocation) • \(dev.version) • \(dev.lifecycleTier)")
-                                            .font(.system(size: 9, design: .monospaced))
-                                            .foregroundColor(palette.textMuted)
-                                        Text(dev.proHeadline)
-                                            .font(.system(size: 10))
-                                            .foregroundColor(stateColor)
-                                            .multilineTextAlignment(.leading)
+                                        Spacer()
+                                        RiskMeterView(portState: dev.portState, isStn: isStn)
                                     }
-                                    Spacer()
-                                    RiskMeterView(portState: dev.portState, isStn: isStn)
+                                    .padding(.vertical, 10)
                                 }
-                                .padding(10)
-                                .background(palette.surface)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(palette.border, lineWidth: 1)
-                                )
                             }
                         }
                         .buttonStyle(.plain)
@@ -725,81 +758,221 @@ public struct HomeView: View {
     }
 
     @ViewBuilder
-    private func welcomeCard(palette: BrandPalette) -> some View {
+    private func welcomeCard(palette: BrandPalette, scaleTier: InventoryScaleTier, activeCount: Int) -> some View {
         VStack(spacing: 10) {
-            Text("🏠")
-                .font(.system(size: 28))
-            Text("Welcome to your network inventory")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundColor(palette.textPrimary)
-                .multilineTextAlignment(.center)
-            Text("Start by adding 1 device — snap a photo of its label, or type its make & model.")
-                .font(.system(size: 11.5))
-                .foregroundColor(palette.textMuted)
-                .multilineTextAlignment(.center)
+            if !bulletinDismissed {
+                let step1Done = activeCount > 0
+                let step2Done = true
+                let step3Done = false
+                let allStepsDone = step1Done && step2Done && step3Done
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text("💡 Best place to start: Your Router")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(palette.accent)
-                Text("Your router is the front door to your home network and the single highest-impact device to keep updated.")
-                    .font(.system(size: 10))
-                    .foregroundColor(palette.textMuted)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(palette.accent.opacity(0.10))
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(palette.accent.opacity(0.28), lineWidth: 1)
-            )
-            .uiSlot("router-advisory-tip")
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("BULLETIN")
+                            .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(TuesdayTheme.ledCveRed)
+                            .cornerRadius(4)
+                        Text("Patch Tuesday • Readiness Checklist")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(palette.textPrimary)
+                        Spacer()
+                        Button(action: { activeTab = .bulletins }) {
+                            Text("RHYTHM ⓘ")
+                                .font(.system(size: 8.5, weight: .bold, design: .monospaced))
+                                .foregroundColor(palette.accent)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(palette.accent.opacity(0.14))
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
 
-            Button(action: { showAddNodeView = true }) {
-                Text("Add Your Router (Recommended) →")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(palette.accent)
-                    .cornerRadius(8)
-            }
-            .buttonStyle(.plain)
-            .uiAction("openAddDevice")
+                    Text("Patch Tuesday Readiness")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(palette.textPrimary)
 
-            Button(action: { showAddNodeView = true }) {
-                Text("+ Add Any Device")
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundColor(palette.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
-                    .background(palette.elevated)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(palette.border, lineWidth: 1)
+                    Text(
+                        bulletinSnoozed
+                            ? "💤 Reminder snoozed until tomorrow. Get your perimeter cataloged before vendors push critical firmware fixes."
+                            : "Get your perimeter cataloged before vendors push critical firmware and OS fixes."
                     )
-            }
-            .buttonStyle(.plain)
-            .uiAction("openAddDevice")
-
-            Button(action: { repository.setSimulatedDeviceCount(12) }) {
-                Text("or seed Forest fleet (12 nodes)")
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundColor(palette.textMuted)
+
+                    VStack(spacing: 4) {
+                        Divider().background(palette.border)
+                        HStack {
+                            Text("1. Inventory Your Network")
+                                .font(.system(size: 11.5, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                            Spacer()
+                            Button(action: { showAddNodeView = true }) {
+                                Text(step1Done ? "✓ Added" : "Add Device →")
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundColor(step1Done ? TuesdayTheme.ledOkGreen : palette.accent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 3)
+
+                        Divider().background(palette.border)
+                        HStack {
+                            Text("2. Enable Push Reminders")
+                                .font(.system(size: 11.5, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                            Spacer()
+                            Button(action: { activeTab = .account }) {
+                                Text(step2Done ? "✓ Active" : "Enable →")
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundColor(step2Done ? TuesdayTheme.ledOkGreen : palette.accent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 3)
+
+                        Divider().background(palette.border)
+                        HStack {
+                            Text("3. Subscribe to the Dispatch")
+                                .font(.system(size: 11.5, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                            Spacer()
+                            Button(action: {
+                                if let url = URL(string: "https://tuesday.sh/dispatch") {
+                                    UIApplication.shared.open(url)
+                                }
+                            }) {
+                                Text(step3Done ? "✓ Subscribed" : "Dispatch ↗")
+                                    .font(.system(size: 10.5, weight: .bold))
+                                    .foregroundColor(step3Done ? TuesdayTheme.ledOkGreen : palette.accent)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 3)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            bulletinDismissed = true
+                        }) {
+                            Text("✓ Mark Complete")
+                                .font(.system(size: 10.5, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(TuesdayTheme.ledOkGreen)
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            bulletinSnoozed = true
+                        }) {
+                            Text("Snooze 24h")
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .foregroundColor(palette.textPrimary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(palette.elevated)
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: {
+                            bulletinDismissed = true
+                        }) {
+                            Text("Ignore")
+                                .font(.system(size: 10.5))
+                                .foregroundColor(palette.textMuted)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.top, 4)
+                }
+                .padding(12)
+                .background(palette.surface)
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(palette.border, lineWidth: 1)
+                )
             }
-            .buttonStyle(.plain)
-            .uiAction("setSimulatedDeviceCount")
+
+            if activeCount == 0 {
+                Text("🏠")
+                    .font(.system(size: 28))
+                Text("Welcome to your network inventory")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(palette.textPrimary)
+                    .multilineTextAlignment(.center)
+                Text("Start by adding 1 device — snap a photo of its label, or type its make & model.")
+                    .font(.system(size: 11.5))
+                    .foregroundColor(palette.textMuted)
+                    .multilineTextAlignment(.center)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("💡 Best place to start: Your Router")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(palette.accent)
+                    Text("Your router is the front door to your home network and the single highest-impact device to keep updated.")
+                        .font(.system(size: 10))
+                        .foregroundColor(palette.textMuted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(palette.accent.opacity(0.10))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(palette.accent.opacity(0.28), lineWidth: 1)
+                )
+                .uiSlot("router-advisory-tip")
+
+                Button(action: { showAddNodeView = true }) {
+                    Text("Add Your Router (Recommended) →")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(palette.accent)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .uiAction("openAddDevice")
+
+                Button(action: { showAddNodeView = true }) {
+                    Text("+ Add Any Device")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundColor(palette.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(palette.elevated)
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(palette.border, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .uiAction("openAddDevice")
+
+                Button(action: { repository.setSimulatedDeviceCount(12) }) {
+                    Text("or Enable Demo Mode (seed Forest fleet)")
+                        .font(.system(size: 10.5))
+                        .foregroundColor(palette.textMuted)
+                }
+                .buttonStyle(.plain)
+                .uiAction("setSimulatedDeviceCount")
+                .uiAction("enableDemoMode")
+            }
         }
-        .padding(16)
-        .background(palette.surface)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(palette.border, lineWidth: 1)
-        )
-        .uiComponent("WelcomeCard", state: "tier=day_zero;active=0")
+        .padding(.vertical, 8)
+        .uiComponent("WelcomeCard", state: "tier=\(scaleTier.id);active=\(activeCount)")
     }
 
     @ViewBuilder
@@ -808,53 +981,72 @@ public struct HomeView: View {
         isStn: Bool,
         palette: BrandPalette
     ) -> some View {
+        let hasRecommendation = hasActiveCheckupRecommendation(devices: devices)
         HStack(spacing: 5) {
             ForEach(StnHardwareCategory.allCases, id: \.code) { category in
                 let matchingDevs = devices.filter { $0.category == category }
                 let count = matchingDevs.count
                 let hasDevices = count > 0
                 let primaryDev = matchingDevs.first
+                let isC8Rec = (category == .C8_GUEST && hasRecommendation)
                 let stateColor: Color = {
+                    if isC8Rec {
+                        return TuesdayTheme.warningAmber
+                    }
                     if let dev = primaryDev {
                         return TuesdayTheme.ledColor(for: dev.portState, isStn: isStn)
                     }
                     return isStn ? TuesdayTheme.stnGuessedSlate : TuesdayTheme.proTextSecondary
                 }()
-                let iconBoxBg = isStn ? TuesdayTheme.stnBgElevated : TuesdayTheme.elevatedPill
-                let tileBgColor = hasDevices ? stateColor : (isStn ? TuesdayTheme.ledUnassignedStn : TuesdayTheme.elevatedPill)
+                let iconBoxBg = isC8Rec
+                    ? TuesdayTheme.warningAmber.opacity(0.14)
+                    : (isStn ? TuesdayTheme.stnBgElevated : TuesdayTheme.elevatedPill)
+                let tileBgColor = isC8Rec
+                    ? TuesdayTheme.warningAmber
+                    : (hasDevices ? stateColor : (isStn ? TuesdayTheme.ledUnassignedStn : TuesdayTheme.elevatedPill))
 
                 Button(action: {
-                    if let dev = primaryDev {
+                    if isC8Rec {
+                        activeTab = .checkup
+                    } else if let dev = primaryDev {
                         inspectedDevice = dev
                     } else {
                         showAddNodeView = true
                     }
                 }) {
                     VStack(spacing: 2) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(iconBoxBg)
-                                .aspectRatio(1.0, contentMode: .fit)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(hasDevices ? stateColor.opacity(0.55) : palette.border, lineWidth: 1)
-                                )
-                            Text(category.code)
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                .foregroundColor(stateColor)
+                        ZStack(alignment: .topTrailing) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(iconBoxBg)
+                                    .aspectRatio(1.0, contentMode: .fit)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke((hasDevices || isC8Rec) ? stateColor.opacity(0.65) : palette.border, lineWidth: 1)
+                                    )
+                                Text(category.code)
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .foregroundColor(stateColor)
+                            }
+                            if isC8Rec {
+                                Circle()
+                                    .fill(TuesdayTheme.warningAmber)
+                                    .frame(width: 7, height: 7)
+                                    .offset(x: 2, y: -2)
+                            }
                         }
 
                         Rectangle()
-                            .fill(hasDevices ? stateColor.opacity(0.55) : palette.border)
+                            .fill((hasDevices || isC8Rec) ? stateColor.opacity(0.65) : palette.border)
                             .frame(width: 1, height: 6)
 
                         ZStack {
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(tileBgColor)
                                 .aspectRatio(1.0, contentMode: .fit)
-                            Text("\(count)")
+                            Text(isC8Rec && !hasDevices ? "!" : "\(count)")
                                 .font(.system(size: 10, weight: .heavy, design: .monospaced))
-                                .foregroundColor(hasDevices ? .white : palette.textMuted)
+                                .foregroundColor((hasDevices || isC8Rec) ? .white : palette.textMuted)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -873,15 +1065,17 @@ public struct HomeView: View {
         devices: [RackPortDevice],
         palette: BrandPalette
     ) -> some View {
-        let featured = Array(devices.prefix(6))
+        let featured = BulletinsAndInventoryEngine.sortDevicesByRecentChanges(devices)
 
         VStack(alignment: .leading, spacing: 6) {
+            Divider().background(palette.border)
+
             HStack {
                 Text("Tracked Hardware Profiles")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(palette.textMuted)
                 Spacer()
-                Text("Tap to inspect S0→S6")
+                Text("Recent changes")
                     .font(.system(size: 9))
                     .foregroundColor(palette.textMuted)
             }
@@ -943,14 +1137,7 @@ public struct HomeView: View {
             }
             .uiSlot("tracked-profiles-strip")
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(palette.surface)
-        .cornerRadius(10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(palette.border, lineWidth: 1)
-        )
+        .padding(.vertical, 6)
         .uiComponent("TrackedHardwareProfilesCard")
     }
 

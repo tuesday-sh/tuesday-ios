@@ -3,27 +3,34 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0AFA9B399A616F712A28ADD2 /* BulletinsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B69DCD3A5A072B2791E5FD6 /* BulletinsView.swift */; };
 		14FCD7EFF9F906E298046497 /* ThemeTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A1E6997BE7A8AB0C7580E1 /* ThemeTokens.swift */; };
 		15289CE03D030A94C0B872A2 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED530245B95F923766AC31B /* HomeView.swift */; };
 		2998702AA634CE5D07BE11EB /* HacsConnectionConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AC52DF99E039F4E1E0E638 /* HacsConnectionConfig.swift */; };
+		2E0CB2E107AC071DA8B22B06 /* AccountAndReferenceViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A8CBB9903E2B4E61C1712A /* AccountAndReferenceViews.swift */; };
 		4249BC45A55EC9B7B851C4F8 /* CandleGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF68A138C4A4BD27EDD0F17E /* CandleGraphView.swift */; };
+		505706D7F12B565E22C257A2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 1ECAF21179B3C61D989EA8A3 /* PrivacyInfo.xcprivacy */; };
 		6F24306E99A5AAFED85F09F9 /* PackageDiffRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCC8C4EA1AD7F9A0CB42A581 /* PackageDiffRow.swift */; };
 		8EB46304DEC72DA76C931254 /* TuesdayAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6832B37E12A8B5B1AD49549D /* TuesdayAppUITests.swift */; };
 		99CD04F3B6F32D42188D46E9 /* TuesdayApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2A659338ED7DE764E20879 /* TuesdayApp.swift */; };
 		9E83C1C705D81E42A5550731 /* MonitoredNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA62B1800661EC2FA68F88D7 /* MonitoredNode.swift */; };
+		A15D06436882932F47764975 /* TuesdayProducts.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 43ABB73F79DCCB4785F5E453 /* TuesdayProducts.storekit */; };
 		A30FF0CE64969A5F81D76AF1 /* TuesdayRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E41B28F6629BDA8FE10D4DB /* TuesdayRepositoryProtocol.swift */; };
 		AC4D80D79ABF064AAAC129E3 /* NetworkMonitorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A40246A7AF6DF660E3F41B8A /* NetworkMonitorService.swift */; };
 		B2A5CB0693A5524A9F1DCE70 /* WifiWarningOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 742442D1FF3316250C106CC7 /* WifiWarningOverlay.swift */; };
+		C38CD75E4B2DCA96066705C6 /* UiSyncContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC99AC3EE31A20F3EED7C09 /* UiSyncContract.swift */; };
 		CA870CE25D354C6114D40A40 /* GeminiDeviceDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24BA93C664CB1D6AD043E928 /* GeminiDeviceDiscoveryService.swift */; };
 		CD539C8D8292ED5DE1CFA30F /* MockHacsTuesdayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A5F408DA764F87B45EB0142 /* MockHacsTuesdayService.swift */; };
 		D159451FEF686F55DE319E7C /* AddNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872C88685EBA5A572C408E68 /* AddNodeView.swift */; };
 		D877359DAEE3FF068977F17A /* MonitoredNodeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0446F2EDA8EA886755F276 /* MonitoredNodeTests.swift */; };
 		DD4B9EAEFD98949E96445836 /* CameraImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B14162A0FA4E2DF5457A404 /* CameraImagePicker.swift */; };
+		E8E6FAAABA61824997512C10 /* TimelineAndCheckupViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CADEF0B8E11EE4D682DF4A /* TimelineAndCheckupViews.swift */; };
 		EA6E40E762D2EB2EAAE15C76 /* HacsPairingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5335105CB9650C002B84EB3 /* HacsPairingSheet.swift */; };
+		F660E1D908CBFD1F89FF05D9 /* BulletinModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 192B725D3ACA19B5CDB795AC /* BulletinModels.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,14 +51,20 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		192B725D3ACA19B5CDB795AC /* BulletinModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulletinModels.swift; sourceTree = "<group>"; };
+		1ECAF21179B3C61D989EA8A3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		24BA93C664CB1D6AD043E928 /* GeminiDeviceDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeminiDeviceDiscoveryService.swift; sourceTree = "<group>"; };
 		2A5F408DA764F87B45EB0142 /* MockHacsTuesdayService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockHacsTuesdayService.swift; sourceTree = "<group>"; };
+		33CADEF0B8E11EE4D682DF4A /* TimelineAndCheckupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineAndCheckupViews.swift; sourceTree = "<group>"; };
+		3B69DCD3A5A072B2791E5FD6 /* BulletinsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulletinsView.swift; sourceTree = "<group>"; };
 		3E41B28F6629BDA8FE10D4DB /* TuesdayRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayRepositoryProtocol.swift; sourceTree = "<group>"; };
+		43ABB73F79DCCB4785F5E453 /* TuesdayProducts.storekit */ = {isa = PBXFileReference; path = TuesdayProducts.storekit; sourceTree = "<group>"; };
 		47B47B8496EC16C24504FE26 /* TuesdayApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TuesdayApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6832B37E12A8B5B1AD49549D /* TuesdayAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayAppUITests.swift; sourceTree = "<group>"; };
 		6B14162A0FA4E2DF5457A404 /* CameraImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraImagePicker.swift; sourceTree = "<group>"; };
 		742442D1FF3316250C106CC7 /* WifiWarningOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WifiWarningOverlay.swift; sourceTree = "<group>"; };
 		81A1E6997BE7A8AB0C7580E1 /* ThemeTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeTokens.swift; sourceTree = "<group>"; };
+		81A8CBB9903E2B4E61C1712A /* AccountAndReferenceViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountAndReferenceViews.swift; sourceTree = "<group>"; };
 		872C88685EBA5A572C408E68 /* AddNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddNodeView.swift; sourceTree = "<group>"; };
 		97A0344668AB5DC1EBFA10D2 /* TuesdayAppUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TuesdayAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A3AC52DF99E039F4E1E0E638 /* HacsConnectionConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HacsConnectionConfig.swift; sourceTree = "<group>"; };
@@ -59,6 +72,7 @@
 		A90938019A3ED68BB0C238CC /* TuesdayAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TuesdayAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB2A659338ED7DE764E20879 /* TuesdayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TuesdayApp.swift; sourceTree = "<group>"; };
 		ADDC9BE8D753752FFEFA0003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		BBC99AC3EE31A20F3EED7C09 /* UiSyncContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UiSyncContract.swift; sourceTree = "<group>"; };
 		C5335105CB9650C002B84EB3 /* HacsPairingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HacsPairingSheet.swift; sourceTree = "<group>"; };
 		CCC8C4EA1AD7F9A0CB42A581 /* PackageDiffRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageDiffRow.swift; sourceTree = "<group>"; };
 		CED530245B95F923766AC31B /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -71,6 +85,7 @@
 		0126639C3500356C08C03486 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				192B725D3ACA19B5CDB795AC /* BulletinModels.swift */,
 				A3AC52DF99E039F4E1E0E638 /* HacsConnectionConfig.swift */,
 				FA62B1800661EC2FA68F88D7 /* MonitoredNode.swift */,
 			);
@@ -81,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				ADDC9BE8D753752FFEFA0003 /* Info.plist */,
+				1ECAF21179B3C61D989EA8A3 /* PrivacyInfo.xcprivacy */,
 				AB2A659338ED7DE764E20879 /* TuesdayApp.swift */,
 				0126639C3500356C08C03486 /* Models */,
 				F716F54B6D36C24A22043FF0 /* Resources */,
@@ -132,9 +148,12 @@
 		B1378BDA09A30BA8F9496028 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				81A8CBB9903E2B4E61C1712A /* AccountAndReferenceViews.swift */,
 				872C88685EBA5A572C408E68 /* AddNodeView.swift */,
+				3B69DCD3A5A072B2791E5FD6 /* BulletinsView.swift */,
 				C5335105CB9650C002B84EB3 /* HacsPairingSheet.swift */,
 				CED530245B95F923766AC31B /* HomeView.swift */,
+				33CADEF0B8E11EE4D682DF4A /* TimelineAndCheckupViews.swift */,
 				C53E8A13BF1A25887FDBE934 /* Components */,
 			);
 			path = Views;
@@ -147,6 +166,7 @@
 				EF68A138C4A4BD27EDD0F17E /* CandleGraphView.swift */,
 				CCC8C4EA1AD7F9A0CB42A581 /* PackageDiffRow.swift */,
 				81A1E6997BE7A8AB0C7580E1 /* ThemeTokens.swift */,
+				BBC99AC3EE31A20F3EED7C09 /* UiSyncContract.swift */,
 				742442D1FF3316250C106CC7 /* WifiWarningOverlay.swift */,
 			);
 			path = Components;
@@ -163,6 +183,7 @@
 		F716F54B6D36C24A22043FF0 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				43ABB73F79DCCB4785F5E453 /* TuesdayProducts.storekit */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -182,6 +203,8 @@
 				217E7CE90DA43DAEEF7B24AB /* PBXTargetDependency */,
 			);
 			name = TuesdayAppUITests;
+			packageProductDependencies = (
+			);
 			productName = TuesdayAppUITests;
 			productReference = 97A0344668AB5DC1EBFA10D2 /* TuesdayAppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -198,6 +221,8 @@
 			dependencies = (
 			);
 			name = TuesdayApp;
+			packageProductDependencies = (
+			);
 			productName = TuesdayApp;
 			productReference = 47B47B8496EC16C24504FE26 /* TuesdayApp.app */;
 			productType = "com.apple.product-type.application";
@@ -214,6 +239,8 @@
 				5EA7A3A642DB86A21BA3C572 /* PBXTargetDependency */,
 			);
 			name = TuesdayAppTests;
+			packageProductDependencies = (
+			);
 			productName = TuesdayAppTests;
 			productReference = A90938019A3ED68BB0C238CC /* TuesdayAppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -243,7 +270,6 @@
 				};
 			};
 			buildConfigurationList = C9B6FBAD345BAFD8D08DCFB9 /* Build configuration list for PBXProject "TuesdayApp" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -251,6 +277,9 @@
 				en,
 			);
 			mainGroup = B0AEAF86142FD1DE661A8342;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 63973C6733F110A35F245692 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -266,6 +295,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				505706D7F12B565E22C257A2 /* PrivacyInfo.xcprivacy in Resources */,
+				A15D06436882932F47764975 /* TuesdayProducts.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -292,7 +323,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2E0CB2E107AC071DA8B22B06 /* AccountAndReferenceViews.swift in Sources */,
 				D159451FEF686F55DE319E7C /* AddNodeView.swift in Sources */,
+				F660E1D908CBFD1F89FF05D9 /* BulletinModels.swift in Sources */,
+				0AFA9B399A616F712A28ADD2 /* BulletinsView.swift in Sources */,
 				DD4B9EAEFD98949E96445836 /* CameraImagePicker.swift in Sources */,
 				4249BC45A55EC9B7B851C4F8 /* CandleGraphView.swift in Sources */,
 				CA870CE25D354C6114D40A40 /* GeminiDeviceDiscoveryService.swift in Sources */,
@@ -304,8 +338,10 @@
 				AC4D80D79ABF064AAAC129E3 /* NetworkMonitorService.swift in Sources */,
 				6F24306E99A5AAFED85F09F9 /* PackageDiffRow.swift in Sources */,
 				14FCD7EFF9F906E298046497 /* ThemeTokens.swift in Sources */,
+				E8E6FAAABA61824997512C10 /* TimelineAndCheckupViews.swift in Sources */,
 				99CD04F3B6F32D42188D46E9 /* TuesdayApp.swift in Sources */,
 				A30FF0CE64969A5F81D76AF1 /* TuesdayRepositoryProtocol.swift in Sources */,
+				C38CD75E4B2DCA96066705C6 /* UiSyncContract.swift in Sources */,
 				B2A5CB0693A5524A9F1DCE70 /* WifiWarningOverlay.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -397,7 +433,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -491,7 +527,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 1.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

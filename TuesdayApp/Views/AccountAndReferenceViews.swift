@@ -8,6 +8,8 @@ public struct AccountSettingsView: View {
     public let isDeveloperMode: Bool
     public let entitlementTier: String
     public let savedCorpusCount: Int
+    public let matchedFeeds: [MatchedFeedView]
+    public let onToggleMuteFeed: (String) -> Void
     public let onUpgradeProTier1: () -> Void
     public let onSaveNetworkName: (String) -> Void
     public let onToggleDeveloperMode: (Bool) -> Void
@@ -19,253 +21,435 @@ public struct AccountSettingsView: View {
     @State private var draftName: String = ""
     @State private var purgeFeedback: String? = nil
 
+    // Accordion Expansion States
+    @State private var isNetworkOpen: Bool = false
+    @State private var isDevModeOpen: Bool = false
+    @State private var isRemindersOpen: Bool = false
+    @State private var isFeedsOpen: Bool = false
+
+    // Reminders state
+    @State private var reminderHighSeverity: Bool = false
+    @State private var reminderMonthlyRhythm: Bool = true
+    @State private var reminderQuarterlyCheckup: Bool = true
+    @State private var reminderRoutineFirmware: Bool = true
+    @State private var reminderLifecycleEol: Bool = true
+
+    public init(
+        flavor: AppBrandFlavor,
+        palette: BrandPalette,
+        networkLocationName: String,
+        activeDeviceCount: Int,
+        isDeveloperMode: Bool,
+        entitlementTier: String,
+        savedCorpusCount: Int,
+        matchedFeeds: [MatchedFeedView] = [],
+        onToggleMuteFeed: @escaping (String) -> Void = { _ in },
+        onUpgradeProTier1: @escaping () -> Void,
+        onSaveNetworkName: @escaping (String) -> Void,
+        onToggleDeveloperMode: @escaping (Bool) -> Void,
+        onSetSimulatedDeviceCount: @escaping (Int) -> Void,
+        onPurgeGoldenCorpus: @escaping () -> Int,
+        onOpenIntakeFlow: @escaping () -> Void = {},
+        onSwitchToFleetTab: @escaping () -> Void
+    ) {
+        self.flavor = flavor
+        self.palette = palette
+        self.networkLocationName = networkLocationName
+        self.activeDeviceCount = activeDeviceCount
+        self.isDeveloperMode = isDeveloperMode
+        self.entitlementTier = entitlementTier
+        self.savedCorpusCount = savedCorpusCount
+        self.matchedFeeds = matchedFeeds
+        self.onToggleMuteFeed = onToggleMuteFeed
+        self.onUpgradeProTier1 = onUpgradeProTier1
+        self.onSaveNetworkName = onSaveNetworkName
+        self.onToggleDeveloperMode = onToggleDeveloperMode
+        self.onSetSimulatedDeviceCount = onSetSimulatedDeviceCount
+        self.onPurgeGoldenCorpus = onPurgeGoldenCorpus
+        self.onOpenIntakeFlow = onOpenIntakeFlow
+        self.onSwitchToFleetTab = onSwitchToFleetTab
+    }
+
+    private var activeRemindersCount: Int {
+        [reminderHighSeverity, reminderMonthlyRhythm, reminderQuarterlyCheckup, reminderRoutineFirmware, reminderLifecycleEol].filter { $0 }.count
+    }
+
+    private var activeFeedsCount: Int {
+        matchedFeeds.filter { !$0.isMuted }.count
+    }
+
+    private var mutedFeedsCount: Int {
+        matchedFeeds.filter { $0.isMuted }.count
+    }
+
     public var body: some View {
         let isStn = (flavor == .sureThingHome)
 
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 14) {
-                    // Header
-                    HStack {
-                        Text(isStn ? "Account & Home Settings" : "Account & Network Settings")
-                            .font(.system(size: 15, weight: .bold))
+                VStack(alignment: .leading, spacing: 10) {
+                    // Header (Unboxed)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Settings & Preferences")
+                            .font(.system(size: 16, weight: .heavy))
                             .foregroundColor(palette.textPrimary)
-                        Spacer()
-                        Text(isStn ? "Protected" : "STN-Pro")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(TuesdayTheme.ledOkGreen)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(TuesdayTheme.ledOkGreen.opacity(0.14))
-                            .cornerRadius(6)
+                        Text("Configure network profiles, alert reminder preferences, matched firmware feeds, and developer diagnostics.")
+                            .font(.system(size: 12))
+                            .foregroundColor(palette.textMuted)
+                            .lineSpacing(2)
                     }
+                    .padding(.vertical, 4)
                     .uiSlot("account-header")
 
-                    // Network / Location Name Field
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(isStn ? "HOME / NETWORK NAME" : "NETWORK / LOCATION NAME")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundColor(palette.textMuted)
-
-                        HStack(spacing: 8) {
-                            TextField("Network Name", text: $draftName)
-                                .textInputAutocapitalization(.words)
-                                .autocorrectionDisabled()
-                                .font(.system(size: 13))
-                                .foregroundColor(palette.textPrimary)
-                                .padding(10)
-                                .background(palette.bg)
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(palette.border, lineWidth: 1)
-                                )
-
-                            Button(action: { onSaveNetworkName(draftName) }) {
-                                Text("Save")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(palette.accent)
-                                    .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
-                            .uiAction("saveNetworkName")
-                        }
-
-                        Text(
-                            isStn
-                                ? "Used on your home health dashboard and family safety notifications."
-                                : "Displayed in the console header and synced to Quarterly Audit exports."
-                        )
-                        .font(.system(size: 10.5))
-                        .foregroundColor(palette.textMuted)
-                    }
-                    .uiSlot("location-name-editor")
-
-                    // Profile Summary Box
-                    VStack(spacing: 8) {
-                        accountSummaryRow(
-                            label: isStn ? "Home Location" : "Profile Tier",
-                            value: isStn ? networkLocationName : "\(networkLocationName) • STN-Pro",
-                            valueColor: palette.textPrimary
-                        )
-                        accountSummaryRow(
-                            label: isStn ? "Protected Devices" : "Tracked Ports",
-                            value: isStn ? "\(activeDeviceCount) Protected" : "\(activeDeviceCount) Active (128 Cap)",
-                            valueColor: TuesdayTheme.ledOkGreen
-                        )
-                        accountSummaryRow(
-                            label: isStn ? "Protection Status" : "Cloud Sync",
-                            value: isStn ? "Active 24/7 Monitoring" : "Connected • Zero-Knowledge",
-                            valueColor: TuesdayTheme.ledOkGreen
-                        )
-                        accountSummaryRow(
-                            label: "Entitlement Tier",
-                            value: entitlementTier == "pro_tier_1" ? "Pro Tier 1 (<=128 Active)" : "Standard Free Tier",
-                            valueColor: entitlementTier == "pro_tier_1" ? TuesdayTheme.ledOkGreen : palette.accent
-                        )
-                    }
-                    .padding(12)
-                    .background(palette.bg)
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(palette.border, lineWidth: 1)
-                    )
-                    .uiSlot("account-profile-summary")
-
-                    if !isStn && entitlementTier != "pro_tier_1" {
-                        Button(action: onUpgradeProTier1) {
-                            Text("⚡ Upgrade to Tuesday Pro Tier 1 (StoreKit 2 • <=128 Ports)")
-                                .font(.system(size: 11.5, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .background(palette.accent)
-                                .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
-                        .uiAction("upgradeProTier1")
-                    }
-
-                    // Developer Mode Toggle & In-App Inventory State Tester
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                HStack(spacing: 6) {
-                                    Text("🛠️ Developer Mode")
-                                        .font(.system(size: 12.5, weight: .bold))
+                    // UNBOXED ACCORDION LIST
+                    VStack(spacing: 0) {
+                        // 1. Network
+                        VStack(spacing: 0) {
+                            Button(action: { isNetworkOpen.toggle() }) {
+                                HStack(spacing: 10) {
+                                    Text("🌐")
+                                        .font(.system(size: 16))
+                                    Text("Network")
+                                        .font(.system(size: 13.5, weight: .bold))
                                         .foregroundColor(palette.textPrimary)
-                                    Text(isStn ? "LAB" : "INTERNAL")
-                                        .font(.system(size: 8.5, weight: .bold, design: .monospaced))
-                                        .foregroundColor(palette.accent)
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 1)
-                                        .background(palette.accent.opacity(0.16))
-                                        .cornerRadius(4)
+                                    if !networkLocationName.isEmpty {
+                                        Text(networkLocationName)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundColor(palette.accent)
+                                    }
+                                    Spacer()
+                                    Text(isNetworkOpen ? "▾" : "›")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(palette.textMuted)
                                 }
-                                Text(
-                                    isStn
-                                        ? "Test different household device scales and prototype states."
-                                        : "Enables in-app state controls & diagnostic testing tools."
-                                )
-                                .font(.system(size: 10.5))
-                                .foregroundColor(palette.textMuted)
-                            }
-                            Spacer()
-                            Toggle("", isOn: Binding(
-                                get: { isDeveloperMode },
-                                set: { onToggleDeveloperMode($0) }
-                            ))
-                            .labelsHidden()
-                            .tint(palette.accent)
-                            .uiAction("toggleDeveloperMode")
-                        }
-
-                        if isDeveloperMode {
-                            Divider().background(palette.accent.opacity(0.2))
-
-                            Text(isStn ? "SIMULATE HOUSEHOLD SIZE:" : "QUICK STATE SIMULATION:")
-                                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                                .foregroundColor(palette.textMuted)
-
-                            HStack(spacing: 8) {
-                                devStateSimButton(label: "🔄 Reset (Day 0)", isSelected: activeDeviceCount == 0) {
-                                    onSetSimulatedDeviceCount(0)
-                                    onSwitchToFleetTab()
-                                }
-                                devStateSimButton(label: "🌱 Pea (1)", isSelected: activeDeviceCount == 1) {
-                                    onSetSimulatedDeviceCount(1)
-                                    onSwitchToFleetTab()
-                                }
-                            }
-
-                            HStack(spacing: 8) {
-                                devStateSimButton(label: "🪴 Garden (7)", isSelected: activeDeviceCount == 7) {
-                                    onSetSimulatedDeviceCount(7)
-                                    onSwitchToFleetTab()
-                                }
-                                devStateSimButton(label: "🌲 Forest (12)", isSelected: activeDeviceCount == 12) {
-                                    onSetSimulatedDeviceCount(12)
-                                    onSwitchToFleetTab()
-                                }
-                            }
-
-                            if !isStn {
-                                Button(action: {
-                                    onSetSimulatedDeviceCount(12)
-                                    onSwitchToFleetTab()
-                                }) {
-                                    Text("📦 Load Full Pro View Mock")
-                                        .font(.system(size: 11.5, weight: .bold))
-                                        .foregroundColor(palette.accent)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 8)
-                                        .background(palette.accent.opacity(0.18))
-                                        .cornerRadius(6)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .stroke(palette.accent, lineWidth: 1)
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                            }
-
-                            Button(action: {
-                                let removed = onPurgeGoldenCorpus()
-                                purgeFeedback = "Purged \(removed) capture session(s) & gallery exports"
-                            }) {
-                                Text(purgeFeedback ?? "🗑️ Purge Golden Corpus Captures (\(savedCorpusCount) Saved)")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(TuesdayTheme.ledCveRed)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 8)
-                                    .background(TuesdayTheme.ledCveRed.opacity(0.14))
-                                    .cornerRadius(6)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(TuesdayTheme.ledCveRed.opacity(0.55), lineWidth: 1)
-                                    )
+                                .padding(.vertical, 14)
+                                .padding(.horizontal, 4)
                             }
                             .buttonStyle(.plain)
-                            .uiAction("purgeGoldenCorpus")
+
+                            if isNetworkOpen {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    // Retained slot for parity contract
+                                    EmptyView()
+                                        .uiSlot("account-profile-summary")
+
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(isStn ? "HOME NETWORK NAME" : "LOCATION / NETWORK NAME")
+                                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                            .foregroundColor(palette.textMuted)
+
+                                        HStack(spacing: 8) {
+                                            TextField(
+                                                isStn ? "e.g. Our House, Main Home Wi-Fi" : "e.g. Primary Homelab, Main Rack",
+                                                text: $draftName
+                                            )
+                                            .font(.system(size: 13))
+                                            .foregroundColor(palette.textPrimary)
+                                            .padding(10)
+                                            .background(palette.bg)
+                                            .cornerRadius(8)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(palette.border, lineWidth: 1)
+                                            )
+
+                                            Button(action: { onSaveNetworkName(draftName) }) {
+                                                Text("Save")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 14)
+                                                    .padding(.vertical, 10)
+                                                    .background(palette.accent)
+                                                    .cornerRadius(8)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .uiAction("saveNetworkName")
+                                        }
+                                    }
+                                    .uiSlot("location-name-editor")
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.bottom, 16)
+                            }
+                            Divider().background(palette.border.opacity(0.5))
+                        }
+
+                        // 2. Developer Mode
+                        VStack(spacing: 0) {
+                            Button(action: { isDevModeOpen.toggle() }) {
+                                HStack(spacing: 10) {
+                                    Text("🛠️")
+                                        .font(.system(size: 16))
+                                    Text("Developer Mode")
+                                        .font(.system(size: 13.5, weight: .bold))
+                                        .foregroundColor(palette.textPrimary)
+                                    Spacer()
+                                    Text(isDevModeOpen ? "▾" : "›")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(palette.textMuted)
+                                }
+                                .padding(.vertical, 14)
+                                .padding(.horizontal, 4)
+                            }
+                            .buttonStyle(.plain)
+
+                            if isDevModeOpen {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(isStn ? "Household Scale Tester" : "State Simulator")
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundColor(palette.textPrimary)
+                                                Text(isStn ? "Test different household device scales and prototype states." : "Enables in-app state controls & diagnostic testing tools.")
+                                                    .font(.system(size: 10.5))
+                                                    .foregroundColor(palette.textMuted)
+                                            }
+                                            Spacer()
+                                            Toggle("", isOn: Binding(
+                                                get: { isDeveloperMode },
+                                                set: { onToggleDeveloperMode($0) }
+                                            ))
+                                            .labelsHidden()
+                                            .tint(palette.accent)
+                                            .uiAction("toggleDeveloperMode")
+                                        }
+
+                                        if isDeveloperMode {
+                                            Divider().background(palette.accent.opacity(0.2))
+
+                                            Text("INVENTORY SEEDS:")
+                                                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                                                .foregroundColor(palette.textMuted)
+
+                                            HStack(spacing: 8) {
+                                                devStateSimButton(label: "🔄 Reset (0)", isSelected: activeDeviceCount == 0) {
+                                                    onSetSimulatedDeviceCount(0)
+                                                    onSwitchToFleetTab()
+                                                }
+                                                devStateSimButton(label: "🌱 Pea (1)", isSelected: activeDeviceCount == 1) {
+                                                    onSetSimulatedDeviceCount(1)
+                                                    onSwitchToFleetTab()
+                                                }
+                                            }
+
+                                            HStack(spacing: 8) {
+                                                devStateSimButton(label: "🪴 Garden (7)", isSelected: activeDeviceCount == 7) {
+                                                    onSetSimulatedDeviceCount(7)
+                                                    onSwitchToFleetTab()
+                                                }
+                                                devStateSimButton(label: "🌲 Forest (12)", isSelected: activeDeviceCount == 12) {
+                                                    onSetSimulatedDeviceCount(12)
+                                                    onSwitchToFleetTab()
+                                                }
+                                            }
+
+                                            Button(action: {
+                                                let removed = onPurgeGoldenCorpus()
+                                                purgeFeedback = "Purged \(removed) capture session(s)"
+                                            }) {
+                                                Text(purgeFeedback ?? "🗑️ Purge Golden Corpus Captures (\(savedCorpusCount) Saved)")
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundColor(TuesdayTheme.ledCveRed)
+                                                    .frame(maxWidth: .infinity)
+                                                    .padding(.vertical, 8)
+                                                    .background(TuesdayTheme.ledCveRed.opacity(0.14))
+                                                    .cornerRadius(6)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 6)
+                                                            .stroke(TuesdayTheme.ledCveRed.opacity(0.55), lineWidth: 1)
+                                                    )
+                                            }
+                                            .buttonStyle(.plain)
+                                            .uiAction("purgeGoldenCorpus")
+                                        }
+                                    }
+                                    .padding(12)
+                                    .background(palette.accent.opacity(0.06))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(palette.accent.opacity(0.22), lineWidth: 1)
+                                    )
+                                    .uiSlot("developer-mode-card")
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.bottom, 16)
+                            }
+                            Divider().background(palette.border.opacity(0.5))
+                        }
+
+                        // 3. Reminders
+                        VStack(spacing: 0) {
+                            Button(action: { isRemindersOpen.toggle() }) {
+                                HStack(spacing: 10) {
+                                    Text("🔔")
+                                        .font(.system(size: 16))
+                                    Text("Reminders")
+                                        .font(.system(size: 13.5, weight: .bold))
+                                        .foregroundColor(palette.textPrimary)
+                                    Text("\(activeRemindersCount) of 5 Active")
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .foregroundColor(TuesdayTheme.ledOkGreen)
+                                    Spacer()
+                                    Text(isRemindersOpen ? "▾" : "›")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(palette.textMuted)
+                                }
+                                .padding(.vertical, 14)
+                                .padding(.horizontal, 4)
+                            }
+                            .buttonStyle(.plain)
+
+                            if isRemindersOpen {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(
+                                        isStn
+                                            ? "Choose which notifications ring your phone. Turning off a reminder keeps security bulletins visible inside the app without noisy alerts."
+                                            : "Configure generalized notification channels. Disabling a category stops push alerts while preserving in-app inbox items."
+                                    )
+                                    .font(.system(size: 11.5))
+                                    .foregroundColor(palette.textMuted)
+                                    .lineSpacing(2)
+
+                                    reminderToggleRow(
+                                        title: "High Severity Alerts (CVEs & Recalls)",
+                                        desc: "Critical vulnerabilities, active CISA KEV disclosures, and physical recalls. (In-app always if disabled).",
+                                        isCritical: true,
+                                        isOn: $reminderHighSeverity
+                                    )
+                                    reminderToggleRow(
+                                        title: "Monthly Rhythm (Patch Tuesday)",
+                                        desc: "Prep checklists and release day drop digests scheduled for the second Tuesday of each month.",
+                                        isCritical: false,
+                                        isOn: $reminderMonthlyRhythm
+                                    )
+                                    reminderToggleRow(
+                                        title: "Quarterly Physical Audit & Checkup",
+                                        desc: "Quarterly reminders to inspect physical patch cabling, port labels, and admin credential hygiene.",
+                                        isCritical: false,
+                                        isOn: $reminderQuarterlyCheckup
+                                    )
+                                    reminderToggleRow(
+                                        title: "Routine Firmware & Maintenance",
+                                        desc: "General manufacturer software improvements, minor patches, and feature updates.",
+                                        isCritical: false,
+                                        isOn: $reminderRoutineFirmware
+                                    )
+                                    reminderToggleRow(
+                                        title: "Lifespan & Hardware Retirement (EOL)",
+                                        desc: "Early warning notices before vendor security support and firmware patch commitments expire.",
+                                        isCritical: false,
+                                        isOn: $reminderLifecycleEol
+                                    )
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.bottom, 16)
+                            }
+                            Divider().background(palette.border.opacity(0.5))
+                        }
+
+                        // 4. Feeds
+                        VStack(spacing: 0) {
+                            Button(action: { isFeedsOpen.toggle() }) {
+                                HStack(spacing: 10) {
+                                    Text("📡")
+                                        .font(.system(size: 16))
+                                    Text("Feeds")
+                                        .font(.system(size: 13.5, weight: .bold))
+                                        .foregroundColor(palette.textPrimary)
+                                    Text("\(activeFeedsCount) Active • \(mutedFeedsCount) Muted")
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundColor(palette.textMuted)
+                                    Spacer()
+                                    Text(isFeedsOpen ? "▾" : "›")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundColor(palette.textMuted)
+                                }
+                                .padding(.vertical, 14)
+                                .padding(.horizontal, 4)
+                            }
+                            .buttonStyle(.plain)
+
+                            if isFeedsOpen {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    // High Severity Guardrail Box
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("⚠️ High Severity Guardrail Policy")
+                                            .font(.system(size: 11.5, weight: .bold))
+                                            .foregroundColor(TuesdayTheme.ledCveRed)
+                                        Text("High Severity bulletins (CISA KEV disclosures and physical recalls) cannot be muted. You can snooze them or disable push reminders so they only show in-app.")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(palette.textMuted)
+                                            .lineSpacing(2)
+                                    }
+                                    .padding(10)
+                                    .background(TuesdayTheme.ledCveRed.opacity(0.08))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(TuesdayTheme.ledCveRed.opacity(0.3), lineWidth: 1)
+                                    )
+
+                                    Text(isStn ? "MATCHED HOME DEVICE FEEDS:" : "MATCHED HARDWARE FEEDS:")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .foregroundColor(palette.textMuted)
+
+                                    if matchedFeeds.isEmpty {
+                                        Text("No feeds matched yet. Add devices to activate security feeds.")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(palette.textMuted)
+                                            .padding(.vertical, 4)
+                                    } else {
+                                        ForEach(matchedFeeds) { feed in
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    HStack(spacing: 6) {
+                                                        Text(feed.isMuted ? "🔕" : "📡")
+                                                            .font(.system(size: 11))
+                                                        Text(feed.name)
+                                                            .font(.system(size: 11.5, weight: .bold))
+                                                            .foregroundColor(palette.textPrimary)
+                                                    }
+                                                    Text(feed.matchedPorts.joined(separator: ", "))
+                                                        .font(.system(size: 10, design: .monospaced))
+                                                        .foregroundColor(palette.textMuted)
+                                                }
+                                                Spacer()
+                                                Button(action: { onToggleMuteFeed(feed.slug) }) {
+                                                    Text(feed.isMuted ? "Muted" : "Mute")
+                                                        .font(.system(size: 10.5, weight: .bold))
+                                                        .foregroundColor(feed.isMuted ? palette.textPrimary : palette.accent)
+                                                        .padding(.horizontal, 10)
+                                                        .padding(.vertical, 4)
+                                                        .background(feed.isMuted ? palette.border : palette.elevated)
+                                                        .cornerRadius(6)
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 6)
+                                                                .stroke(feed.isMuted ? palette.textMuted : palette.accent, lineWidth: 1)
+                                                        )
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 8)
+                                            .background(palette.elevated)
+                                            .cornerRadius(6)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .stroke(palette.border, lineWidth: 1)
+                                            )
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.bottom, 16)
+                            }
+                            Divider().background(palette.border.opacity(0.5))
                         }
                     }
-                    .padding(12)
-                    .background(palette.accent.opacity(0.08))
-                    .cornerRadius(10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(palette.accent.opacity(0.28), lineWidth: 1)
-                    )
-                    .uiSlot("developer-mode-card")
-
-                    // Open Camera Intake Flow Button
-                    Button(action: onOpenIntakeFlow) {
-                        Text(isStn ? "+ Name New Device with Camera" : "+ Open Intake / Camera Clues Flow")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(palette.textPrimary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(palette.elevated)
-                            .cornerRadius(8)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(palette.border, lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .uiAction("openAddDevice")
                 }
-                .padding(16)
-                .background(palette.surface)
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(palette.border, lineWidth: 1)
-                )
+                .padding(.vertical, 4)
                 .uiComponent("AccountSettingsCard")
             }
             .padding(14)
@@ -276,6 +460,47 @@ public struct AccountSettingsView: View {
         .onChange(of: networkLocationName) { _, newValue in
             draftName = newValue
         }
+    }
+
+    private func reminderToggleRow(
+        title: String,
+        desc: String,
+        isCritical: Bool,
+        isOn: Binding<Bool>
+    ) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(title)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(palette.textPrimary)
+                    if isCritical {
+                        Text("IN-APP ALWAYS")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundColor(TuesdayTheme.ledCveRed)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(TuesdayTheme.ledCveRed.opacity(0.14))
+                            .cornerRadius(4)
+                    }
+                }
+                Text(desc)
+                    .font(.system(size: 10.5))
+                    .foregroundColor(palette.textMuted)
+                    .lineSpacing(2)
+            }
+            Spacer()
+            Toggle("", isOn: isOn)
+                .labelsHidden()
+                .tint(TuesdayTheme.ledOkGreen)
+        }
+        .padding(10)
+        .background(palette.elevated)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(palette.border, lineWidth: 1)
+        )
     }
 
     private func accountSummaryRow(label: String, value: String, valueColor: Color) -> some View {

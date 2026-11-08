@@ -181,4 +181,27 @@ final class MonitoredNodeTests: XCTestCase {
         XCTAssertNil(payload.inbox.first { $0.externalId == "REL-esphome-2026.10.2" })
         XCTAssertNil(payload.inbox.first { $0.externalId == "REL-ecobee-4.8.7.220" })
     }
+
+    func testTimelineSortingRecentChangesAndDynamicVersionScrubbing() {
+        let devices = BulletinsAndInventoryEngine.defaultRackPortDevices()
+
+        let timelineSorted = BulletinsAndInventoryEngine.sortDevicesForTimeline(devices)
+        XCTAssertEqual(timelineSorted.count, 12)
+        XCTAssertEqual(timelineSorted.first?.trustZone, .Z0_CORE)
+        XCTAssertEqual(timelineSorted.last?.trustZone, .Z3_IOT)
+
+        let recentChanges = BulletinsAndInventoryEngine.sortDevicesByRecentChanges(devices)
+        XCTAssertEqual(recentChanges.count, 12)
+        XCTAssertEqual(recentChanges.first?.portState, .cveKev)
+
+        let ucg = devices.first { $0.portIndex == 1 }!
+        XCTAssertEqual(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ucg, scrubNorm: nil), ucg.version)
+        XCTAssertEqual(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ucg, scrubNorm: 0.0), "Not Deployed Yet")
+        XCTAssertEqual(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ucg, scrubNorm: 0.80), "4.0.20")
+
+        let ecobee = devices.first { $0.portIndex == 10 }!
+        XCTAssertTrue(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ecobee, scrubNorm: 0.50).contains("unverified"))
+
+        XCTAssertTrue(hasActiveCheckupRecommendation(devices: devices, welcomeComplete: true))
+    }
 }

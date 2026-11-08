@@ -345,6 +345,31 @@ public enum DeviceConfidenceTier: String, Codable {
     case opaqueUnknown = "opaque_unknown"
 }
 
+public struct DeviceLifecycleCandle: Codable, Equatable {
+    public let ver: String
+    public let released: Double
+    public let attested: Double
+    public let ended: Double
+    public let eol: Double
+    public let cveStart: Double?
+
+    public init(
+        ver: String,
+        released: Double,
+        attested: Double,
+        ended: Double,
+        eol: Double,
+        cveStart: Double? = nil
+    ) {
+        self.ver = ver
+        self.released = released
+        self.attested = attested
+        self.ended = ended
+        self.eol = eol
+        self.cveStart = cveStart
+    }
+}
+
 public struct RackPortDevice: Identifiable, Codable, Equatable {
     public let id: String
     public var portIndex: Int
@@ -357,6 +382,9 @@ public struct RackPortDevice: Identifiable, Codable, Equatable {
     public var roomLocation: String
     public var version: String
     public var targetVersion: String?
+    public var purchaseDate: String?
+    public var vendorEolAt: String?
+    public var candles: [DeviceLifecycleCandle]
     public var lifecycleTier: String
     public var purls: [String]
     public var confidenceTier: DeviceConfidenceTier
@@ -384,6 +412,9 @@ public struct RackPortDevice: Identifiable, Codable, Equatable {
         roomLocation: String,
         version: String,
         targetVersion: String? = nil,
+        purchaseDate: String? = nil,
+        vendorEolAt: String? = nil,
+        candles: [DeviceLifecycleCandle] = [],
         lifecycleTier: String,
         purls: [String],
         confidenceTier: DeviceConfidenceTier = .confirmed,
@@ -410,6 +441,9 @@ public struct RackPortDevice: Identifiable, Codable, Equatable {
         self.roomLocation = roomLocation
         self.version = version
         self.targetVersion = targetVersion
+        self.purchaseDate = purchaseDate
+        self.vendorEolAt = vendorEolAt
+        self.candles = candles
         self.lifecycleTier = lifecycleTier
         self.purls = purls
         self.confidenceTier = confidenceTier
@@ -562,6 +596,64 @@ public enum BulletinsAndInventoryEngine {
         devices.filter { $0.category == category }.count
     }
 
+    public static func sortDevicesForTimeline(_ devices: [RackPortDevice]) -> [RackPortDevice] {
+        return devices.sorted { lhs, rhs in
+            if lhs.trustZone.orderIndex != rhs.trustZone.orderIndex {
+                return lhs.trustZone.orderIndex < rhs.trustZone.orderIndex
+            }
+            return lhs.portIndex < rhs.portIndex
+        }
+    }
+
+    public static func sortDevicesByRecentChanges(_ devices: [RackPortDevice]) -> [RackPortDevice] {
+        return Array(
+            devices.sorted { lhs, rhs in
+                if lhs.portState.severityPriority != rhs.portState.severityPriority {
+                    return lhs.portState.severityPriority < rhs.portState.severityPriority
+                }
+                return (lhs.purchaseDate ?? "") > (rhs.purchaseDate ?? "")
+            }.prefix(12)
+        )
+    }
+
+    public static func getEstimatedVersionAtCursor(
+        device: RackPortDevice,
+        scrubNorm: Double? = nil
+    ) -> String {
+        guard let scrubNorm = scrubNorm else {
+            return device.version
+        }
+        if device.portState == .guessed || device.version == "unverified" {
+            return "Unverified (Est. Drift)"
+        }
+        let candles = device.candles
+        if candles.isEmpty {
+            return device.version
+        }
+        let earliestCandle = candles[0]
+        if scrubNorm < earliestCandle.released {
+            return "Not Yet Released"
+        }
+        let latestCandle = candles[candles.count - 1]
+        if latestCandle.eol > 0 && scrubNorm > latestCandle.eol {
+            return "\(latestCandle.ver) (EOL)"
+        }
+        for i in 0..<candles.count {
+            let c = candles[i]
+            if i + 1 < candles.count {
+                let nextCandle = candles[i + 1]
+                if scrubNorm >= c.attested && scrubNorm < nextCandle.attested {
+                    return c.ver
+                }
+            } else {
+                if scrubNorm >= c.attested {
+                    return c.ver
+                }
+            }
+        }
+        return earliestCandle.ver
+    }
+
     public static func assembleBulletins(
         flavor: AppBrandFlavor,
         devices: [RackPortDevice],
@@ -702,6 +794,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "Basement Rack U02",
                 version: "4.0.20",
                 targetVersion: "4.0.20",
+                purchaseDate: "2024-02-01",
+                vendorEolAt: "2030-06-01",
+                candles: [
+                    DeviceLifecycleCandle(ver: "3.2.12", released: 0.05, attested: 0.14, ended: 0.50, eol: 0.70, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "4.0.20", released: 0.46, attested: 0.50, ended: 0.96, eol: 0.99, cveStart: 0.78)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:generic/ui/unifi-os@4.0.20"],
                 confidenceTier: .confirmed,
@@ -729,6 +827,11 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "Basement Workbench",
                 version: "1.0.11.136",
                 targetVersion: nil,
+                purchaseDate: "2016-09-01",
+                vendorEolAt: "2025-12-31",
+                candles: [
+                    DeviceLifecycleCandle(ver: "1.0.11.136", released: 0.08, attested: 0.18, ended: 0.96, eol: 0.65, cveStart: nil)
+                ],
                 lifecycleTier: "Legacy (EOL)",
                 purls: ["pkg:generic/netgear/r7000@1.0.11.136"],
                 confidenceTier: .confirmed,
@@ -756,6 +859,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "1F Living Room",
                 version: "7.0.66",
                 targetVersion: "7.0.66",
+                purchaseDate: "2025-03-10",
+                vendorEolAt: "2032-03-10",
+                candles: [
+                    DeviceLifecycleCandle(ver: "7.0.59", released: 0.10, attested: 0.16, ended: 0.58, eol: 0.85, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "7.0.66", released: 0.54, attested: 0.58, ended: 0.96, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:generic/ui/u7-pro@7.0.66"],
                 confidenceTier: .confirmed,
@@ -783,6 +892,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "1F Media Console",
                 version: "19.0.1",
                 targetVersion: "19.0.1",
+                purchaseDate: "2025-06-15",
+                vendorEolAt: "2032-06-15",
+                candles: [
+                    DeviceLifecycleCandle(ver: "19.0.0", released: 0.15, attested: 0.25, ended: 0.68, eol: 0.90, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "19.0.1", released: 0.64, attested: 0.68, ended: 0.96, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:generic/nintendo/horizon-os@19.0.1"],
                 confidenceTier: .confirmed,
@@ -810,6 +925,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "2F Office Desk",
                 version: "15.3.1",
                 targetVersion: "15.3.2",
+                purchaseDate: "2025-01-20",
+                vendorEolAt: "2032-01-20",
+                candles: [
+                    DeviceLifecycleCandle(ver: "15.2.0", released: 0.12, attested: 0.18, ended: 0.52, eol: 0.80, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "15.3.1", released: 0.48, attested: 0.52, ended: 0.90, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:generic/apple/macos@15.3.1"],
                 confidenceTier: .confirmed,
@@ -837,6 +958,11 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "Basement Rack Shelf",
                 version: "unverified",
                 targetVersion: nil,
+                purchaseDate: nil,
+                vendorEolAt: nil,
+                candles: [
+                    DeviceLifecycleCandle(ver: "unverified", released: 0.60, attested: 0.65, ended: 0.96, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Unverified",
                 purls: ["pkg:generic/unknown/*"],
                 confidenceTier: .opaqueUnknown,
@@ -864,6 +990,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "Basement Rack U06",
                 version: "7.0.0",
                 targetVersion: "7.0.0",
+                purchaseDate: "2024-11-15",
+                vendorEolAt: "2031-11-15",
+                candles: [
+                    DeviceLifecycleCandle(ver: "6.12.14", released: 0.08, attested: 0.15, ended: 0.62, eol: 0.85, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "7.0.0", released: 0.58, attested: 0.62, ended: 0.96, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:generic/limetech/unraid@7.0.0"],
                 confidenceTier: .confirmed,
@@ -891,6 +1023,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "Basement Rack U04",
                 version: "8.3.1",
                 targetVersion: "8.3.2",
+                purchaseDate: "2025-02-01",
+                vendorEolAt: "2030-02-01",
+                candles: [
+                    DeviceLifecycleCandle(ver: "8.2.4", released: 0.08, attested: 0.14, ended: 0.46, eol: 0.78, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "8.3.1", released: 0.44, attested: 0.46, ended: 0.90, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:deb/debian/proxmox-ve@8.3.1"],
                 confidenceTier: .confirmed,
@@ -918,6 +1056,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "2F Nursery",
                 version: "1.0.4",
                 targetVersion: "2.1.0",
+                purchaseDate: "2025-01-12",
+                vendorEolAt: "2026-10-15",
+                candles: [
+                    DeviceLifecycleCandle(ver: "1.0.2", released: 0.05, attested: 0.12, ended: 0.45, eol: 0.55, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "1.0.4", released: 0.40, attested: 0.45, ended: 0.96, eol: 0.98, cveStart: 0.62)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:generic/owlet/cam-2@1.0.4"],
                 confidenceTier: .confirmed,
@@ -945,6 +1089,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "1F Living Room",
                 version: "8.1.0",
                 targetVersion: "8.3.0",
+                purchaseDate: "2022-11-28",
+                vendorEolAt: "2027-11-28",
+                candles: [
+                    DeviceLifecycleCandle(ver: "8.0.4", released: 0.04, attested: 0.10, ended: 0.38, eol: 0.60, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "8.1.0", released: 0.32, attested: 0.38, ended: 0.96, eol: 0.99, cveStart: 0.72)
+                ],
                 lifecycleTier: "Vintage",
                 purls: ["pkg:generic/lg/webos@8.1.0"],
                 confidenceTier: .confirmed,
@@ -972,6 +1122,12 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "Garage Ceiling",
                 version: "2026.9.0",
                 targetVersion: "2026.10.2",
+                purchaseDate: "2024-03-10",
+                vendorEolAt: "2029-03-10",
+                candles: [
+                    DeviceLifecycleCandle(ver: "2026.8.2", released: 0.10, attested: 0.18, ended: 0.48, eol: 0.75, cveStart: nil),
+                    DeviceLifecycleCandle(ver: "2026.9.0", released: 0.45, attested: 0.48, ended: 0.92, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Active",
                 purls: ["pkg:generic/esphome/firmware@2026.9.0"],
                 confidenceTier: .confirmed,
@@ -999,6 +1155,11 @@ public enum BulletinsAndInventoryEngine {
                 roomLocation: "1F Hallway",
                 version: "unverified",
                 targetVersion: nil,
+                purchaseDate: nil,
+                vendorEolAt: nil,
+                candles: [
+                    DeviceLifecycleCandle(ver: "unverified", released: 0.55, attested: 0.62, ended: 0.96, eol: 0.99, cveStart: nil)
+                ],
                 lifecycleTier: "Provisional Guess",
                 purls: ["pkg:generic/ecobee/*"],
                 confidenceTier: .provisionalGuess,
