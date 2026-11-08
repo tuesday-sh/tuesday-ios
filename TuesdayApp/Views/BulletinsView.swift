@@ -103,6 +103,7 @@ public struct BulletinsView: View {
                     }
                     .buttonStyle(.plain)
                     .uiAction("snoozeRhythmBulletin")
+                    .uiAction("primaryNotchAction")
 
                     Button(action: { rhythmIgnored = true }) {
                         Text("✕ Ignore")
@@ -115,6 +116,7 @@ public struct BulletinsView: View {
                     }
                     .buttonStyle(.plain)
                     .uiAction("ignoreRhythmBulletin")
+                    .uiAction("secondaryNotchAction")
                 }
                 .padding(.top, 2)
             }
@@ -125,6 +127,8 @@ public struct BulletinsView: View {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(palette.accent.opacity(0.45), lineWidth: 1)
             )
+            .uiComponent("NotchBulletinCard")
+            .uiSlot("rhythm-reminder-panel")
             .uiSlot("bulletin-inbox-item", state: "id=bul-00-rhythm;type=rhythm")
         } else if rhythmSnoozed {
             HStack {
@@ -258,6 +262,7 @@ public struct BulletinsView: View {
                 onInspectDevice(item.externalId)
             }
             .uiAction("inspectDevice")
+            .uiComponent("SingleNotchCard")
             .uiSlot("bulletin-inbox-item", state: "id=\(item.externalId);type=\(item.bulletinType)")
         }
     }

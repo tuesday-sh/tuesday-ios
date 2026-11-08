@@ -774,6 +774,7 @@ public struct HomeView: View {
                             .padding(.vertical, 2)
                             .background(TuesdayTheme.ledCveRed)
                             .cornerRadius(4)
+                            .uiAction("clickLeftNotch")
                         Text("Patch Tuesday • Readiness Checklist")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(palette.textPrimary)
@@ -788,6 +789,7 @@ public struct HomeView: View {
                                 .cornerRadius(4)
                         }
                         .buttonStyle(.plain)
+                        .uiAction("clickRightNotch")
                     }
 
                     Text("Patch Tuesday Readiness")
@@ -866,6 +868,7 @@ public struct HomeView: View {
                                 .cornerRadius(6)
                         }
                         .buttonStyle(.plain)
+                        .uiAction("primaryNotchAction")
 
                         Button(action: {
                             bulletinSnoozed = true
@@ -879,6 +882,7 @@ public struct HomeView: View {
                                 .cornerRadius(6)
                         }
                         .buttonStyle(.plain)
+                        .uiAction("primaryNotchAction")
 
                         Button(action: {
                             bulletinDismissed = true
@@ -890,9 +894,12 @@ public struct HomeView: View {
                                 .padding(.vertical, 5)
                         }
                         .buttonStyle(.plain)
+                        .uiAction("secondaryNotchAction")
                     }
                     .padding(.top, 4)
                 }
+                .uiComponent("NotchBulletinCard")
+                .uiSlot("rhythm-reminder-panel")
                 .padding(12)
                 .background(palette.surface)
                 .cornerRadius(10)
