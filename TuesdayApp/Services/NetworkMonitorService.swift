@@ -43,6 +43,10 @@ public final class NetworkMonitorService: ObservableObject {
         }
     }
 
+    public func setSimulateDisconnected(_ disconnected: Bool) {
+        simulateWifiDisconnected = disconnected
+    }
+
     public func refreshSsid() async {
         guard isWifiConnected else {
             currentSsid = "Disconnected"

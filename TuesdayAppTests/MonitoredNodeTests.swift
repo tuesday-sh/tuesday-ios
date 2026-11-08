@@ -196,11 +196,11 @@ final class MonitoredNodeTests: XCTestCase {
 
         let ucg = devices.first { $0.portIndex == 1 }!
         XCTAssertEqual(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ucg, scrubNorm: nil), ucg.version)
-        XCTAssertEqual(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ucg, scrubNorm: 0.0), "Not Deployed Yet")
+        XCTAssertEqual(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ucg, scrubNorm: 0.0), "Not Yet Released")
         XCTAssertEqual(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ucg, scrubNorm: 0.80), "4.0.20")
 
-        let ecobee = devices.first { $0.portIndex == 10 }!
-        XCTAssertTrue(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ecobee, scrubNorm: 0.50).contains("unverified"))
+        let ecobee = devices.first { $0.portIndex == 12 }!
+        XCTAssertTrue(BulletinsAndInventoryEngine.getEstimatedVersionAtCursor(device: ecobee, scrubNorm: 0.50).contains("Unverified"))
 
         XCTAssertTrue(hasActiveCheckupRecommendation(devices: devices, welcomeComplete: true))
     }

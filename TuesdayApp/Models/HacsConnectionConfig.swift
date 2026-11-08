@@ -1,13 +1,22 @@
 import Foundation
 
-public enum AiProviderType: String, Codable, CaseIterable {
+public enum AiProviderType: String, Codable, CaseIterable, Identifiable {
     case elastix = "elastix"
     case gemini = "gemini"
+
+    public var id: String { rawValue }
 
     public var displayName: String {
         switch self {
         case .elastix: return "Elastix.ai"
         case .gemini: return "GCP Gemini"
+        }
+    }
+
+    public var shortLabel: String {
+        switch self {
+        case .elastix: return "Elastix"
+        case .gemini: return "Gemini"
         }
     }
 }

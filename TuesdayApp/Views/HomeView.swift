@@ -764,7 +764,6 @@ public struct HomeView: View {
                 let step1Done = activeCount > 0
                 let step2Done = true
                 let step3Done = false
-                let allStepsDone = step1Done && step2Done && step3Done
 
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {

@@ -496,6 +496,11 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
         persistState()
     }
 
+    public func recordCorpusAndScanNext() {
+        self.savedCorpusCount += 1
+        persistState()
+    }
+
     public func resetDemoData() {
         self.hacsConfig = HacsConnectionConfig()
         self.nodes = Self.defaultSeedNodes()
