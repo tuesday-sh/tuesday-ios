@@ -224,6 +224,16 @@ public final class GeminiDeviceDiscoveryService {
         request.setValue(sessionStickinessId, forHTTPHeaderField: "X-Tuesday-Device-ID")
         request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
         request.setValue(Self.pilotClientToken, forHTTPHeaderField: "X-Tuesday-Pilot-Token")
+        let appVer = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        request.setValue(appVer, forHTTPHeaderField: "X-Tuesday-App-Version")
+        request.setValue(buildNum, forHTTPHeaderField: "X-Tuesday-Build")
+        request.setValue("Tuesday-iOS/\(appVer) (\(buildNum))", forHTTPHeaderField: "User-Agent")
+        let appVer = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        request.setValue(appVer, forHTTPHeaderField: "X-Tuesday-App-Version")
+        request.setValue(buildNum, forHTTPHeaderField: "X-Tuesday-Build")
+        request.setValue("Tuesday-iOS/\(appVer) (\(buildNum))", forHTTPHeaderField: "User-Agent")
 
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -279,6 +289,11 @@ public final class GeminiDeviceDiscoveryService {
         request.setValue(sessionStickinessId, forHTTPHeaderField: "X-Tuesday-Device-ID")
         request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
         request.setValue(Self.pilotClientToken, forHTTPHeaderField: "X-Tuesday-Pilot-Token")
+        let appVer = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        request.setValue(appVer, forHTTPHeaderField: "X-Tuesday-App-Version")
+        request.setValue(buildNum, forHTTPHeaderField: "X-Tuesday-Build")
+        request.setValue("Tuesday-iOS/\(appVer) (\(buildNum))", forHTTPHeaderField: "User-Agent")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
 
         let (data, response) = try await URLSession.shared.data(for: request)
