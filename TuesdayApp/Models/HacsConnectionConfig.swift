@@ -53,7 +53,7 @@ public struct HacsConnectionConfig: Codable, Equatable {
         elastixModel: String = "qwen3.8-27b",
         geminiApiKey: String = "",
         geminiModel: String = "gemini-3.8-flash",
-        tuesdayApiBaseUrl: String = "http://100.108.40.3:3000"
+        tuesdayApiBaseUrl: String = "https://api.tuesday.sh"
     ) {
         self.instanceName = instanceName
         self.baseUrl = baseUrl
@@ -106,6 +106,6 @@ public struct HacsConnectionConfig: Codable, Equatable {
         self.elastixModel = try container.decodeIfPresent(String.self, forKey: .elastixModel) ?? "qwen3.8-27b"
         self.geminiApiKey = try container.decodeIfPresent(String.self, forKey: .geminiApiKey) ?? ""
         self.geminiModel = try container.decodeIfPresent(String.self, forKey: .geminiModel) ?? "gemini-3.8-flash"
-        self.tuesdayApiBaseUrl = try container.decodeIfPresent(String.self, forKey: .tuesdayApiBaseUrl) ?? "http://100.108.40.3:3000"
+        self.tuesdayApiBaseUrl = try container.decodeIfPresent(String.self, forKey: .tuesdayApiBaseUrl) ?? "https://api.tuesday.sh"
     }
 }
