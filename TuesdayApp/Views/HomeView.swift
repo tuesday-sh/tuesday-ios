@@ -59,7 +59,7 @@ public struct HomeView: View {
         let isStn = (repository.brandFlavor == .sureThingHome)
         let activeNetwork = repository.userNetworks.first(where: { $0.id == repository.activeNetworkId })
             ?? repository.userNetworks.first
-            ?? NetworkSite(id: "skyway", name: "Skyway Lab", devicesCount: 12, role: "Primary Homelab")
+            ?? NetworkSite(id: "net-default", name: "My Network", devicesCount: 0, role: "Primary Site")
         let visibleDevices = Array(repository.rackDevices.prefix(repository.activeDeviceCount))
         let scaleTier = InventoryScaleTier.forCount(visibleDevices.count)
 

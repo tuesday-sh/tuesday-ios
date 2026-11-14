@@ -11,8 +11,8 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
     @Published public var selectedZoneFilter: TrustZone? = nil
     @Published public var selectedPortStateFilter: PortLifecycleState? = nil
     @Published public var userNetworks: [NetworkSite] = MockHacsTuesdayService.defaultNetworks()
-    @Published public var activeNetworkId: String = "skyway"
-    @Published public var activeDeviceCount: Int = 12
+    @Published public var activeNetworkId: String = "net-default"
+    @Published public var activeDeviceCount: Int = 0
     @Published public var isDeveloperMode: Bool = false
     @Published public var savedCorpusCount: Int = 2
     @Published public var hacsConfig: HacsConnectionConfig
@@ -21,14 +21,14 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
 
     public static func defaultNetworks() -> [NetworkSite] {
         return [
-            NetworkSite(id: "skyway", name: "Skyway Lab", devicesCount: 12, role: "Primary Homelab"),
-            NetworkSite(id: "main_home", name: "Main Home Wi-Fi", devicesCount: 7, role: "Residential"),
-            NetworkSite(id: "orcas", name: "Orcas Island Cabin", devicesCount: 3, role: "Remote Site")
+            NetworkSite(id: "net-default", name: "My Network", devicesCount: 0, role: "Primary Site")
         ]
     }
 
     private let nodesCacheKey = "tuesday_mock_nodes_v1"
     private let configCacheKey = "tuesday_mock_hacs_config_v1"
+    private let networksCacheKey = "tuesday_ios_user_networks_v1"
+    private let activeNetworkIdKey = "tuesday_ios_active_network_id_v1"
     private let clientDeviceIdKey = "tuesday_ios_client_device_id_v1"
     private let entitlementTierKey = "tuesday_ios_entitlement_tier_v1"
     private let defaults: UserDefaults
@@ -50,6 +50,20 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
             self.hacsConfig = decoded
         } else {
             self.hacsConfig = HacsConnectionConfig()
+        }
+
+        if let data = defaults.data(forKey: networksCacheKey),
+           let decoded = try? JSONDecoder().decode([NetworkSite].self, from: data),
+           !decoded.isEmpty {
+            self.userNetworks = decoded
+        } else {
+            self.userNetworks = Self.defaultNetworks()
+        }
+
+        if let savedNetId = defaults.string(forKey: activeNetworkIdKey),
+           let found = self.userNetworks.first(where: { $0.id == savedNetId }) {
+            self.activeNetworkId = found.id
+            self.activeDeviceCount = found.devicesCount
         }
 
         if let data = defaults.data(forKey: nodesCacheKey),
@@ -82,16 +96,18 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
         guard let found = userNetworks.first(where: { $0.id == networkId }) else { return }
         activeNetworkId = found.id
         activeDeviceCount = found.devicesCount
+        persistState()
     }
 
     public func createNetwork(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let newId = "net-\(Int(Date().timeIntervalSince1970))"
-        let site = NetworkSite(id: newId, name: trimmed, devicesCount: 0, role: "New Location")
+        let site = NetworkSite(id: newId, name: trimmed, devicesCount: 0, role: "Site")
         userNetworks.append(site)
         activeNetworkId = newId
         activeDeviceCount = 0
+        persistState()
     }
 
     public func renameActiveNetwork(_ newName: String) {
@@ -103,6 +119,7 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
             copy.name = trimmed
             return copy
         }
+        persistState()
     }
 
     public func toggleDeveloperMode(_ enabled: Bool) {
@@ -118,6 +135,7 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
             copy.devicesCount = clamped
             return copy
         }
+        persistState()
     }
 
     public func purgeGoldenCorpus() -> Int {
@@ -510,8 +528,8 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
         self.selectedZoneFilter = nil
         self.selectedPortStateFilter = nil
         self.userNetworks = Self.defaultNetworks()
-        self.activeNetworkId = "skyway"
-        self.activeDeviceCount = 12
+        self.activeNetworkId = "net-default"
+        self.activeDeviceCount = 0
         self.isDeveloperMode = false
         self.savedCorpusCount = 2
         persistState()
@@ -524,5 +542,9 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol {
         if let encodedConfig = try? JSONEncoder().encode(hacsConfig) {
             defaults.set(encodedConfig, forKey: configCacheKey)
         }
+        if let encodedNetworks = try? JSONEncoder().encode(userNetworks) {
+            defaults.set(encodedNetworks, forKey: networksCacheKey)
+        }
+        defaults.set(activeNetworkId, forKey: activeNetworkIdKey)
     }
 }
