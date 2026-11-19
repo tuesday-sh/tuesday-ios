@@ -7,8 +7,8 @@
 
   ],
   "settings" : {
-    "_applicationInternalID" : "sh.tuesday.app",
-    "_developerTeamID" : "GWBBWC9V34",
+    "_applicationInternalID" : "sh.tuesday.ios",
+    "_developerTeamID" : "C64X2B2J54",
     "_lastSynchronizedDate" : 784152000.0
   },
   "subscriptionGroups" : [
@@ -16,12 +16,12 @@
       "id" : "tuesday_pro_group",
       "localizations" : [
         {
-          "description" : "Unlock up to 128 monitored nodes, HACS pairing, and Family Tech Lead delegation.",
-          "displayName" : "Tuesday.sh Pro",
+          "description" : "Unlock unlimited network sites, family delegation, and live cross-site cloud sync.",
+          "displayName" : "Tuesday.sh Pro Tier 1",
           "locale" : "en_US"
         }
       ],
-      "name" : "Tuesday.sh Pro",
+      "name" : "Tuesday.sh Pro Tier 1",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -33,18 +33,18 @@
           "displayPrice" : "4.99",
           "familyShareable" : true,
           "groupNumber" : 1,
-          "internalID" : "pro_monthly_001",
+          "internalID" : "pro_tier1_monthly_001",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Up to 128 nodes, Home Assistant HACS sync, and Family Bridge.",
-              "displayName" : "Tuesday.sh Pro (Monthly)",
+              "description" : "Unlimited physical sites, family site delegation, and live cloud sync.",
+              "displayName" : "Pro Tier 1 Monthly",
               "locale" : "en_US"
             }
           ],
-          "productID" : "sh.tuesday.pro.monthly",
+          "productID" : "sh.tuesday.pro.tier1.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Tuesday.sh Pro Monthly",
+          "referenceName" : "Tuesday.sh Pro Tier 1 Monthly",
           "subscriptionGroupID" : "tuesday_pro_group",
           "type" : "RecurringSubscription"
         },
@@ -58,18 +58,18 @@
           "displayPrice" : "49.00",
           "familyShareable" : true,
           "groupNumber" : 1,
-          "internalID" : "pro_yearly_001",
+          "internalID" : "pro_tier1_annual_001",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Annual Tuesday.sh Pro plan (2 months free).",
-              "displayName" : "Tuesday.sh Pro (Annual)",
+              "description" : "Annual Tuesday.sh Pro Tier 1 plan (Save 18%).",
+              "displayName" : "Pro Tier 1 Annual",
               "locale" : "en_US"
             }
           ],
-          "productID" : "sh.tuesday.pro.yearly",
+          "productID" : "sh.tuesday.pro.tier1.annual",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "Tuesday.sh Pro Annual",
+          "referenceName" : "Tuesday.sh Pro Tier 1 Annual",
           "subscriptionGroupID" : "tuesday_pro_group",
           "type" : "RecurringSubscription"
         }

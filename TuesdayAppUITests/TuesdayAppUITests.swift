@@ -1,59 +1,66 @@
 import XCTest
 
 final class TuesdayAppUITests: XCTestCase {
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
     @MainActor
-    func testDashboardAndPhotoDeviceInventoryWizardFlow() throws {
+    func testDayZeroWelcomeSeedsForestAndNavigatesAllTabs() throws {
         let app = XCUIApplication()
-        app.launchArguments.append("--uitesting-reset")
-        app.launchArguments.append("--uitesting-mock-gemini")
+        app.launchArguments = ["--uitesting-reset", "--uitesting-mock-gemini"]
         app.launch()
 
-        let summaryTitle = app.staticTexts["fleet_summary_title"]
-        XCTAssertTrue(summaryTitle.waitForExistence(timeout: 8.0))
+        // 1. Verify Day-0 TopAppBar & WelcomeCard
+        XCTAssertTrue(app.staticTexts["tuesday.sh"].waitForExistence(timeout: 8))
+        let seedBtn = app.buttons["ui:slot:enable-demo-cta"]
+        XCTAssertTrue(seedBtn.waitForExistence(timeout: 5), "Expected 'seed Forest fleet' button on Day-0 launch")
 
-        // Verify section header says DEVICES
-        let devicesHeader = app.staticTexts["devices_section_header"]
-        XCTAssertTrue(devicesHeader.waitForExistence(timeout: 5.0))
-        XCTAssertTrue(devicesHeader.label.contains("DEVICES"))
+        // 2. Seed Forest Fleet (12 devices)
+        seedBtn.tap()
+        XCTAssertTrue(app.staticTexts["NETWORK HARDWARE"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["UniFi Dream Machine Pro"].waitForExistence(timeout: 5))
 
-        // Navigate to Add Device screen (Photo Inventory Wizard)
-        let addDeviceButton = app.buttons["navigate_add_device_button"]
-        XCTAssertTrue(addDeviceButton.waitForExistence(timeout: 5.0))
-        addDeviceButton.tap()
+        // 3. Switch across all 5 main tabs
+        app.buttons["ui:slot:nav-tab-bulletins"].tap()
+        XCTAssertTrue(app.staticTexts["BULLETIN"].waitForExistence(timeout: 5))
 
-        let wizardTitle = app.staticTexts["photo_wizard_title"]
-        XCTAssertTrue(wizardTitle.waitForExistence(timeout: 5.0))
+        app.buttons["ui:slot:nav-tab-timeline"].tap()
+        XCTAssertTrue(app.staticTexts["OPERATIONAL LIFESPAN & EOL"].waitForExistence(timeout: 5))
 
-        // Step 1: Capture sample router photo
-        let sampleRouterButton = app.buttons["wizard_sample_router_button"]
-        XCTAssertTrue(sampleRouterButton.waitForExistence(timeout: 5.0))
-        sampleRouterButton.tap()
+        app.buttons["ui:slot:nav-tab-checkup"].tap()
+        XCTAssertTrue(app.staticTexts["R2 QUARTERLY AUDIT PILLARS"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["PILLAR 1"].waitForExistence(timeout: 5))
 
-        // Step 2: Verify Gemini AI progressive narrowing question appears
-        let narrowingQuestion = app.staticTexts["wizard_narrowing_question_label"]
-        XCTAssertTrue(narrowingQuestion.waitForExistence(timeout: 6.0))
+        app.buttons["ui:slot:nav-tab-account"].tap()
+        let subRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Subscription & Plan")).firstMatch
+        XCTAssertTrue(subRow.waitForExistence(timeout: 5))
 
-        // Enter a Model identifier clue and refine
-        let clueInput = app.textFields["wizard_clue_input_field"]
-        XCTAssertTrue(clueInput.waitForExistence(timeout: 5.0))
-        clueInput.tap()
-        clueInput.typeText("UCG-Ultra")
+        // Scroll if needed so footer rows are visible on compact iPhones
+        let privacyRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Privacy Policy")).firstMatch
+        if !privacyRow.waitForExistence(timeout: 2) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(privacyRow.waitForExistence(timeout: 5))
 
-        let refineButton = app.buttons["wizard_refine_clue_button"]
-        XCTAssertTrue(refineButton.waitForExistence(timeout: 5.0))
-        refineButton.tap()
+        // 4. Open Ordinal Spine & Reference Guide from Settings
+        let refRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Ordinal Spine & Reference Guide")).firstMatch
+        if !refRow.exists || !refRow.isHittable {
+            app.swipeDown()
+        }
+        XCTAssertTrue(refRow.waitForExistence(timeout: 5))
+        refRow.tap()
+        XCTAssertTrue(app.staticTexts["SureThingNet Categories (Scale C1 → C8)"].waitForExistence(timeout: 5))
+        app.buttons["ui:action:closeReferenceGuide"].firstMatch.tap()
 
-        // Confirm top candidate match
-        let confirmCandidateButton = app.buttons["confirm_candidate_button_0"]
-        XCTAssertTrue(confirmCandidateButton.waitForExistence(timeout: 5.0))
-        confirmCandidateButton.tap()
+        // 5. Switch back to My Net and open Add Device Offline Gold Search
+        app.buttons["ui:slot:nav-tab-status"].tap()
+        let addBtn = app.buttons["ui:action:openAddDevice"]
+        XCTAssertTrue(addBtn.waitForExistence(timeout: 5))
+        addBtn.tap()
 
-        // Verify newly discovered device appears on the DEVICES dashboard
-        let newDeviceText = app.staticTexts["unifi-ucg-ultra.local"]
-        XCTAssertTrue(newDeviceText.waitForExistence(timeout: 5.0))
+        XCTAssertTrue(app.staticTexts["SHARED HARDWARE CLUES (OFFLINE GOLD INDEX)"].waitForExistence(timeout: 5))
+        app.buttons["ui:action:cancelAddDevice"].firstMatch.tap()
     }
 }

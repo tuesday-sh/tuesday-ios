@@ -31,8 +31,27 @@ public enum DeviceClueType: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+public struct GoldAlignmentInfo: Codable, Equatable {
+    public var aligned: Bool
+    public var inferredPurl: String?
+    public var catalogItemId: String?
+    public var statusLabel: String
+
+    public init(
+        aligned: Bool = false,
+        inferredPurl: String? = nil,
+        catalogItemId: String? = nil,
+        statusLabel: String = "UNALIGNED RAW MATCH"
+    ) {
+        self.aligned = aligned
+        self.inferredPurl = inferredPurl
+        self.catalogItemId = catalogItemId
+        self.statusLabel = statusLabel
+    }
+}
+
 public struct DeviceCandidateMatch: Identifiable, Codable, Equatable {
-    public var id: String { "\(manufacturer)-\(modelNumber)" }
+    public var id: String { "\(manufacturer)-\(modelNumber)-\(confidencePercent)" }
     public var manufacturer: String
     public var modelNumber: String
     public var displayName: String
@@ -42,6 +61,7 @@ public struct DeviceCandidateMatch: Identifiable, Codable, Equatable {
     public var suggestedHostname: String
     public var suggestedOsDetails: String
     public var suggestedPackageManager: String
+    public var goldAlignment: GoldAlignmentInfo?
 
     public init(
         manufacturer: String,
@@ -52,7 +72,8 @@ public struct DeviceCandidateMatch: Identifiable, Codable, Equatable {
         reasoning: String,
         suggestedHostname: String,
         suggestedOsDetails: String,
-        suggestedPackageManager: String
+        suggestedPackageManager: String,
+        goldAlignment: GoldAlignmentInfo? = nil
     ) {
         self.manufacturer = manufacturer
         self.modelNumber = modelNumber
@@ -63,6 +84,7 @@ public struct DeviceCandidateMatch: Identifiable, Codable, Equatable {
         self.suggestedHostname = suggestedHostname
         self.suggestedOsDetails = suggestedOsDetails
         self.suggestedPackageManager = suggestedPackageManager
+        self.goldAlignment = goldAlignment
     }
 
     public var resolvedPackageManager: PackageManagerType {
@@ -112,83 +134,262 @@ public struct ExtractedDeviceIdentifiers: Codable, Equatable {
 
 public struct GeminiDiscoveryTurnResult: Codable, Equatable {
     public var visualSummary: String
+    public var isNetworkedDevice: Bool
+    public var outOfScopeReason: String?
     public var nextNarrowingQuestion: String
     public var recommendedClueTypes: [String]
     public var extractedIdentifiers: ExtractedDeviceIdentifiers
     public var candidates: [DeviceCandidateMatch]
     public var usedLiveGeminiApi: Bool
+    public var debugTrace: String?
+    public var rawJsonResponse: String?
 
     public init(
         visualSummary: String,
-        nextNarrowingQuestion: String,
-        recommendedClueTypes: [String],
-        extractedIdentifiers: ExtractedDeviceIdentifiers,
-        candidates: [DeviceCandidateMatch],
-        usedLiveGeminiApi: Bool = true
+        isNetworkedDevice: Bool = true,
+        outOfScopeReason: String? = nil,
+        nextNarrowingQuestion: String = "",
+        recommendedClueTypes: [String] = [],
+        extractedIdentifiers: ExtractedDeviceIdentifiers = ExtractedDeviceIdentifiers(),
+        candidates: [DeviceCandidateMatch] = [],
+        usedLiveGeminiApi: Bool = false,
+        debugTrace: String? = nil,
+        rawJsonResponse: String? = nil
     ) {
         self.visualSummary = visualSummary
+        self.isNetworkedDevice = isNetworkedDevice
+        self.outOfScopeReason = outOfScopeReason
         self.nextNarrowingQuestion = nextNarrowingQuestion
         self.recommendedClueTypes = recommendedClueTypes
         self.extractedIdentifiers = extractedIdentifiers
         self.candidates = candidates
         self.usedLiveGeminiApi = usedLiveGeminiApi
+        self.debugTrace = debugTrace
+        self.rawJsonResponse = rawJsonResponse
     }
 }
 
-/// Hardware Vision Discovery Client for Tuesday.sh iOS.
-///
-/// SECURITY & PRIVACY ARCHITECTURE:
-/// - Zero LLM API keys are bundled or stored in the iOS app binary.
-/// - All hardware vision calls are proxied through Tuesday Server (`POST /api/v1/discovery/analyze`),
-///   which performs $0.00 Gold Catalog short-circuiting, routes across Elastix (qwen3.8-27b) and
-///   GCP Gemini (gemini-3.8-flash), emits unified telemetry to CloudWatch Omni (`hosted-ai-v1`),
-///   and enforces ephemeral RAM-only photo processing (zero photo storage on our servers).
-@MainActor
 public final class GeminiDeviceDiscoveryService {
     public static let shared = GeminiDeviceDiscoveryService()
-    public static let defaultServerBaseUrl = "https://api.tuesday.sh"
-    private static let pilotClientToken = "tuesday-pilot-v1-public-client-token"
 
-    private let sessionStickinessId = "tuesday-ios-" + String(UUID().uuidString.prefix(8)).lowercased()
+    public static let defaultServerBaseUrl = "https://api.tuesday.sh"
+    public static let defaultClientDeviceId = "ios-sim-device"
+    public static let pilotClientToken = "tuesday-pilot-v1-public-client-token"
+    public static let maxImagesPerTurn = 2
+    public static let maxTotalBase64Bytes = 780_000
+
+    private let stateLock = NSLock()
+    private var sessionStickinessId = "tuesday-ios-" + String(UUID().uuidString.prefix(8)).lowercased()
     private var turnCounter = 0
 
-    public init() {}
+    private init() {}
 
+    @discardableResult
+    public func startNewSession() -> String {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        sessionStickinessId = "tuesday-ios-" + String(UUID().uuidString.prefix(8)).lowercased()
+        turnCounter = 0
+        return sessionStickinessId
+    }
+
+    private func nextTurnContext() -> (sessionId: String, turnIndex: Int) {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        turnCounter += 1
+        return (sessionStickinessId, turnCounter)
+    }
+
+    private func applyStandardHeaders(
+        to request: inout URLRequest,
+        includeImageRetention: Bool = false,
+        debugCapture: Bool = false
+    ) {
+        let info = Bundle.main.infoDictionary
+        let appVer = (info?["CFBundleShortVersionString"] as? String) ?? "1.0.0"
+        let buildNum = (info?["CFBundleVersion"] as? String) ?? "9"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Tuesday.sh-iOS/\(appVer) (Build \(buildNum); iOS \(UIDevice.current.systemVersion))", forHTTPHeaderField: "User-Agent")
+        request.setValue(appVer, forHTTPHeaderField: "X-Tuesday-App-Version")
+        request.setValue(buildNum, forHTTPHeaderField: "X-Tuesday-Build")
+        request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
+        request.setValue(Self.pilotClientToken, forHTTPHeaderField: "X-Tuesday-Pilot-Token")
+        request.setValue(debugCapture ? "true" : "false", forHTTPHeaderField: "X-Tuesday-Debug")
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? Self.defaultClientDeviceId
+        request.setValue(deviceId, forHTTPHeaderField: "X-Tuesday-Device-ID")
+        if includeImageRetention {
+            request.setValue("none_ephemeral_ram_only", forHTTPHeaderField: "X-Tuesday-Image-Retention")
+        }
+    }
+
+    /// Downscales camera/library images to <= 1024px (scale 1.0, normalized upright) and keeps
+    /// base64 JPEG payload safely within the edge proxy's ephemeral transit budget.
+    public static func downscaleAndEncode(
+        _ image: UIImage,
+        maxDimension: CGFloat = 1024,
+        maxBase64Bytes: Int = 380_000
+    ) -> String? {
+        func renderAndCompress(maxSide: CGFloat, qualities: [CGFloat]) -> String? {
+            let srcWidth = image.size.width * image.scale
+            let srcHeight = image.size.height * image.scale
+            guard srcWidth > 0, srcHeight > 0 else { return nil }
+
+            let ratio = min(maxSide / srcWidth, maxSide / srcHeight, 1.0)
+            let targetSize = CGSize(
+                width: max(1, (srcWidth * ratio).rounded()),
+                height: max(1, (srcHeight * ratio).rounded())
+            )
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1.0
+            format.opaque = true
+            let rendered = UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+                image.draw(in: CGRect(origin: .zero, size: targetSize))
+            }
+
+            var lastEncoded: String?
+            for q in qualities {
+                if let data = rendered.jpegData(compressionQuality: q) {
+                    let b64 = data.base64EncodedString()
+                    lastEncoded = b64
+                    if b64.utf8.count <= maxBase64Bytes {
+                        return b64
+                    }
+                }
+            }
+            return lastEncoded
+        }
+
+        if let primary = renderAndCompress(maxSide: maxDimension, qualities: [0.80, 0.65, 0.50]),
+           primary.utf8.count <= maxBase64Bytes {
+            return primary
+        }
+        return renderAndCompress(maxSide: min(maxDimension, 768), qualities: [0.55, 0.42])
+    }
+
+    /// Calls POST /api/v1/discovery/analyze (ephemeral RAM-only processing on Tuesday.sh backend)
+    /// and reconciles returned candidates against the offline Gold Clue Index.
     public func analyzeDeviceProgressive(
         images: [UIImage],
         accumulatedIdentifiers: ExtractedDeviceIdentifiers,
         userClueNotes: [String],
         apiKeyOverride: String = "",
         modelName: String = "qwen3.8-27b",
-        serverBaseUrl: String = GeminiDeviceDiscoveryService.defaultServerBaseUrl
+        providerOverride: String? = nil,
+        serverBaseUrl: String = GeminiDeviceDiscoveryService.defaultServerBaseUrl,
+        debugCapture: Bool = false
     ) async -> GeminiDiscoveryTurnResult {
         if CommandLine.arguments.contains("--uitesting-mock-gemini") {
-            return Self.fallbackHeuristicAnalysis(
+            let simulated = Self.fallbackHeuristicAnalysis(
                 accumulatedIdentifiers: accumulatedIdentifiers,
                 userClueNotes: userClueNotes,
                 imageCount: images.count,
-                usedLiveApi: false
+                note: "Offline UI test heuristic simulation (--uitesting-mock-gemini)"
+            )
+            return GoldClueSuggestionRepository.shared.reconcileDiscoveryResult(simulated)
+        }
+
+        let trimmedBase = (serverBaseUrl.isEmpty ? Self.defaultServerBaseUrl : serverBaseUrl)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(trimmedBase)/api/v1/discovery/analyze") else {
+            return GoldClueSuggestionRepository.shared.reconcileDiscoveryResult(
+                Self.fallbackHeuristicAnalysis(
+                    accumulatedIdentifiers: accumulatedIdentifiers,
+                    userClueNotes: userClueNotes,
+                    imageCount: images.count,
+                    note: "Invalid Tuesday.sh Server URL: \(serverBaseUrl)"
+                )
             )
         }
 
-        turnCounter += 1
+        let turnCtx = nextTurnContext()
+        let selectedImages = Array(images.suffix(Self.maxImagesPerTurn))
+        let perImageBudget = min(380_000, Self.maxTotalBase64Bytes / max(1, selectedImages.count))
+        let base64Images: [String] = selectedImages.compactMap { img in
+            Self.downscaleAndEncode(img, maxDimension: 1024, maxBase64Bytes: perImageBudget)
+        }
+
+        var idsDict: [String: String] = [:]
+        if let b = accumulatedIdentifiers.barcode, !b.isEmpty { idsDict["barcode"] = b }
+        if let s = accumulatedIdentifiers.serialNumber, !s.isEmpty { idsDict["serialNumber"] = s }
+        if let q = accumulatedIdentifiers.qrCode, !q.isEmpty { idsDict["qrCode"] = q }
+        if let m = accumulatedIdentifiers.modelNumber, !m.isEmpty { idsDict["modelNumber"] = m }
+        if let mac = accumulatedIdentifiers.macAddress, !mac.isEmpty { idsDict["macAddress"] = mac }
+
+        let clientDeviceId = UIDevice.current.identifierForVendor?.uuidString ?? Self.defaultClientDeviceId
+        var payload: [String: Any] = [
+            "session_id": turnCtx.sessionId,
+            "turn_index": turnCtx.turnIndex,
+            "client_platform": "ios",
+            "device_id": clientDeviceId,
+            "initial_mode": "photo_wizard",
+            "provider_override": providerOverride?.nilIfBlank ?? "auto",
+            "images_base64": base64Images,
+            "user_clue_notes": userClueNotes,
+            "extracted_identifiers": idsDict,
+            "ephemeral_ram_only": true,
+            "model_preference": modelName,
+            "debug": debugCapture
+        ]
+        if !apiKeyOverride.isEmpty {
+            payload["api_key_override"] = apiKeyOverride
+        }
+
         do {
-            return try await callTuesdayServerAnalyzeApi(
-                images: images,
-                accumulatedIdentifiers: accumulatedIdentifiers,
-                userClueNotes: userClueNotes,
-                serverBaseUrl: serverBaseUrl.isEmpty ? Self.defaultServerBaseUrl : serverBaseUrl
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 55
+            applyStandardHeaders(to: &request, includeImageRetention: true, debugCapture: debugCapture)
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [])
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                let errDetail: String = {
+                    if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let msg = (obj["error"] as? String)?.nilIfBlank {
+                        return msg
+                    }
+                    return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfBlank ?? "Unexpected response"
+                }()
+                return GoldClueSuggestionRepository.shared.reconcileDiscoveryResult(
+                    Self.fallbackHeuristicAnalysis(
+                        accumulatedIdentifiers: accumulatedIdentifiers,
+                        userClueNotes: userClueNotes,
+                        imageCount: images.count,
+                        note: "HTTP \(status): \(errDetail)"
+                    )
+                )
+            }
+
+            let rawString = debugCapture ? String(data: data, encoding: .utf8) : nil
+            if var parsed = Self.parseBackendDiscoveryResponse(data) {
+                parsed.rawJsonResponse = rawString
+                return GoldClueSuggestionRepository.shared.reconcileDiscoveryResult(parsed)
+            }
+
+            return GoldClueSuggestionRepository.shared.reconcileDiscoveryResult(
+                Self.fallbackHeuristicAnalysis(
+                    accumulatedIdentifiers: accumulatedIdentifiers,
+                    userClueNotes: userClueNotes,
+                    imageCount: images.count,
+                    note: "Could not parse backend discovery JSON; using local heuristic fallback."
+                )
             )
         } catch {
-            return Self.fallbackHeuristicAnalysis(
-                accumulatedIdentifiers: accumulatedIdentifiers,
-                userClueNotes: userClueNotes,
-                imageCount: images.count,
-                usedLiveApi: false
+            return GoldClueSuggestionRepository.shared.reconcileDiscoveryResult(
+                Self.fallbackHeuristicAnalysis(
+                    accumulatedIdentifiers: accumulatedIdentifiers,
+                    userClueNotes: userClueNotes,
+                    imageCount: images.count,
+                    note: "Network error (\(error.localizedDescription)); using offline heuristics."
+                )
             )
         }
     }
 
+    /// Sends explicit human-in-the-loop model confirmation to backend telemetry loop.
+    @discardableResult
     public func confirmDeviceDiscovery(
         inferredVendor: String?,
         inferredModel: String?,
@@ -204,126 +405,156 @@ public final class GeminiDeviceDiscoveryService {
             return false
         }
 
-        let idsList = accumulatedIdentifiers.nonEmptyPairs.map { "\($0.0.rawValue): \($0.1)" }
-        let body: [String: Any] = [
-            "session_id": sessionStickinessId,
-            "client_platform": "ios",
-            "device_id": sessionStickinessId,
+        let payload: [String: Any] = [
             "inferred_vendor": inferredVendor ?? "",
             "inferred_model": inferredModel ?? "",
             "confirmed_vendor": confirmedVendor,
             "confirmed_model": confirmedModel,
             "was_edited": wasEdited,
-            "extracted_identifiers": idsList
+            "identifiers": [
+                "barcode": accumulatedIdentifiers.barcode ?? "",
+                "serial_number": accumulatedIdentifiers.serialNumber ?? "",
+                "qr_code": accumulatedIdentifiers.qrCode ?? "",
+                "model_number": accumulatedIdentifiers.modelNumber ?? "",
+                "mac_address": accumulatedIdentifiers.macAddress ?? ""
+            ]
         ]
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 12.0
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(sessionStickinessId, forHTTPHeaderField: "X-Tuesday-Device-ID")
-        request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
-        request.setValue(Self.pilotClientToken, forHTTPHeaderField: "X-Tuesday-Pilot-Token")
-        let appVer = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        request.setValue(appVer, forHTTPHeaderField: "X-Tuesday-App-Version")
-        request.setValue(buildNum, forHTTPHeaderField: "X-Tuesday-Build")
-        request.setValue("Tuesday-iOS/\(appVer) (\(buildNum))", forHTTPHeaderField: "User-Agent")
-        let appVer = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        request.setValue(appVer, forHTTPHeaderField: "X-Tuesday-App-Version")
-        request.setValue(buildNum, forHTTPHeaderField: "X-Tuesday-Build")
-        request.setValue("Tuesday-iOS/\(appVer) (\(buildNum))", forHTTPHeaderField: "User-Agent")
-
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 10
+            applyStandardHeaders(to: &request)
+            request.httpBody = try JSONSerialization.data(withJSONObject: payload, options: [])
             let (_, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else { return false }
-            return (200...299).contains(http.statusCode)
+            return (response as? HTTPURLResponse).map { (200...299).contains($0.statusCode) } ?? false
         } catch {
             return false
         }
     }
 
-    private func callTuesdayServerAnalyzeApi(
-        images: [UIImage],
-        accumulatedIdentifiers: ExtractedDeviceIdentifiers,
-        userClueNotes: [String],
-        serverBaseUrl: String
-    ) async throws -> GeminiDiscoveryTurnResult {
-        let trimmedBase = serverBaseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let url = URL(string: "\(trimmedBase)/api/v1/discovery/analyze") else {
-            throw URLError(.badURL)
+    public static func parseBackendDiscoveryResponse(_ data: Data) -> GeminiDiscoveryTurnResult? {
+        guard let root = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
+            return nil
         }
 
-        var extractedDict: [String: String] = [:]
-        if let v = accumulatedIdentifiers.barcode, !v.isEmpty { extractedDict["barcode"] = v }
-        if let v = accumulatedIdentifiers.serialNumber, !v.isEmpty { extractedDict["serialNumber"] = v }
-        if let v = accumulatedIdentifiers.qrCode, !v.isEmpty { extractedDict["qrCode"] = v }
-        if let v = accumulatedIdentifiers.modelNumber, !v.isEmpty { extractedDict["modelNumber"] = v }
-        if let v = accumulatedIdentifiers.macAddress, !v.isEmpty { extractedDict["macAddress"] = v }
-
-        var imagesBase64: [String] = []
-        for img in images.suffix(2) {
-            if let jpegData = Self.downscaledJpegData(from: img, maxDimension: 640) {
-                imagesBase64.append(jpegData.base64EncodedString())
+        let visualSummary = ((root["visualSummary"] as? String)?.nilIfBlank
+            ?? (root["visual_summary"] as? String)?.nilIfBlank)
+            ?? "Analyzed hardware clues"
+        let isNetworked = (root["isNetworkedDevice"] as? Bool)
+            ?? (root["is_networked_device"] as? Bool)
+            ?? true
+        let outOfScope = (root["outOfScopeReason"] as? String)?.nilIfBlank
+            ?? (root["out_of_scope_reason"] as? String)?.nilIfBlank
+        let nextQuestion = (root["nextNarrowingQuestion"] as? String)?.nilIfBlank
+            ?? (root["next_narrowing_question"] as? String)?.nilIfBlank
+            ?? (root["nextPromptForUser"] as? String)?.nilIfBlank
+            ?? ""
+        let recommendedClues = (root["recommendedClueTypes"] as? [String])
+            ?? (root["recommended_clue_types"] as? [String])
+            ?? ["Model", "Serial Number"]
+        let providerLabel = (root["providerLabel"] as? String)?.nilIfBlank
+            ?? (root["providerUsed"] as? String)?.nilIfBlank
+            ?? (root["provider_used"] as? String)?.nilIfBlank
+            ?? "tuesday-server"
+        let debugTrace: String? = {
+            if let arr = root["debugTrace"] as? [String], !arr.isEmpty {
+                return arr.joined(separator: "\n")
             }
-        }
+            if let s = (root["debugTrace"] as? String)?.nilIfBlank { return s }
+            if let s = (root["debug_trace"] as? String)?.nilIfBlank { return s }
+            return (root["debugLogText"] as? String)?.nilIfBlank
+        }()
 
-        let requestBody: [String: Any] = [
-            "session_id": sessionStickinessId,
-            "turn_index": turnCounter,
-            "client_platform": "ios",
-            "device_id": sessionStickinessId,
-            "provider_override": "auto",
-            "extracted_identifiers": extractedDict,
-            "user_clue_notes": userClueNotes.filter { !$0.isEmpty },
-            "images_base64": imagesBase64
-        ]
+        let idsJson = (root["extractedIdentifiersObject"] as? [String: Any])
+            ?? (root["extractedIdentifiers"] as? [String: Any])
+            ?? (root["extracted_identifiers"] as? [String: Any])
+            ?? [:]
+        let extracted = ExtractedDeviceIdentifiers(
+            barcode: (idsJson["barcode"] as? String)?.nilIfBlank,
+            serialNumber: ((idsJson["serialNumber"] as? String)?.nilIfBlank
+                ?? (idsJson["serial_number"] as? String)?.nilIfBlank),
+            qrCode: ((idsJson["qrCode"] as? String)?.nilIfBlank
+                ?? (idsJson["qr_code"] as? String)?.nilIfBlank),
+            modelNumber: ((idsJson["modelNumber"] as? String)?.nilIfBlank
+                ?? (idsJson["model"] as? String)?.nilIfBlank
+                ?? (idsJson["model_number"] as? String)?.nilIfBlank),
+            macAddress: ((idsJson["macAddress"] as? String)?.nilIfBlank
+                ?? (idsJson["mac_address"] as? String)?.nilIfBlank)
+        )
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 32.0
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(sessionStickinessId, forHTTPHeaderField: "X-Tuesday-Device-ID")
-        request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
-        request.setValue(Self.pilotClientToken, forHTTPHeaderField: "X-Tuesday-Pilot-Token")
-        let appVer = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
-        let buildNum = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        request.setValue(appVer, forHTTPHeaderField: "X-Tuesday-App-Version")
-        request.setValue(buildNum, forHTTPHeaderField: "X-Tuesday-Build")
-        request.setValue("Tuesday-iOS/\(appVer) (\(buildNum))", forHTTPHeaderField: "User-Agent")
-        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        let rawCandidates = (root["candidates"] as? [[String: Any]]) ?? []
+        let candidates: [DeviceCandidateMatch] = rawCandidates.map { obj in
+            let gaJson = (obj["goldAlignment"] as? [String: Any])
+                ?? (obj["gold_alignment"] as? [String: Any])
+            let ga: GoldAlignmentInfo? = gaJson.map { g in
+                let aligned = (g["aligned"] as? Bool) ?? false
+                return GoldAlignmentInfo(
+                    aligned: aligned,
+                    inferredPurl: ((g["inferredPurl"] as? String)?.nilIfBlank
+                        ?? (g["inferred_purl"] as? String)?.nilIfBlank),
+                    catalogItemId: ((g["catalogItemId"] as? String)?.nilIfBlank
+                        ?? (g["catalog_item_id"] as? String)?.nilIfBlank),
+                    statusLabel: ((g["statusLabel"] as? String)?.nilIfBlank
+                        ?? (g["status_label"] as? String)?.nilIfBlank)
+                        ?? (aligned ? "GOLD ALIGNED" : "UNALIGNED RAW MATCH")
+                )
+            }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
+            let osDetails: String = {
+                if let s = (obj["suggestedOsDetails"] as? String)?.nilIfBlank { return s }
+                if let dict = obj["suggestedOsDetails"] as? [String: Any] {
+                    let osName = (dict["osName"] as? String) ?? "Firmware"
+                    let osVer = (dict["osVersion"] as? String) ?? ""
+                    return "\(osName) \(osVer)".trimmingCharacters(in: .whitespaces)
+                }
+                return (obj["osDetails"] as? String)?.nilIfBlank
+                    ?? (obj["suggested_os_details"] as? String)?.nilIfBlank
+                    ?? "Embedded Firmware"
+            }()
 
-        struct ServerTurnResponse: Decodable {
-            let visualSummary: String
-            let nextNarrowingQuestion: String
-            let recommendedClueTypes: [String]?
-            let extractedIdentifiersObject: ExtractedDeviceIdentifiers?
-            let candidates: [DeviceCandidateMatch]
-        }
+            let manufacturer = (obj["manufacturer"] as? String)?.nilIfBlank ?? "Unknown"
+            let modelNum = ((obj["modelNumber"] as? String)?.nilIfBlank
+                ?? (obj["model_number"] as? String)?.nilIfBlank)
+                ?? "Unknown Model"
+            let displayName = ((obj["displayName"] as? String)?.nilIfBlank
+                ?? (obj["display_name"] as? String)?.nilIfBlank)
+                ?? "\(manufacturer) \(modelNum)".trimmingCharacters(in: .whitespaces)
 
-        let decoded = try JSONDecoder().decode(ServerTurnResponse.self, from: data)
-        var mergedIds = accumulatedIdentifiers
-        if let ext = decoded.extractedIdentifiersObject {
-            mergedIds.merge(ext)
+            return DeviceCandidateMatch(
+                manufacturer: manufacturer,
+                modelNumber: modelNum,
+                displayName: displayName,
+                deviceCategory: ((obj["deviceCategory"] as? String)?.nilIfBlank
+                    ?? (obj["category"] as? String)?.nilIfBlank
+                    ?? (obj["device_category"] as? String)?.nilIfBlank)
+                    ?? "Network Hardware",
+                confidencePercent: (obj["confidencePercent"] as? Int)
+                    ?? (obj["confidence_percent"] as? Int)
+                    ?? 65,
+                reasoning: (obj["reasoning"] as? String) ?? "",
+                suggestedHostname: ((obj["suggestedHostname"] as? String)?.nilIfBlank
+                    ?? (obj["suggested_hostname"] as? String)?.nilIfBlank)
+                    ?? "network-device",
+                suggestedOsDetails: osDetails,
+                suggestedPackageManager: ((obj["suggestedPackageManager"] as? String)?.nilIfBlank
+                    ?? (obj["pkgManager"] as? String)?.nilIfBlank
+                    ?? (obj["suggested_package_manager"] as? String)?.nilIfBlank)
+                    ?? "firmware",
+                goldAlignment: ga
+            )
         }
 
         return GeminiDiscoveryTurnResult(
-            visualSummary: decoded.visualSummary,
-            nextNarrowingQuestion: decoded.nextNarrowingQuestion,
-            recommendedClueTypes: (decoded.recommendedClueTypes?.isEmpty == false)
-                ? decoded.recommendedClueTypes!
-                : DeviceClueType.allCases.map(\.rawValue),
-            extractedIdentifiers: mergedIds,
-            candidates: decoded.candidates,
-            usedLiveGeminiApi: true
+            visualSummary: visualSummary,
+            isNetworkedDevice: isNetworked,
+            outOfScopeReason: outOfScope,
+            nextNarrowingQuestion: nextQuestion,
+            recommendedClueTypes: recommendedClues,
+            extractedIdentifiers: extracted,
+            candidates: candidates,
+            usedLiveGeminiApi: true,
+            debugTrace: debugTrace ?? providerLabel
         )
     }
 
@@ -331,117 +562,122 @@ public final class GeminiDeviceDiscoveryService {
         accumulatedIdentifiers: ExtractedDeviceIdentifiers,
         userClueNotes: [String],
         imageCount: Int,
-        usedLiveApi: Bool
+        usedLiveApi: Bool = false,
+        note: String? = nil
     ) -> GeminiDiscoveryTurnResult {
-        let combinedClues = (
-            accumulatedIdentifiers.nonEmptyPairs.map { "\($0.0.rawValue): \($0.1)" } + userClueNotes
-        ).joined(separator: " ").lowercased()
+        let modelText = accumulatedIdentifiers.modelNumber?.lowercased() ?? ""
+        let macText = accumulatedIdentifiers.macAddress?.lowercased() ?? ""
+        let qrText = accumulatedIdentifiers.qrCode?.lowercased() ?? ""
+        let barcodeText = accumulatedIdentifiers.barcode?.lowercased() ?? ""
+        let cluesCombined = (userClueNotes.joined(separator: " ") + " " + modelText + " " + macText + " " + qrText + " " + barcodeText).lowercased()
 
-        let hasSpecificClue = !accumulatedIdentifiers.nonEmptyPairs.isEmpty || imageCount > 1
-
-        if combinedClues.contains("zigbee") || combinedClues.contains("sonoff") || combinedClues.contains("zbdongle") {
+        if cluesCombined.contains("ucg") || cluesCombined.contains("udm") || cluesCombined.contains("unifi") || macText.hasPrefix("74:83:c2") {
+            let isUltra = cluesCombined.contains("ultra") || cluesCombined.contains("ucg")
+            let candidate = DeviceCandidateMatch(
+                manufacturer: "Ubiquiti",
+                modelNumber: isUltra ? "UCG-Ultra" : "UDM-Pro",
+                displayName: isUltra ? "Ubiquiti UniFi Cloud Gateway Ultra" : "Ubiquiti UniFi Dream Machine Pro",
+                deviceCategory: "Router / Gateway",
+                confidencePercent: isUltra || !macText.isEmpty ? 95 : 86,
+                reasoning: "Matched Ubiquiti UniFi gateway clues across hardware identifiers.",
+                suggestedHostname: isUltra ? "ucg-ultra" : "udm-pro",
+                suggestedOsDetails: "UniFi OS 4.0.20 (Debian Bookworm)",
+                suggestedPackageManager: "firmware"
+            )
             return GeminiDiscoveryTurnResult(
-                visualSummary: "Detected an aluminum USB Zigbee 3.0 coordinator / IoT radio peripheral with external dipole antenna.",
-                nextNarrowingQuestion: hasSpecificClue
-                    ? "High-confidence match found (SONOFF Zigbee 3.0 USB Dongle Plus). Do you want to confirm this match or add a Serial Number / MAC Address?"
-                    : "Is there a Model Number (e.g. ZBDongle-E vs ZBDongle-P), Serial Number, Barcode, or MAC Address printed on the back of the aluminum casing?",
-                recommendedClueTypes: ["Model", "Serial Number", "Barcode", "MAC Address"],
+                visualSummary: "Identified Ubiquiti UniFi gateway chassis (\(imageCount) frame(s) evaluated). \(note ?? "")",
+                nextNarrowingQuestion: candidate.confidencePercent >= 90 ? "Confirm exact hardware SKU or adjust." : "Do you see UCG-Ultra or UDM-Pro printed on the base?",
+                recommendedClueTypes: ["Model", "Serial Number", "MAC Address"],
                 extractedIdentifiers: accumulatedIdentifiers,
-                candidates: [
-                    DeviceCandidateMatch(
-                        manufacturer: "ITEAD / SONOFF",
-                        modelNumber: accumulatedIdentifiers.modelNumber ?? "ZBDongle-E",
-                        displayName: "SONOFF Zigbee 3.0 USB Dongle Plus (EFR32MG21)",
-                        deviceCategory: "IoT Coordinator",
-                        confidencePercent: hasSpecificClue ? 95 : 74,
-                        reasoning: "Matches aluminum housing profile and SMA dipole antenna; commonly paired with Home Assistant ZHA / Zigbee2MQTT.",
-                        suggestedHostname: "sonoff-zigbee-coordinator",
-                        suggestedOsDetails: "EZSP v7.4.4 / Home Assistant HACS ZHA",
-                        suggestedPackageManager: "hacs"
-                    ),
-                    DeviceCandidateMatch(
-                        manufacturer: "Nabu Casa",
-                        modelNumber: "SkyConnect-ZBT1",
-                        displayName: "Home Assistant Connect ZBT-1",
-                        deviceCategory: "IoT Radio",
-                        confidencePercent: hasSpecificClue ? 25 : 42,
-                        reasoning: "Alternative Silabs EFR32 Zigbee/Thread coordinator used in Home Assistant setups.",
-                        suggestedHostname: "ha-zbt1-radio",
-                        suggestedOsDetails: "Home Assistant Connect Firmware (HACS)",
-                        suggestedPackageManager: "hacs"
-                    )
-                ],
-                usedLiveGeminiApi: usedLiveApi
+                candidates: [candidate],
+                usedLiveGeminiApi: usedLiveApi,
+                debugTrace: note
             )
         }
 
-        let topConfidence = hasSpecificClue ? 94 : 68
-        let detectedModel = accumulatedIdentifiers.modelNumber ?? (hasSpecificClue ? "UCG-Ultra" : "UCG-Ultra / UXG-Max")
-
-        return GeminiDiscoveryTurnResult(
-            visualSummary: hasSpecificClue
-                ? "Verified compact polycarbonate desktop security gateway with front LCM status display and multi-gigabit RJ45 WAN/LAN ports."
-                : "Identified a compact white desktop router / network gateway chassis. Multiple Ubiquiti UniFi models share this enclosure.",
-            nextNarrowingQuestion: hasSpecificClue
-                ? "Identifier verified! Candidate narrowed to Ubiquiti UniFi Cloud Gateway Ultra (UCG-Ultra). Confirm match below or add additional clues."
-                : "To narrow between UniFi Cloud Gateway Ultra (UCG-Ultra), Gateway Max (UXG-Max), and Express (UX), is there a Barcode, Serial Number, QR Code, Model, or MAC Address on the bottom label?",
-            recommendedClueTypes: ["Model", "MAC Address", "Serial Number", "Barcode", "QR Code"],
-            extractedIdentifiers: accumulatedIdentifiers,
-            candidates: [
+        if cluesCombined.contains("ecobee") || macText.hasPrefix("44:61:32") || cluesCombined.contains("thermostat") {
+            let candidates = [
                 DeviceCandidateMatch(
-                    manufacturer: "Ubiquiti Inc.",
-                    modelNumber: detectedModel,
-                    displayName: "UniFi Cloud Gateway Ultra (\(detectedModel))",
-                    deviceCategory: "Router / Security Gateway",
-                    confidencePercent: topConfidence,
-                    reasoning: hasSpecificClue
-                        ? "Model/OUI clue confirms Ubiquiti UniFi Cloud Gateway Ultra running UniFi OS (Debian apt)."
-                        : "Form factor and front status display match the UniFi Cloud Gateway Ultra series.",
-                    suggestedHostname: "unifi-ucg-ultra.local",
-                    suggestedOsDetails: "UniFi OS 4.0.20 (Debian 12 Bookworm apt)",
-                    suggestedPackageManager: "apt"
+                    manufacturer: "Ecobee",
+                    modelNumber: "SmartThermostat Premium",
+                    displayName: "Ecobee SmartThermostat Premium",
+                    deviceCategory: "Smart Thermostat",
+                    confidencePercent: 78,
+                    reasoning: "Matched Ecobee Wi-Fi thermostat clues; Premium vs Enhanced disambiguation suggested.",
+                    suggestedHostname: "ecobee-hallway",
+                    suggestedOsDetails: "Ecobee Firmware 4.8.7.100",
+                    suggestedPackageManager: "firmware"
                 ),
                 DeviceCandidateMatch(
-                    manufacturer: "Ubiquiti Inc.",
-                    modelNumber: "UXG-Max",
-                    displayName: "UniFi Gateway Max (UXG-Max)",
-                    deviceCategory: "Multi-Gig Router",
-                    confidencePercent: hasSpecificClue ? 32 : 54,
-                    reasoning: "Identical footprint to UCG-Ultra without integrated LCM screen; disambiguate via bottom label Model or MAC.",
-                    suggestedHostname: "unifi-uxg-max.local",
-                    suggestedOsDetails: "UniFi OS 4.0.20 (Debian apt)",
-                    suggestedPackageManager: "apt"
-                ),
-                DeviceCandidateMatch(
-                    manufacturer: "GL.iNet",
-                    modelNumber: "GL-MT3000",
-                    displayName: "GL.iNet Beryl AX (GL-MT3000)",
-                    deviceCategory: "OpenWrt Travel/Edge Router",
-                    confidencePercent: hasSpecificClue ? 14 : 31,
-                    reasoning: "Compact Wi-Fi 6 router running OpenWrt / opkg firmware.",
-                    suggestedHostname: "gl-mt3000.local",
-                    suggestedOsDetails: "OpenWrt 23.05 (Firmware / opkg)",
+                    manufacturer: "Ecobee",
+                    modelNumber: "SmartThermostat Enhanced",
+                    displayName: "Ecobee SmartThermostat Enhanced",
+                    deviceCategory: "Smart Thermostat",
+                    confidencePercent: 72,
+                    reasoning: "Alternative SKU sharing Ecobee OUI range.",
+                    suggestedHostname: "ecobee-enhanced",
+                    suggestedOsDetails: "Ecobee Firmware 4.8.7.100",
                     suggestedPackageManager: "firmware"
                 )
-            ],
-            usedLiveGeminiApi: usedLiveApi
+            ]
+            return GeminiDiscoveryTurnResult(
+                visualSummary: "Evaluated smart thermostat clues (\(imageCount) photo(s)). \(note ?? "")",
+                nextNarrowingQuestion: "Check the backplate for SmartThermostat Premium vs Enhanced.",
+                recommendedClueTypes: ["Model", "QR Code", "Serial Number"],
+                extractedIdentifiers: accumulatedIdentifiers,
+                candidates: candidates,
+                usedLiveGeminiApi: usedLiveApi,
+                debugTrace: note
+            )
+        }
+
+        if cluesCombined.contains("r7000") || cluesCombined.contains("netgear") {
+            return GeminiDiscoveryTurnResult(
+                visualSummary: "Matched Netgear Nighthawk hardware pattern. \(note ?? "")",
+                nextNarrowingQuestion: "Verify exact Nighthawk model suffix on bottom label.",
+                recommendedClueTypes: ["Model", "Barcode", "Serial Number"],
+                extractedIdentifiers: accumulatedIdentifiers,
+                candidates: [
+                    DeviceCandidateMatch(
+                        manufacturer: "Netgear",
+                        modelNumber: "R7000",
+                        displayName: "Netgear Nighthawk R7000 AC1900",
+                        deviceCategory: "Wi-Fi Router / Gateway",
+                        confidencePercent: 89,
+                        reasoning: "Matched Netgear R7000 identifier clue.",
+                        suggestedHostname: "netgear-r7000",
+                        suggestedOsDetails: "Netgear Genie 1.0.11.136",
+                        suggestedPackageManager: "firmware"
+                    )
+                ],
+                usedLiveGeminiApi: usedLiveApi,
+                debugTrace: note
+            )
+        }
+
+        let fallback = DeviceCandidateMatch(
+            manufacturer: "Generic",
+            modelNumber: accumulatedIdentifiers.modelNumber ?? "Unidentified Hardware",
+            displayName: accumulatedIdentifiers.modelNumber ?? "Unverified Network Device",
+            deviceCategory: "Smart Home / IoT",
+            confidencePercent: 52,
+            reasoning: "Insufficient specific identifiers yet. Add Model, Brand, Barcode, or MAC prefix clues to improve accuracy.",
+            suggestedHostname: "unknown-device",
+            suggestedOsDetails: "Embedded Firmware",
+            suggestedPackageManager: "firmware"
+        )
+        return GeminiDiscoveryTurnResult(
+            visualSummary: "Evaluated \(imageCount) photo(s) and \(accumulatedIdentifiers.nonEmptyPairs.count) identifier(s). \(note ?? "")",
+            nextNarrowingQuestion: "Try adding Brand, Device Type, Barcode UPC, or Model label text.",
+            recommendedClueTypes: ["Model", "Barcode", "Serial Number"],
+            extractedIdentifiers: accumulatedIdentifiers,
+            candidates: [fallback],
+            usedLiveGeminiApi: usedLiveApi,
+            debugTrace: note
         )
     }
 
-    public static func downscaledJpegData(from image: UIImage, maxDimension: CGFloat) -> Data? {
-        let size = image.size
-        guard size.width > 0, size.height > 0 else { return nil }
-        let ratio = min(maxDimension / size.width, maxDimension / size.height, 1.0)
-        let targetSize = CGSize(width: round(size.width * ratio), height: round(size.height * ratio))
-
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
-        let resized = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: targetSize))
-        }
-        return resized.jpegData(compressionQuality: 0.80)
-    }
-
-    /// Generates a synthetic hardware photo for Simulator / quick testing on device when not pointing at physical hardware
+    /// Generates clean sample hardware images for UI tests & simulator demos.
     public static func renderSampleHardwareImage(presetName: String) -> UIImage {
         let size = CGSize(width: 640, height: 420)
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -450,48 +686,26 @@ public final class GeminiDeviceDiscoveryService {
             cg.setFillColor(UIColor(red: 0.11, green: 0.13, blue: 0.17, alpha: 1.0).cgColor)
             cg.fill(CGRect(origin: .zero, size: size))
 
-            // Draw router/device chassis
             let boxRect = CGRect(x: 90, y: 80, width: 460, height: 220)
             let path = UIBezierPath(roundedRect: boxRect, cornerRadius: 24)
             UIColor(red: 0.92, green: 0.94, blue: 0.96, alpha: 1.0).setFill()
             path.fill()
 
-            // Draw front OLED screen / LED bar
-            let screenRect = CGRect(x: 130, y: 145, width: 110, height: 90)
-            let screenPath = UIBezierPath(roundedRect: screenRect, cornerRadius: 12)
-            UIColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1.0).setFill()
-            screenPath.fill()
-
-            // Draw status text on synthetic hardware label
-            let paragraph = NSMutableParagraphStyle()
-            paragraph.alignment = .left
-
-            let titleAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.boldSystemFont(ofSize: 22),
-                .foregroundColor: UIColor(red: 0.12, green: 0.15, blue: 0.20, alpha: 1.0),
-                .paragraphStyle: paragraph
+            let label = presetName == "zigbee-iot"
+                ? "Smart Home Sensor • MAC 44:61:32"
+                : "UniFi Cloud Gateway Ultra (UCG-Ultra)"
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 20),
+                .foregroundColor: UIColor.darkGray
             ]
-            let subAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.monospacedSystemFont(ofSize: 15, weight: .semibold),
-                .foregroundColor: UIColor(red: 0.25, green: 0.30, blue: 0.38, alpha: 1.0),
-                .paragraphStyle: paragraph
-            ]
-
-            let titleText: String
-            let detailText: String
-            if presetName.lowercased().contains("iot") || presetName.lowercased().contains("zigbee") {
-                titleText = "SONOFF Zigbee 3.0 Coordinator"
-                detailText = "Model: ZBDongle-E\nFCC ID: 2APN5ZBDONGLEE\nIEEE MAC: 00:12:4B:00:29:A1:C4"
-            } else if presetName.lowercased().contains("sticker") || presetName.lowercased().contains("label") {
-                titleText = "Ubiquiti Inc. • Bottom Sticker"
-                detailText = "M/N: UCG-Ultra\nMAC: 74:83:C2:9E:11:04\nS/N: 2409G-7483C29E1104\nUPC: 810010078890"
-            } else {
-                titleText = "UniFi Cloud Gateway Chassis"
-                detailText = "2.5GbE WAN • 4x GbE LAN\nFront LCM Display Active\nBottom Label Partially Hidden"
-            }
-
-            (titleText as NSString).draw(in: CGRect(x: 265, y: 120, width: 260, height: 60), withAttributes: titleAttrs)
-            (detailText as NSString).draw(in: CGRect(x: 265, y: 180, width: 260, height: 100), withAttributes: subAttrs)
+            label.draw(in: CGRect(x: 120, y: 165, width: 400, height: 60), withAttributes: attrs)
         }
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

@@ -11,7 +11,7 @@ settings:
     SWIFT_VERSION: "5.10"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "9"
-    DEVELOPMENT_TEAM: "GWBBWC9V34"
+    DEVELOPMENT_TEAM: "C64X2B2J54"
     CODE_SIGN_STYLE: Automatic
 
 targets:
@@ -20,6 +20,13 @@ targets:
     platform: iOS
     sources:
       - path: TuesdayApp
+        excludes:
+          - "Resources/*.storekit"
+      - path: TuesdayApp/Resources/TuesdayProducts.storekit
+        buildPhase: none
+    dependencies:
+      - sdk: libz.tbd
+      - sdk: StoreKit.framework
     info:
       path: TuesdayApp/Info.plist
       properties:
@@ -32,15 +39,23 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        UIAppFonts:
+          - IBMPlexSans-SemiBold.ttf
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: sh.tuesday.ios
+            CFBundleURLSchemes:
+              - tuesday
         NSCameraUsageDescription: "Tuesday.sh uses the camera to capture hardware device photos, barcodes, serial numbers, QR codes, and MAC labels for hardware discovery. Photos are processed ephemerally in memory and are never stored on Tuesday.sh servers."
         NSPhotoLibraryUsageDescription: "Tuesday.sh uses your photo library to analyze photos of routers, switches, and IoT devices for inventory discovery."
         NSLocalNetworkUsageDescription: "Tuesday.sh connects to your Home Assistant HACS integration on your local Wi-Fi network."
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: sh.tuesday.app
+        PRODUCT_BUNDLE_IDENTIFIER: sh.tuesday.ios
         INFOPLIST_FILE: TuesdayApp/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
 
   TuesdayAppTests:
     type: bundle.unit-test
@@ -51,7 +66,7 @@ targets:
       - target: TuesdayApp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: sh.tuesday.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: sh.tuesday.ios.tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/TuesdayApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TuesdayApp"
         BUNDLE_LOADER: "$(TEST_HOST)"
@@ -65,5 +80,24 @@ targets:
       - target: TuesdayApp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: sh.tuesday.app.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: sh.tuesday.ios.uitests
         GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  TuesdayApp:
+    build:
+      targets:
+        TuesdayApp: all
+        TuesdayAppTests: [test]
+        TuesdayAppUITests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: TuesdayApp/Resources/TuesdayProducts.storekit
+    test:
+      config: Debug
+      storeKitConfiguration: TuesdayApp/Resources/TuesdayProducts.storekit
+      targets:
+        - TuesdayAppTests
+        - TuesdayAppUITests
+    archive:
+      config: Release

@@ -26,7 +26,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>sh.tuesday.app</string>
+			<string>sh.tuesday.ios</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>tuesday</string>

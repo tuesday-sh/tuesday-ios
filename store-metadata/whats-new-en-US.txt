@@ -1,0 +1,9 @@
+Tuesday.sh 1.0.0 (Build 9) — Initial App Store Release
+
+• Sovereign Local-First Hardware Inventory: Track home routers, switches, Wi-Fi access points, servers, cameras, and IoT gear across the C1–C8 SureThingNet Category Spine.
+• Offline Gold Catalog Lookup (< 1ms): Identify hardware by brand, model, UPC retail barcode, MAC OUI prefix, or FCC grantee ID locally without requiring cloud calls.
+• Barcode, QR & Camera Discovery: Live camera barcode/QR scanner, Photo Library barcode extraction, and ephemeral RAM-only chassis analysis.
+• Monthly Patch Tuesday & Advisory Inbox: Curated CVE, CISA KEV, safety recall, and vendor EOL advisories with step-by-step remediation guidance.
+• Lifespan Swimlane & Annual Audit: Interactive 2D operational lifespan timeline, hardware presence attestations, and 4-Rhythm Check-Up reports.
+• Sovereign Local JSON Backup: Export and restore your full device inventory and audit history anytime with zero lock-in.
+• Tuesday.sh Pro Tier 1: Optional multi-site & family network delegation subscription ($4.99/mo or $49.00/yr via Apple App Store).

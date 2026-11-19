@@ -66,7 +66,7 @@ final class MonitoredNodeTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         let service = MockHacsTuesdayService(defaults: defaults)
 
-        XCTAssertEqual(service.nodes.count, 4)
+        XCTAssertEqual(service.nodes.count, 0)
 
         await service.enrollNode(
             hostname: "unifi-gateway",
@@ -74,7 +74,7 @@ final class MonitoredNodeTests: XCTestCase {
             packageManager: .apt,
             agentToken: "tok_123"
         )
-        XCTAssertEqual(service.nodes.count, 5)
+        XCTAssertEqual(service.nodes.count, 1)
         XCTAssertEqual(service.nodes.first?.hostname, "unifi-gateway")
 
         if let ubuntuId = service.nodes.first(where: { $0.hostname == "ubuntu-dev" })?.id {
@@ -138,15 +138,15 @@ final class MonitoredNodeTests: XCTestCase {
         let matrix = BulletinsAndInventoryEngine.build128LedMatrix(devices: devices, zoneFilter: nil)
 
         XCTAssertEqual(matrix.count, 128)
-        XCTAssertEqual(matrix.filter { $0.state == .ok }.count, 3)
+        XCTAssertEqual(matrix.filter { $0.state == .ok }.count, 5)
         XCTAssertEqual(matrix.filter { $0.state == .unassigned }.count, 116)
-        XCTAssertEqual(matrix.filter { $0.state == .cveKev }.count, 3)
+        XCTAssertEqual(matrix.filter { $0.state == .cveKev }.count, 2)
         XCTAssertEqual(matrix.filter { $0.state == .eol }.count, 1)
-        XCTAssertEqual(matrix.filter { $0.state == .guessed }.count, 2)
+        XCTAssertEqual(matrix.filter { $0.state == .guessed }.count, 1)
         XCTAssertEqual(matrix.filter { $0.state == .update }.count, 3)
 
         let actionList = BulletinsAndInventoryEngine.filterActionFirstDevices(devices: devices, includeOk: false)
-        XCTAssertEqual(actionList.count, 9)
+        XCTAssertEqual(actionList.count, 7)
         XCTAssertTrue(actionList.allSatisfy { $0.portState != .ok })
         XCTAssertEqual(actionList.first?.portState, .cveKev)
 
@@ -162,21 +162,21 @@ final class MonitoredNodeTests: XCTestCase {
             mutedFeedSlugs: ["lg-esphome-iot"]
         )
 
-        XCTAssertEqual(payload.matchedFeeds.count, 7)
-        XCTAssertEqual(payload.activeFeedCount, 5)
+        XCTAssertEqual(payload.matchedFeeds.count, 5)
+        XCTAssertEqual(payload.activeFeedCount, 3)
         XCTAssertEqual(payload.mutedFeedCount, 1)
         XCTAssertEqual(payload.provisionalFeedCount, 1)
         XCTAssertEqual(payload.mutedHighSevOverrideCount, 1)
         XCTAssertEqual(payload.provisionalHighSevCount, 1)
-        XCTAssertEqual(payload.aiBullets.count, 4)
-        XCTAssertEqual(payload.inbox.count, 6)
+        XCTAssertEqual(payload.aiBullets.count, 3)
+        XCTAssertEqual(payload.inbox.count, 5)
 
         let lgBreakthrough = payload.inbox.first { $0.externalId == "CVE-2026-21099" }
         XCTAssertEqual(lgBreakthrough?.brokeThroughMute, true)
 
         let ecobeeGuess = payload.inbox.first { $0.externalId == "CVE-2026-88901" }
         XCTAssertEqual(ecobeeGuess?.matchedByGuess, true)
-        XCTAssertTrue(ecobeeGuess?.candidateModels.contains("SmartThermostat Premium") ?? false)
+        XCTAssertTrue(ecobeeGuess?.candidateModels.contains(where: { $0.contains("SmartThermostat Premium") }) ?? false)
 
         XCTAssertNil(payload.inbox.first { $0.externalId == "REL-esphome-2026.10.2" })
         XCTAssertNil(payload.inbox.first { $0.externalId == "REL-ecobee-4.8.7.220" })
