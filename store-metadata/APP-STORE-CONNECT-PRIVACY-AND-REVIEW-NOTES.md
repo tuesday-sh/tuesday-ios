@@ -2,7 +2,7 @@
 
 - **Legal Entity**: Packablock LLC
 - **Apple Developer Team ID**: `C64X2B2J54`
-- **Bundle Identifier**: `sh.tuesday.ios`
+- **Bundle Identifier**: `sh.tuesday.pro` (Apple ID `6834146916`, SKU `sh.tuesday.pro`)
 - **Supported Device Family**: iPhone (`TARGETED_DEVICE_FAMILY = 1`, iOS 18.0+)
 - **Marketing Version / Build**: `1.0.0` (Build `9`)
 - **Support Contact**: `support@packablock.com` • `https://tuesday.sh/support`
