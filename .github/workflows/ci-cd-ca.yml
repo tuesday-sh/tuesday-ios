@@ -2,9 +2,9 @@ name: "Packablock Mobile CI/CD/CA (iOS + pkablk + pkaput + TestFlight Internal)"
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "dev" ]
   workflow_dispatch:
 
 permissions:
@@ -103,34 +103,31 @@ jobs:
             bin/ipfs-cache/
 
   deploy-testflight-internal:
-    name: "Gate 1A: Archive & Upload IPA to App Store Connect (TestFlight Internal)"
+    name: "Deploy to TestFlight Internal (surf-ai Self-Hosted)"
     needs: verify-and-attest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.ENABLE_TESTFLIGHT_DEPLOY == 'true'
-    runs-on: macos-15
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, macOS, ARM64, surf-ai]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Generate Xcode Project via XcodeGen & Archive IPA
+      - name: Generate Xcode Project via XcodeGen
         run: |
-          brew install xcodegen
           xcodegen generate
+
+      - name: Archive TuesdayApp for iOS
+        run: |
           xcodebuild -project TuesdayApp.xcodeproj \
             -scheme TuesdayApp \
             -configuration Release \
+            -destination "generic/platform=iOS" \
             -archivePath build/TuesdayApp.xcarchive \
             archive
 
       - name: Upload Archive to TestFlight Internal via App Store Connect API
-        env:
-          API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          API_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
         run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$API_PRIVATE_KEY" > ~/.appstoreconnect/private_keys/AuthKey_${API_KEY_ID}.p8
           xcrun altool --upload-app \
             --type ios \
-            --file build/TuesdayApp.ipa \
-            --apiKey "$API_KEY_ID" \
-            --apiIssuer "$ISSUER_ID"
+            --file build/TuesdayApp.xcarchive \
+            --apiKey "V454WXMVT4" \
+            --apiIssuer "10598ce5-4223-4253-9a48-acd984ddf3e2"
