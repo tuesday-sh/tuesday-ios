@@ -66,10 +66,21 @@ public enum DeepLinkDestination: Equatable {
             if sub == "plan" { return .upgradePrompt(source: "account", sku: nil) }
             return .tab("account")
 
-        case "timeline":
+        case "timeline", "lifespan", "swimlane":
+            let modalQuery = query("modal")?.lowercased().nilIfBlank
             if let sub = pathSegments.first?.lowercased() {
-                if sub == "checkin" { return .timelineAction(scenario: nil, modal: "checkin") }
-                if sub == "zombie" { return .timelineAction(scenario: "zombie", modal: nil) }
+                switch sub {
+                case "decommissioned", "retired", "zombie", "runway", "standard":
+                    let subModal = pathSegments.dropFirst().first?.lowercased() ?? modalQuery
+                    return .timelineAction(scenario: sub, modal: subModal)
+                case "checkin", "check-in", "status", "update-status":
+                    return .timelineAction(scenario: nil, modal: sub)
+                default:
+                    break
+                }
+            }
+            if let modalQuery {
+                return .timelineAction(scenario: nil, modal: modalQuery)
             }
             return .tab("timeline")
 

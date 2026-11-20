@@ -13,7 +13,7 @@ public struct MonospaceBadge: View {
 
     public var body: some View {
         Text(text)
-            .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
             .foregroundColor(color)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
@@ -68,10 +68,12 @@ public struct SelectableFilterChip: View {
 public struct RiskMeterDots: View {
     public let state: PortLifecycleState
     public let palette: BrandPalette
+    public var noticeCount: Int? = nil
 
-    public init(state: PortLifecycleState, palette: BrandPalette) {
+    public init(state: PortLifecycleState, palette: BrandPalette, noticeCount: Int? = nil) {
         self.state = state
         self.palette = palette
+        self.noticeCount = noticeCount
     }
 
     public var body: some View {
@@ -84,14 +86,55 @@ public struct RiskMeterDots: View {
             }
         }()
         let tint = TuesdayTheme.ledColor(for: state, isStn: palette.isStn)
-        HStack(spacing: 3) {
-            ForEach(0..<3, id: \.self) { idx in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(idx < litCount ? tint : palette.border)
-                    .frame(width: 4, height: CGFloat(6 + idx * 3))
+        VStack(alignment: .trailing, spacing: 4) {
+            HStack(alignment: .bottom, spacing: 2.5) {
+                ForEach(0..<3, id: \.self) { idx in
+                    let barHeight: CGFloat = idx == 0 ? 6 : (idx == 1 ? 10 : 14)
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(idx < litCount ? tint : palette.borderStrong)
+                        .frame(width: 3.5, height: barHeight)
+                }
+            }
+            if let count = noticeCount {
+                Text(count == 1 ? "1 notice" : "\(count) notices")
+                    .font(.system(size: 11, weight: count > 0 ? .bold : .semibold, design: .monospaced))
+                    .foregroundColor(count > 0 ? tint : palette.textMuted)
             }
         }
-        .accessibilityHidden(true)
+        .accessibilityHidden(noticeCount == nil)
+    }
+}
+
+/// Canonical `36pt` circular `?` reference-guide button matching Android `HelpIconButton`.
+/// Callers should wrap in a container carrying `.uiSlot("help-button")` to avoid overwriting `.uiAction`.
+public struct HelpIconButton: View {
+    public let palette: BrandPalette
+    public var accessibilityLabelText: String = "Open Reference Guide"
+    public let onClick: () -> Void
+
+    public init(
+        palette: BrandPalette,
+        accessibilityLabel: String = "Open Reference Guide",
+        onClick: @escaping () -> Void
+    ) {
+        self.palette = palette
+        self.accessibilityLabelText = accessibilityLabel
+        self.onClick = onClick
+    }
+
+    public var body: some View {
+        Button(action: onClick) {
+            Text("?")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(palette.textMuted)
+                .frame(width: TuesdayDimens.hitTargetCompact, height: TuesdayDimens.hitTargetCompact)
+                .background(palette.elevated)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(palette.border, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabelText)
+        .uiAction("openReferenceGuide")
     }
 }
 
@@ -114,31 +157,41 @@ public struct CandidateDisambiguationStrip: View {
     }
 
     public var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Button(action: { onConfirmModel(candidateModel) }) {
-                Text("✓ Yes, \(candidateModel)")
-                    .font(.system(size: 11.5, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 32)
-                    .background(TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn))
+                Text("✓ Confirm: \(candidateModel)")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(palette.accentText)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .frame(minHeight: 28)
+                    .background(palette.accent.opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                            .stroke(palette.accent, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
             .uiAction("confirmGuessedModel")
 
             Button(action: onRejectModel) {
-                Text("✕ No")
-                    .font(.system(size: 11.5, weight: .bold))
-                    .foregroundColor(palette.textPrimary)
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 32)
+                Text("✕ Not My Model")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(palette.textMuted)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .frame(minHeight: 28)
                     .background(palette.elevated)
                     .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge).stroke(palette.border, lineWidth: 1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
             .uiAction("rejectGuessedModel")
         }
+        .padding(.top, 4)
     }
 }

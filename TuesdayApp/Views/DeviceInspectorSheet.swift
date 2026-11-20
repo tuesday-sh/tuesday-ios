@@ -83,24 +83,17 @@ public struct DeviceInspectorSheet: View {
                         .background(palette.surface)
                         .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
                         .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(stateColor.opacity(0.45), lineWidth: 1))
-                    } else if !device.candles.isEmpty {
-                        // Pro Candlestick Lifespan Strip
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("FIRMWARE RUNWAY CANDLE")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(palette.textMuted)
-                            CondensedMiniCandleBar(
-                                candle: BulletinsAndInventoryEngine.toOperationalCandle(device),
-                                palette: palette
-                            )
-                            .frame(height: 16)
-                        }
-                        .padding(12)
-                        .background(palette.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
-                        .uiSlot("candlestick-chart")
                     }
+
+                    // Condensed Timeline Lifespan Card (shown across both Pro & Home)
+                    VStack(alignment: .leading, spacing: 0) {
+                        CondensedCandlestickCard(
+                            candle: BulletinsAndInventoryEngine.toOperationalCandle(device),
+                            palette: palette,
+                            showHeader: true
+                        )
+                    }
+                    .uiSlot("candlestick-chart")
 
                     // Active Bulletins Stack
                     if !matchingBulletins.isEmpty {

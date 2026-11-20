@@ -1,105 +1,132 @@
 import SwiftUI
 
 public struct BulletinChecklistStep: Identifiable, Equatable {
-    public let id: Int
+    public let id: String
+    public let num: String
     public let title: String
-    public let completed: Bool
-    public let ctaLabel: String
-    public let onTap: () -> Void
+    public let description: String
+    public let linkText: String
+    public let isDone: Bool
+    public let onClick: () -> Void
 
-    public init(id: Int, title: String, completed: Bool, ctaLabel: String, onTap: @escaping () -> Void) {
+    public init(
+        id: String,
+        num: String,
+        title: String,
+        description: String,
+        linkText: String,
+        isDone: Bool = false,
+        onClick: @escaping () -> Void
+    ) {
         self.id = id
+        self.num = num
         self.title = title
-        self.completed = completed
-        self.ctaLabel = ctaLabel
-        self.onTap = onTap
+        self.description = description
+        self.linkText = linkText
+        self.isDone = isDone
+        self.onClick = onClick
     }
 
     public static func == (lhs: BulletinChecklistStep, rhs: BulletinChecklistStep) -> Bool {
-        lhs.id == rhs.id && lhs.title == rhs.title && lhs.completed == rhs.completed && lhs.ctaLabel == rhs.ctaLabel
+        lhs.id == rhs.id &&
+            lhs.num == rhs.num &&
+            lhs.title == rhs.title &&
+            lhs.description == rhs.description &&
+            lhs.linkText == rhs.linkText &&
+            lhs.isDone == rhs.isDone
     }
 }
 
-/// Canonical Welcome / Patch Tuesday Rhythm Card using dual top & bottom fused corner notches
-/// with translucent `1pt` interior dividers and zero outer double-border stacking.
+/// Canonical 4-corner Fused Notch Bulletin Card backed by [FusedCornerNotch] and [FusedBottomDualNotchBar].
 public struct NotchBulletinCard: View {
     public let palette: BrandPalette
-    public let statusLabel: String
-    public let linkLabel: String
-    public let headline: String
-    public let bodyText: String
-    public let checklistSteps: [BulletinChecklistStep]
-    public let allComplete: Bool
-    public let isSnoozed: Bool
-    public let onTapRhythmInfo: () -> Void
-    public let onSnoozeOrComplete: () -> Void
-    public let onIgnore: () -> Void
+    public let title: String
+    public let description: String
+    public var leftNotchLabel: String = "BULLETIN"
+    public var leftNotchDotColor: Color = TuesdayTheme.ledCveRed
+    public var onLeftNotchClick: () -> Void = {}
+    public var rightNotchLabel: String = "CHECK-UP"
+    public var onRightNotchClick: () -> Void = {}
+    public var steps: [BulletinChecklistStep] = []
+    public var allStepsDone: Bool = false
+    public var primaryActionLabel: String = "Snooze 24h"
+    public var completeActionLabel: String = "Mark Complete"
+    public var secondaryActionLabel: String = "Ignore"
+    public var onPrimaryAction: () -> Void = {}
+    public var onSecondaryAction: () -> Void = {}
 
     public init(
         palette: BrandPalette,
-        statusLabel: String = "BULLETIN",
-        linkLabel: String = "RHYTHM",
-        headline: String,
-        bodyText: String,
-        checklistSteps: [BulletinChecklistStep],
-        allComplete: Bool,
-        isSnoozed: Bool = false,
-        onTapRhythmInfo: @escaping () -> Void,
-        onSnoozeOrComplete: @escaping () -> Void,
-        onIgnore: @escaping () -> Void
+        title: String,
+        description: String,
+        leftNotchLabel: String = "BULLETIN",
+        leftNotchDotColor: Color = TuesdayTheme.ledCveRed,
+        onLeftNotchClick: @escaping () -> Void = {},
+        rightNotchLabel: String = "CHECK-UP",
+        onRightNotchClick: @escaping () -> Void = {},
+        steps: [BulletinChecklistStep] = [],
+        allStepsDone: Bool = false,
+        primaryActionLabel: String = "Snooze 24h",
+        completeActionLabel: String = "Mark Complete",
+        secondaryActionLabel: String = "Ignore",
+        onPrimaryAction: @escaping () -> Void = {},
+        onSecondaryAction: @escaping () -> Void = {}
     ) {
         self.palette = palette
-        self.statusLabel = statusLabel
-        self.linkLabel = linkLabel
-        self.headline = headline
-        self.bodyText = bodyText
-        self.checklistSteps = checklistSteps
-        self.allComplete = allComplete
-        self.isSnoozed = isSnoozed
-        self.onTapRhythmInfo = onTapRhythmInfo
-        self.onSnoozeOrComplete = onSnoozeOrComplete
-        self.onIgnore = onIgnore
+        self.title = title
+        self.description = description
+        self.leftNotchLabel = leftNotchLabel
+        self.leftNotchDotColor = leftNotchDotColor
+        self.onLeftNotchClick = onLeftNotchClick
+        self.rightNotchLabel = rightNotchLabel
+        self.onRightNotchClick = onRightNotchClick
+        self.steps = steps
+        self.allStepsDone = allStepsDone
+        self.primaryActionLabel = primaryActionLabel
+        self.completeActionLabel = completeActionLabel
+        self.secondaryActionLabel = secondaryActionLabel
+        self.onPrimaryAction = onPrimaryAction
+        self.onSecondaryAction = onSecondaryAction
     }
 
     public var body: some View {
-        let dotColor = allComplete
-            ? TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn)
-            : TuesdayTheme.ledCveRed
-        let accentTint = allComplete
-            ? TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn)
-            : palette.accent
-        let borderTint = accentTint.opacity(0.42)
+        let okGreen = TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn)
+        let borderColor = allStepsDone ? okGreen.opacity(0.45) : palette.accent.opacity(0.45)
+        let accentStroke = palette.accent.opacity(0.45)
 
         VStack(alignment: .leading, spacing: 0) {
             // Top fused corner notches
             HStack(alignment: .top) {
                 FusedCornerNotch(
                     corner: .topLeading,
-                    fillColor: accentTint.opacity(0.14),
-                    strokeColor: borderTint,
-                    cornerRadius: TuesdayDimens.radiusCard
+                    fillColor: palette.accent.opacity(0.12),
+                    strokeColor: accentStroke,
+                    cornerRadius: 8,
+                    action: onLeftNotchClick
                 ) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Circle()
-                            .fill(dotColor)
+                            .fill(leftNotchDotColor)
                             .frame(width: 7, height: 7)
-                        Text(statusLabel)
-                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                            .foregroundColor(palette.textPrimary)
+                        Text(leftNotchLabel)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .kerning(0.5)
+                            .foregroundColor(palette.accentText)
                     }
                 }
+                .uiAction("clickLeftNotch")
 
                 Spacer()
 
                 FusedCornerNotch(
                     corner: .topTrailing,
-                    fillColor: palette.elevated,
-                    strokeColor: palette.border,
-                    cornerRadius: TuesdayDimens.radiusCard,
-                    action: onTapRhythmInfo
+                    fillColor: palette.accent.opacity(0.12),
+                    strokeColor: accentStroke,
+                    cornerRadius: 8,
+                    action: onRightNotchClick
                 ) {
                     HStack(spacing: 5) {
-                        Text(linkLabel)
+                        Text(rightNotchLabel)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .kerning(1.2)
                             .foregroundColor(palette.accentText)
@@ -107,102 +134,115 @@ public struct NotchBulletinCard: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(palette.accentText)
                     }
-                    .uiAction("clickRightNotch")
                 }
-                .uiAction("openReferenceGuideFromBulletin")
+                .uiAction("clickRightNotch")
             }
 
             // Center unboxed reading flow (typography & hairline dividers only)
-            VStack(alignment: .leading, spacing: 10) {
-                Text(headline)
-                    .font(.system(size: 17, weight: .heavy))
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundColor(palette.textPrimary)
                     .tracking(-0.2)
 
-                Text(bodyText)
-                    .font(.system(size: 14))
+                Text(description)
+                    .font(.system(size: 13))
                     .foregroundColor(palette.textMuted)
-                    .lineSpacing(4)
+                    .lineSpacing(3.5)
 
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(checklistSteps.enumerated()), id: \.element.id) { index, step in
-                        if index > 0 {
-                            Rectangle()
-                                .fill(palette.border.opacity(0.65))
-                                .frame(height: 1)
+                ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                    Rectangle()
+                        .fill(palette.border.opacity(0.5))
+                        .frame(height: 0.6)
+                        .padding(.top, index == 0 ? 2 : 0)
+
+                    HStack(alignment: .top, spacing: 9) {
+                        ZStack {
+                            Circle()
+                                .fill(step.isDone ? okGreen : palette.elevated)
+                                .frame(width: 20, height: 20)
+                                .overlay(
+                                    Circle().stroke(step.isDone ? okGreen : palette.border, lineWidth: 1)
+                                )
+                            Text(step.isDone ? "✓" : step.num)
+                                .font(.system(size: step.isDone ? 12 : 11, weight: .bold))
+                                .foregroundColor(step.isDone ? .white : palette.textPrimary)
                         }
-                        HStack(spacing: 10) {
-                            Image(systemName: step.completed ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(step.completed ? TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn) : palette.textMuted)
 
-                            Text(step.title)
-                                .font(.system(size: 13.5, weight: step.completed ? .medium : .semibold))
-                                .foregroundColor(step.completed ? palette.textMuted : palette.textPrimary)
-                                .strikethrough(step.completed)
-
-                            Spacer()
-
-                            if !step.completed {
-                                Button(action: step.onTap) {
-                                    Text(step.ctaLabel)
-                                        .font(.system(size: 11.5, weight: .bold))
-                                        .foregroundColor(palette.accentText)
-                                        .padding(.horizontal, 10)
-                                        .frame(minHeight: 28)
-                                        .background(palette.accent.opacity(0.14))
-                                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(alignment: .center) {
+                                Text(step.title)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                                Spacer(minLength: 6)
+                                Button(action: step.onClick) {
+                                    Text(step.linkText)
+                                        .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                                        .foregroundColor(step.isDone ? okGreen : palette.accentText)
+                                        .padding(.leading, 6)
+                                        .padding(.vertical, 3)
+                                        .frame(minHeight: 24)
                                 }
                                 .buttonStyle(.plain)
                             }
+                            Text(step.description)
+                                .font(.system(size: 12))
+                                .foregroundColor(palette.textMuted)
+                                .lineSpacing(3)
                         }
-                        .padding(.vertical, 9)
                     }
+                    .padding(.vertical, 3.5)
                 }
             }
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.top, 12)
+            .padding(.bottom, 14)
+            .uiSlot("rhythm-reminder-panel")
 
-            // Bottom fused action notches
-            HStack {
-                FusedCornerNotch(
-                    corner: .bottomLeading,
-                    fillColor: allComplete ? TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn).opacity(0.14) : palette.elevated,
-                    strokeColor: palette.border,
-                    cornerRadius: TuesdayDimens.radiusCard,
-                    action: onSnoozeOrComplete
-                ) {
-                    Text(allComplete ? "✓ Mark Complete" : (isSnoozed ? "Snoozed 24h" : "Snooze 24h"))
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(allComplete ? TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn) : palette.textPrimary)
-                        .uiAction("clickLeftNotch")
-                }
-                .uiAction("primaryNotchAction")
-
-                Spacer()
-
-                FusedCornerNotch(
-                    corner: .bottomTrailing,
-                    fillColor: palette.elevated,
-                    strokeColor: palette.border,
-                    cornerRadius: TuesdayDimens.radiusCard,
-                    action: onIgnore
-                ) {
-                    Text("Ignore")
-                        .font(.system(size: 12, weight: .semibold))
+            // Full-width lower fused dual notch bar
+            FusedBottomDualNotchBar(
+                primaryBackground: allStepsDone ? okGreen.opacity(0.22) : palette.accent.opacity(0.18),
+                primaryStrokeColor: allStepsDone ? okGreen.opacity(0.55) : accentStroke,
+                onPrimaryClick: onPrimaryAction,
+                secondaryBackground: palette.accent.opacity(0.05),
+                secondaryStrokeColor: accentStroke,
+                onSecondaryClick: onSecondaryAction,
+                primaryContent: {
+                    if allStepsDone {
+                        Text("✓")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(okGreen)
+                        Text(completeActionLabel)
+                            .font(.system(size: 13.5, weight: .bold))
+                            .tracking(-0.1)
+                            .foregroundColor(okGreen)
+                    } else {
+                        Image(systemName: "clock")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(palette.accent)
+                        Text(primaryActionLabel)
+                            .font(.system(size: 13.5, weight: .bold))
+                            .tracking(-0.1)
+                            .foregroundColor(palette.accentText)
+                    }
+                },
+                secondaryContent: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(palette.textMuted)
-                        .uiAction("secondaryNotchAction")
+                    Text(secondaryActionLabel)
+                        .font(.system(size: 13.5, weight: .medium))
+                        .tracking(-0.1)
+                        .foregroundColor(palette.textMuted)
                 }
-                .uiAction("ignoreRhythmBulletin")
-            }
+            )
         }
         .background(palette.surface)
         .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
         .overlay(
             RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
-                .stroke(borderTint, lineWidth: 1)
+                .stroke(borderColor, lineWidth: 1)
         )
-        .uiSlot("rhythm-reminder-panel")
         .uiComponent("NotchBulletinCard")
     }
 }

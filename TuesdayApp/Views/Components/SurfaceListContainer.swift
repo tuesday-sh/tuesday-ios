@@ -220,3 +220,81 @@ public struct TuesdayModalCard<Leading: View, HeaderTrailing: View, Content: Vie
         .padding(.horizontal, 16)
     }
 }
+
+/// Canonical unboxed section heading (`SectionHeading.kt`) — 14pt bold primary text, single line.
+public struct SectionHeading: View {
+    public let text: String
+    public let palette: BrandPalette
+
+    public init(text: String, palette: BrandPalette) {
+        self.text = text
+        self.palette = palette
+    }
+
+    public var body: some View {
+        Text(text)
+            .font(.system(size: 14, weight: .bold))
+            .foregroundColor(palette.textPrimary)
+            .lineLimit(1)
+    }
+}
+
+/// Full-width dimmed scrim dialog with a top-trailing `36pt` circular close button
+/// above arbitrary card content (matches Android `DetailModalDialog`).
+public struct DetailModalDialog<Content: View>: View {
+    public let palette: BrandPalette
+    public var closeActionName: String? = nil
+    public let onDismiss: () -> Void
+    @ViewBuilder public let content: () -> Content
+
+    public init(
+        palette: BrandPalette,
+        closeActionName: String? = nil,
+        onDismiss: @escaping () -> Void,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.palette = palette
+        self.closeActionName = closeActionName
+        self.onDismiss = onDismiss
+        self.content = content
+    }
+
+    public var body: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onDismiss)
+
+            ScrollView {
+                VStack(alignment: .trailing, spacing: 8) {
+                    closeButton
+                    content()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 24)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    @ViewBuilder
+    private var closeButton: some View {
+        let button = Button(action: onDismiss) {
+            Image(systemName: "xmark")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(palette.textPrimary)
+                .frame(width: TuesdayDimens.hitTargetCompact, height: TuesdayDimens.hitTargetCompact)
+                .background(palette.surface)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(palette.border, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close")
+
+        if let closeActionName {
+            button.uiAction(closeActionName)
+        } else {
+            button
+        }
+    }
+}

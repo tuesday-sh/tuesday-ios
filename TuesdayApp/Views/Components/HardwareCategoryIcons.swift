@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Vector silhouette iconography mapped to the canonical `C1 → C8` SureThingNet Category Spine.
+/// Vector silhouette iconography mapped to the canonical `C1 → C8` SureThingNet Category Spine,
+/// matching Android's `HardwareCategorySvgIcon` paths on a shared `24x24` coordinate grid.
 public struct HardwareCategoryIcon: View {
     public let category: StnHardwareCategory
     public let tint: Color
@@ -14,114 +15,102 @@ public struct HardwareCategoryIcon: View {
 
     public var body: some View {
         Canvas { context, canvasSize in
-            let w = canvasSize.width
-            let h = canvasSize.height
-            let strokeWidth = max(1.4, min(w, h) * 0.085)
-            let style = StrokeStyle(lineWidth: strokeWidth, lineCap: .round, lineJoin: .round)
+            let sx = canvasSize.width / 24.0
+            let sy = canvasSize.height / 24.0
+            let style = StrokeStyle(lineWidth: 1.8 * sx, lineCap: .round, lineJoin: .round)
 
             switch category {
             case .C1_GATEWAY:
-                // Perimeter Router / Gateway chassis + dual antennas + status LED dots
-                let chassis = CGRect(x: w * 0.12, y: h * 0.50, width: w * 0.76, height: h * 0.34)
-                let path = Path(roundedRect: chassis, cornerRadius: w * 0.08)
-                context.stroke(path, with: .color(tint), style: style)
+                let body = CGRect(x: 2 * sx, y: 7 * sy, width: 20 * sx, height: 10 * sy)
+                context.stroke(Path(roundedRect: body, cornerRadius: 2 * sx), with: .color(tint), style: style)
+                let led = CGRect(x: (6 - 1.3) * sx, y: (12 - 1.3) * sy, width: 2.6 * sx, height: 2.6 * sy)
+                context.stroke(Path(ellipseIn: led), with: .color(tint), style: style)
+                let ports = CGRect(x: 11 * sx, y: 10 * sy, width: 8 * sx, height: 4 * sy)
+                context.stroke(Path(ports), with: .color(tint), style: style)
 
-                var antennas = Path()
-                antennas.move(to: CGPoint(x: w * 0.28, y: h * 0.50))
-                antennas.addLine(to: CGPoint(x: w * 0.28, y: h * 0.16))
-                antennas.move(to: CGPoint(x: w * 0.72, y: h * 0.50))
-                antennas.addLine(to: CGPoint(x: w * 0.72, y: h * 0.16))
-                context.stroke(antennas, with: .color(tint), style: style)
+            case .C2_SWITCH:
+                let rack = CGRect(x: 2 * sx, y: 6 * sy, width: 20 * sx, height: 12 * sy)
+                context.stroke(Path(roundedRect: rack, cornerRadius: 2 * sx), with: .color(tint), style: style)
+                let portStroke = StrokeStyle(lineWidth: 1.3 * sx, lineCap: .round, lineJoin: .round)
+                for y in [8.8, 13.2] {
+                    for x in [5.5, 10.5, 15.5] {
+                        let port = CGRect(x: x * sx, y: y * sy, width: 2.6 * sx, height: 2.2 * sy)
+                        context.stroke(Path(roundedRect: port, cornerRadius: 0.5 * sx), with: .color(tint), style: portStroke)
+                    }
+                }
 
-                let ledR = strokeWidth * 0.75
-                for px in [0.28, 0.44, 0.60] {
-                    let dot = CGRect(x: w * px - ledR, y: h * 0.67 - ledR, width: ledR * 2, height: ledR * 2)
+            case .C3_AP:
+                let outer = CGRect(x: (12 - 9) * sx, y: (12 - 9) * sy, width: 18 * sx, height: 18 * sy)
+                context.stroke(Path(ellipseIn: outer), with: .color(tint), style: style)
+                let inner = CGRect(x: (12 - 3.5) * sx, y: (12 - 3.5) * sy, width: 7 * sx, height: 7 * sy)
+                context.stroke(Path(ellipseIn: inner), with: .color(tint), style: style)
+
+            case .C4_SERVER:
+                let topBay = CGRect(x: 3 * sx, y: 4 * sy, width: 18 * sx, height: 6 * sy)
+                context.stroke(Path(roundedRect: topBay, cornerRadius: 1.5 * sx), with: .color(tint), style: style)
+                let bottomBay = CGRect(x: 3 * sx, y: 14 * sy, width: 18 * sx, height: 6 * sy)
+                context.stroke(Path(roundedRect: bottomBay, cornerRadius: 1.5 * sx), with: .color(tint), style: style)
+                for cy in [7.0, 17.0] {
+                    let dot = CGRect(x: (7 - 1.1) * sx, y: (cy - 1.1) * sy, width: 2.2 * sx, height: 2.2 * sy)
                     context.fill(Path(ellipseIn: dot), with: .color(tint))
                 }
 
-            case .C2_SWITCH:
-                // 1U Rack Switch with port bays & SFP uplink pair
-                let rack = CGRect(x: w * 0.08, y: h * 0.30, width: w * 0.84, height: h * 0.40)
-                context.stroke(Path(roundedRect: rack, cornerRadius: w * 0.08), with: .color(tint), style: style)
-
-                for i in 0..<4 {
-                    let bx = w * (0.17 + CGFloat(i) * 0.13)
-                    let port = CGRect(x: bx, y: h * 0.43, width: w * 0.08, height: h * 0.14)
-                    context.fill(Path(roundedRect: port, cornerRadius: 1), with: .color(tint))
-                }
-                let sfp = CGRect(x: w * 0.74, y: h * 0.42, width: w * 0.10, height: h * 0.16)
-                context.stroke(Path(roundedRect: sfp, cornerRadius: 1), with: .color(tint), lineWidth: strokeWidth * 0.8)
-
-            case .C3_AP:
-                // Ceiling Access Point disc + concentric RF arcs
-                let disc = CGRect(x: w * 0.18, y: h * 0.56, width: w * 0.64, height: h * 0.26)
-                context.stroke(Path(roundedRect: disc, cornerRadius: h * 0.13), with: .color(tint), style: style)
-
-                let center = CGPoint(x: w * 0.50, y: h * 0.52)
-                for mult in [0.18, 0.34] {
-                    var arc = Path()
-                    arc.addArc(
-                        center: center,
-                        radius: w * mult,
-                        startAngle: .degrees(215),
-                        endAngle: .degrees(325),
-                        clockwise: false
-                    )
-                    context.stroke(arc, with: .color(tint), style: style)
-                }
-
-            case .C4_SERVER:
-                // Compute / NAS 3-bay tower & drive LEDs
-                let outer = CGRect(x: w * 0.18, y: h * 0.12, width: w * 0.64, height: h * 0.76)
-                context.stroke(Path(roundedRect: outer, cornerRadius: w * 0.09), with: .color(tint), style: style)
-                for row in 0..<3 {
-                    let y = h * (0.24 + CGFloat(row) * 0.20)
-                    let tray = CGRect(x: w * 0.27, y: y, width: w * 0.46, height: h * 0.11)
-                    context.stroke(Path(roundedRect: tray, cornerRadius: 1.5), with: .color(tint), lineWidth: strokeWidth * 0.8)
-                }
-
             case .C5_CAMERA:
-                // Vision / Smart Camera dome & optic ring
-                let sphere = CGRect(x: w * 0.16, y: h * 0.18, width: w * 0.68, height: h * 0.64)
-                context.stroke(Path(ellipseIn: sphere), with: .color(tint), style: style)
-                let lens = CGRect(x: w * 0.36, y: h * 0.36, width: w * 0.28, height: w * 0.28)
-                context.fill(Path(ellipseIn: lens), with: .color(tint))
+                var prism = Path()
+                prism.move(to: CGPoint(x: 14.5 * sx, y: 4 * sy))
+                prism.addLine(to: CGPoint(x: 9.5 * sx, y: 4 * sy))
+                prism.addLine(to: CGPoint(x: 7 * sx, y: 7 * sy))
+                prism.addLine(to: CGPoint(x: 4 * sx, y: 7 * sy))
+                prism.addLine(to: CGPoint(x: 4 * sx, y: 20 * sy))
+                prism.addLine(to: CGPoint(x: 20 * sx, y: 20 * sy))
+                prism.addLine(to: CGPoint(x: 20 * sx, y: 7 * sy))
+                prism.addLine(to: CGPoint(x: 17 * sx, y: 7 * sy))
+                prism.closeSubpath()
+                context.stroke(prism, with: .color(tint), style: style)
+                let lens = CGRect(x: (12 - 3.5) * sx, y: (13.5 - 3.5) * sy, width: 7 * sx, height: 7 * sy)
+                context.stroke(Path(ellipseIn: lens), with: .color(tint), style: style)
 
             case .C6_IOT:
-                // Smart Home Hub / Controller + connected mesh nodes
-                let hub = CGRect(x: w * 0.26, y: h * 0.28, width: w * 0.48, height: h * 0.44)
-                context.stroke(Path(roundedRect: hub, cornerRadius: w * 0.12), with: .color(tint), style: style)
-                let dotSize = strokeWidth * 1.4
-                let pts = [
-                    CGPoint(x: w * 0.50, y: h * 0.14),
-                    CGPoint(x: w * 0.14, y: h * 0.50),
-                    CGPoint(x: w * 0.86, y: h * 0.50),
-                    CGPoint(x: w * 0.50, y: h * 0.86)
-                ]
-                for pt in pts {
-                    let r = CGRect(x: pt.x - dotSize * 0.5, y: pt.y - dotSize * 0.5, width: dotSize, height: dotSize)
-                    context.fill(Path(ellipseIn: r), with: .color(tint))
-                }
+                let hub = CGRect(x: 4 * sx, y: 4 * sy, width: 16 * sx, height: 16 * sy)
+                context.stroke(Path(roundedRect: hub, cornerRadius: 3 * sx), with: .color(tint), style: style)
+                var plus = Path()
+                plus.move(to: CGPoint(x: 9 * sx, y: 12 * sy))
+                plus.addLine(to: CGPoint(x: 15 * sx, y: 12 * sy))
+                plus.move(to: CGPoint(x: 12 * sx, y: 9 * sy))
+                plus.addLine(to: CGPoint(x: 12 * sx, y: 15 * sy))
+                context.stroke(plus, with: .color(tint), style: style)
 
             case .C7_CLIENT:
-                // Workstation / Laptop screen + deck
-                let screen = CGRect(x: w * 0.18, y: h * 0.20, width: w * 0.64, height: h * 0.46)
-                context.stroke(Path(roundedRect: screen, cornerRadius: w * 0.06), with: .color(tint), style: style)
-                var base = Path()
-                base.move(to: CGPoint(x: w * 0.08, y: h * 0.76))
-                base.addLine(to: CGPoint(x: w * 0.92, y: h * 0.76))
-                context.stroke(base, with: .color(tint), style: style)
+                let monitor = CGRect(x: 4 * sx, y: 4 * sy, width: 16 * sx, height: 11 * sy)
+                context.stroke(Path(roundedRect: monitor, cornerRadius: 1.5 * sx), with: .color(tint), style: style)
+                var stand = Path()
+                stand.move(to: CGPoint(x: 2 * sx, y: 19 * sy))
+                stand.addLine(to: CGPoint(x: 22 * sx, y: 19 * sy))
+                stand.move(to: CGPoint(x: 9 * sx, y: 15 * sy))
+                stand.addLine(to: CGPoint(x: 9 * sx, y: 19 * sy))
+                stand.move(to: CGPoint(x: 15 * sx, y: 15 * sy))
+                stand.addLine(to: CGPoint(x: 15 * sx, y: 19 * sy))
+                context.stroke(stand, with: .color(tint), style: style)
 
             case .C8_GUEST:
-                // Display / Media / Human perimeter screen with pedestal
-                let tv = CGRect(x: w * 0.12, y: h * 0.20, width: w * 0.76, height: h * 0.48)
-                context.stroke(Path(roundedRect: tv, cornerRadius: w * 0.06), with: .color(tint), style: style)
-                var stand = Path()
-                stand.move(to: CGPoint(x: w * 0.50, y: h * 0.68))
-                stand.addLine(to: CGPoint(x: w * 0.50, y: h * 0.82))
-                stand.move(to: CGPoint(x: w * 0.30, y: h * 0.82))
-                stand.addLine(to: CGPoint(x: w * 0.70, y: h * 0.82))
-                context.stroke(stand, with: .color(tint), style: style)
+                let head = CGRect(x: (12 - 4) * sx, y: (7.5 - 4) * sy, width: 8 * sx, height: 8 * sy)
+                context.stroke(Path(ellipseIn: head), with: .color(tint), style: style)
+                var shoulders = Path()
+                shoulders.move(to: CGPoint(x: 5 * sx, y: 21 * sy))
+                shoulders.addLine(to: CGPoint(x: 5 * sx, y: 18.5 * sy))
+                shoulders.addCurve(
+                    to: CGPoint(x: 9.5 * sx, y: 15 * sy),
+                    control1: CGPoint(x: 5 * sx, y: 16 * sy),
+                    control2: CGPoint(x: 7 * sx, y: 15 * sy)
+                )
+                shoulders.addLine(to: CGPoint(x: 14.5 * sx, y: 15 * sy))
+                shoulders.addCurve(
+                    to: CGPoint(x: 19 * sx, y: 18.5 * sy),
+                    control1: CGPoint(x: 17 * sx, y: 15 * sy),
+                    control2: CGPoint(x: 19 * sx, y: 16 * sy)
+                )
+                shoulders.addLine(to: CGPoint(x: 19 * sx, y: 21 * sy))
+                context.stroke(shoulders, with: .color(tint), style: style)
             }
         }
         .frame(width: size, height: size)

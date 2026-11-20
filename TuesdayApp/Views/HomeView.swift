@@ -123,28 +123,14 @@ public struct HomeView: View {
                                 onSeedDemoFleet: {
                                     repository.enableDemoMode()
                                     repository.setSimulatedDeviceCount(12)
-                                }
+                                },
+                                onOpenReferenceGuide: { showingReferenceGuide = true }
                             )
                         }
                         .padding(.horizontal, TuesdayDimens.screenPaddingHorizontal)
                         .padding(.vertical, 12)
                     }
                     .background(palette.bg.ignoresSafeArea())
-                    .overlay(alignment: .bottomTrailing) {
-                        Button(action: { openAddDeviceWizard() }) {
-                            Label("Add", systemImage: "plus")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
-                                .frame(minHeight: 46)
-                                .background(palette.accent)
-                                .clipShape(Capsule())
-                                .shadow(color: Color.black.opacity(0.28), radius: 6, y: 3)
-                        }
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 12)
-                        .uiAction("openAddDevice")
-                    }
                 }
                 .tag(MainNavigationTab.status)
 
@@ -154,7 +140,14 @@ public struct HomeView: View {
                     payload: bulletinsPayload,
                     notificationManager: notificationManager ?? .shared,
                     onTapAddDevice: { openAddDeviceWizard() },
-                    onTapReferenceGuide: { showingReferenceGuide = true }
+                    onTapReferenceGuide: { showingReferenceGuide = true },
+                    onOpenFeedsSettings: { activeTab = .account },
+                    onInspectDevice: { targetId in
+                        if let dev = visibleDevices.first(where: { $0.id == targetId }) ?? visibleDevices.first {
+                            inspectedDevice = dev
+                        }
+                    },
+                    onNavigateToCheckUp: { activeTab = .checkup }
                 )
                 .tag(MainNavigationTab.bulletins)
 
@@ -165,6 +158,7 @@ public struct HomeView: View {
                     palette: palette,
                     initialModal: timelineInitialModal,
                     onConsumeInitialModal: { timelineInitialModal = nil },
+                    onOpenReferenceGuide: { showingReferenceGuide = true },
                     onInspectDevice: { inspectedDevice = $0 },
                     onRecordAttestation: { devId, type, presence, date, notes in
                         repository.recordAttestation(
@@ -191,7 +185,8 @@ public struct HomeView: View {
                     bulletins: bulletinsPayload.inbox,
                     flavor: repository.brandFlavor,
                     palette: palette,
-                    welcomeComplete: repository.welcomeCompleted
+                    welcomeComplete: repository.welcomeCompleted || repository.bulletinDismissed,
+                    onOpenReferenceGuide: { showingReferenceGuide = true }
                 )
                 .tag(MainNavigationTab.checkup)
 

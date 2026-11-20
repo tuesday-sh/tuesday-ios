@@ -19,19 +19,21 @@ final class TuesdayAppUITests: XCTestCase {
 
         // 2. Seed Forest Fleet (12 devices)
         seedBtn.tap()
-        XCTAssertTrue(app.staticTexts["NETWORK HARDWARE"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Inventory"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["UniFi Dream Machine Pro"].waitForExistence(timeout: 5))
 
         // 3. Switch across all 5 main tabs
         app.buttons["ui:slot:nav-tab-bulletins"].tap()
-        XCTAssertTrue(app.staticTexts["BULLETIN"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Bulletin Inbox"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Patch Tuesday Readiness"].waitForExistence(timeout: 5))
 
         app.buttons["ui:slot:nav-tab-timeline"].tap()
-        XCTAssertTrue(app.staticTexts["OPERATIONAL LIFESPAN & EOL"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["All time"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Legend:"].waitForExistence(timeout: 5))
 
         app.buttons["ui:slot:nav-tab-checkup"].tap()
-        XCTAssertTrue(app.staticTexts["R2 QUARTERLY AUDIT PILLARS"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["PILLAR 1"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Check-Ups"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["R1 • NEW HARDWARE INTAKE & ATTESTATION"].waitForExistence(timeout: 5))
 
         app.buttons["ui:slot:nav-tab-account"].tap()
         let subRow = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Subscription & Plan")).firstMatch

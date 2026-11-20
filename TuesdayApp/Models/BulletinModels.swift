@@ -354,9 +354,23 @@ public enum DevicePresenceState: String, Codable, CaseIterable, Identifiable {
         case .stoppedWorking: return "Broken / Dead"
         }
     }
+
+    public var shortLabel: String {
+        switch self {
+        case .active: return "ACTIVE"
+        case .retired: return "RETIRED"
+        case .lost: return "LOST"
+        case .stoppedWorking: return "DEFECTIVE"
+        }
+    }
 }
 
 public enum AttestationType: String, Codable, CaseIterable, Identifiable {
+    case presenceAudit = "PRESENCE_AUDIT"
+    case absenceRetired = "ABSENCE_RETIRED"
+    case absenceLost = "ABSENCE_LOST"
+    case absenceStoppedWorking = "ABSENCE_STOPPED_WORKING"
+    case presenceReactivated = "PRESENCE_REACTIVATED"
     case physicalInspect = "PHYSICAL_INSPECT"
     case firmwareCheck = "FIRMWARE_CHECK"
     case annualAudit = "ANNUAL_AUDIT"
@@ -365,8 +379,26 @@ public enum AttestationType: String, Codable, CaseIterable, Identifiable {
     public var id: String { rawValue }
     public var key: String { rawValue }
 
+    public var resultingState: DevicePresenceState {
+        switch self {
+        case .presenceAudit, .presenceReactivated, .physicalInspect, .firmwareCheck, .annualAudit:
+            return .active
+        case .absenceRetired, .decommission:
+            return .retired
+        case .absenceLost:
+            return .lost
+        case .absenceStoppedWorking:
+            return .stoppedWorking
+        }
+    }
+
     public var displayLabel: String {
         switch self {
+        case .presenceAudit: return "Presence Attestation"
+        case .absenceRetired: return "Decommission (Retired)"
+        case .absenceLost: return "Absence (Lost / Missing)"
+        case .absenceStoppedWorking: return "Absence (Stopped Working)"
+        case .presenceReactivated: return "Reactivation (Return to Service)"
         case .physicalInspect: return "Physical Check-In"
         case .firmwareCheck: return "Firmware Attested"
         case .annualAudit: return "Seasonal / Yearly Audit"
@@ -430,6 +462,59 @@ public struct OperationalCandle: Identifiable, Equatable {
     public let eolLabel: String
     public let latestAttestation: DeviceAttestation?
     public let attestationCount: Int
+    public let releaseDateStr: String?
+    public let deployDateStr: String?
+    public let eolDateStr: String?
+
+    public init(
+        id: String,
+        shortLabel: String,
+        name: String,
+        version: String,
+        trustZone: TrustZone,
+        presenceState: DevicePresenceState,
+        hasCveOrRecall: Bool,
+        isPastEol: Bool,
+        isEolNearing: Bool,
+        isGuessed: Bool,
+        isRetired: Bool,
+        marketReleaseNorm: Double,
+        deployStartNorm: Double,
+        deployEndNorm: Double,
+        vendorEolNorm: Double,
+        cveStartNorm: Double?,
+        releaseLabel: String,
+        eolLabel: String,
+        latestAttestation: DeviceAttestation?,
+        attestationCount: Int,
+        releaseDateStr: String? = nil,
+        deployDateStr: String? = nil,
+        eolDateStr: String? = nil
+    ) {
+        self.id = id
+        self.shortLabel = shortLabel
+        self.name = name
+        self.version = version
+        self.trustZone = trustZone
+        self.presenceState = presenceState
+        self.hasCveOrRecall = hasCveOrRecall
+        self.isPastEol = isPastEol
+        self.isEolNearing = isEolNearing
+        self.isGuessed = isGuessed
+        self.isRetired = isRetired
+        self.marketReleaseNorm = marketReleaseNorm
+        self.deployStartNorm = deployStartNorm
+        self.deployEndNorm = deployEndNorm
+        self.vendorEolNorm = vendorEolNorm
+        self.cveStartNorm = cveStartNorm
+        self.releaseLabel = releaseLabel
+        self.eolLabel = eolLabel
+        self.latestAttestation = latestAttestation
+        self.attestationCount = attestationCount
+        self.releaseDateStr = releaseDateStr
+        self.deployDateStr = deployDateStr
+        self.eolDateStr = eolDateStr
+    }
 }
 
 public enum ApiEndpointPreset: String, CaseIterable, Identifiable {
@@ -1238,14 +1323,18 @@ public enum BulletinsAndInventoryEngine {
 
     public static func toOperationalCandle(
         _ device: RackPortDevice,
-        attestations: [DeviceAttestation] = []
+        attestations: [DeviceAttestation] = [],
+        referenceNowNorm: Double = 0.72
     ) -> OperationalCandle {
-        let lastCandle = device.candles.last
         let firstCandle = device.candles.first
-        let releaseNorm = firstCandle?.released ?? 0.12
-        let deployStart = lastCandle?.attested ?? 0.25
-        let deployEnd = lastCandle?.ended ?? 0.72
-        let eolNorm = lastCandle?.eol ?? (device.portState == .eol ? 0.62 : 0.96)
+        let lastCandle = device.candles.last
+        let releaseNorm = firstCandle?.released ?? 0.10
+        let deployStart = lastCandle?.attested ?? firstCandle?.attested ?? 0.40
+        let eolNorm = lastCandle?.eol ?? (device.portState == .eol ? 0.62 : 0.95)
+        let isOutOfService = device.presenceState.isOutOfService
+        let deployEnd = isOutOfService
+            ? min(lastCandle?.ended ?? 0.58, eolNorm + 0.05)
+            : referenceNowNorm
         let isPastEol = device.portState == .eol || deployEnd > eolNorm
         let isEolNearing = !isPastEol && (eolNorm - deployEnd) < 0.12
         let devAtts = attestations.filter { $0.deviceId == device.id }
@@ -1261,7 +1350,7 @@ public enum BulletinsAndInventoryEngine {
             isPastEol: isPastEol,
             isEolNearing: isEolNearing,
             isGuessed: device.portState == .guessed || device.confidenceTier == .provisionalGuess,
-            isRetired: device.presenceState == .retired,
+            isRetired: isOutOfService,
             marketReleaseNorm: releaseNorm,
             deployStartNorm: deployStart,
             deployEndNorm: deployEnd,
@@ -1270,7 +1359,10 @@ public enum BulletinsAndInventoryEngine {
             releaseLabel: device.purchaseDate ?? "2024-01-01",
             eolLabel: device.vendorEolAt ?? "Supported",
             latestAttestation: latestAtt,
-            attestationCount: max(device.attestationCount, devAtts.count)
+            attestationCount: max(device.attestationCount, devAtts.count),
+            releaseDateStr: device.purchaseDate,
+            deployDateStr: device.purchaseDate,
+            eolDateStr: device.vendorEolAt
         )
     }
 

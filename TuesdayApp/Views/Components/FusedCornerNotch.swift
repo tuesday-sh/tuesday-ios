@@ -174,3 +174,84 @@ private struct FusedNotchInteriorDividerShape: Shape {
         return path
     }
 }
+
+/// Full-width 50%/50% lower fused dual action bar inset by 1pt to avoid outer border alpha stacking
+/// (matches Android `FusedBottomDualNotchBar`).
+public struct FusedBottomDualNotchBar<PrimaryContent: View, SecondaryContent: View>: View {
+    public let primaryBackground: Color
+    public let primaryStrokeColor: Color
+    public let onPrimaryClick: () -> Void
+    public var primaryActionName: String = "primaryNotchAction"
+    public let secondaryBackground: Color
+    public let secondaryStrokeColor: Color
+    public let onSecondaryClick: () -> Void
+    public var secondaryActionName: String = "secondaryNotchAction"
+    @ViewBuilder public let primaryContent: () -> PrimaryContent
+    @ViewBuilder public let secondaryContent: () -> SecondaryContent
+
+    public init(
+        primaryBackground: Color,
+        primaryStrokeColor: Color,
+        onPrimaryClick: @escaping () -> Void,
+        primaryActionName: String = "primaryNotchAction",
+        secondaryBackground: Color,
+        secondaryStrokeColor: Color,
+        onSecondaryClick: @escaping () -> Void,
+        secondaryActionName: String = "secondaryNotchAction",
+        @ViewBuilder primaryContent: @escaping () -> PrimaryContent,
+        @ViewBuilder secondaryContent: @escaping () -> SecondaryContent
+    ) {
+        self.primaryBackground = primaryBackground
+        self.primaryStrokeColor = primaryStrokeColor
+        self.onPrimaryClick = onPrimaryClick
+        self.primaryActionName = primaryActionName
+        self.secondaryBackground = secondaryBackground
+        self.secondaryStrokeColor = secondaryStrokeColor
+        self.onSecondaryClick = onSecondaryClick
+        self.secondaryActionName = secondaryActionName
+        self.primaryContent = primaryContent
+        self.secondaryContent = secondaryContent
+    }
+
+    public var body: some View {
+        HStack(spacing: 0) {
+            Button(action: onPrimaryClick) {
+                HStack(spacing: 6) {
+                    primaryContent()
+                }
+                .padding(.vertical, 11)
+                .frame(maxWidth: .infinity)
+                .background(
+                    UnevenRoundedRectangle(bottomLeadingRadius: 9)
+                        .fill(primaryBackground)
+                )
+                .overlay(alignment: .top) {
+                    Rectangle().fill(primaryStrokeColor).frame(height: 1)
+                }
+                .overlay(alignment: .trailing) {
+                    Rectangle().fill(primaryStrokeColor).frame(width: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .uiAction("primaryNotchAction")
+
+            Button(action: onSecondaryClick) {
+                HStack(spacing: 6) {
+                    secondaryContent()
+                }
+                .padding(.vertical, 11)
+                .frame(maxWidth: .infinity)
+                .background(
+                    UnevenRoundedRectangle(bottomTrailingRadius: 9)
+                        .fill(secondaryBackground)
+                )
+                .overlay(alignment: .top) {
+                    Rectangle().fill(secondaryStrokeColor).frame(height: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .uiAction("secondaryNotchAction")
+        }
+        .padding([.bottom, .leading, .trailing], 1)
+    }
+}
