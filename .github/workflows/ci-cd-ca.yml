@@ -106,7 +106,7 @@ jobs:
     name: "Deploy to TestFlight Internal (surf-ai Self-Hosted)"
     needs: verify-and-attest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, macOS, ARM64, surf-ai]
+    runs-on: [self-hosted, macOS, ARM64, m2]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
