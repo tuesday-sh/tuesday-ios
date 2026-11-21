@@ -63,6 +63,8 @@ public struct PreferenceToggleRow: View {
                 prefToggle.uiAction("toggleDeveloperMode")
             case "toggleMonthlyReminders":
                 prefToggle.uiAction("toggleMonthlyReminders")
+            case "toggleReminderCategory":
+                prefToggle.uiAction("toggleReminderCategory")
             default:
                 prefToggle.uiAction(actionName)
             }

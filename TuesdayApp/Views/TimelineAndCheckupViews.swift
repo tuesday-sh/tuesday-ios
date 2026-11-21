@@ -140,6 +140,7 @@ public struct SwimlaneTimelineView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: max(180, geo.size.height * 0.34))
                 .background(palette.chassisRecessed)
+                .uiSlot("timeline-swimlane-canvas")
 
                 // Bottom 2/3 (~66%): Unboxed zoom/legend controls + standalone mini-candle device cards
                 ScrollView {
@@ -157,8 +158,10 @@ public struct SwimlaneTimelineView: View {
                                                 scrubberXNorm = 0.72
                                             }
                                         )
+                                        .uiAction("setTimelineRange")
                                     }
                                 }
+                                .uiSlot("timeline-range-strip")
 
                                 Spacer(minLength: 4)
 
@@ -212,6 +215,7 @@ public struct SwimlaneTimelineView: View {
                                 RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
                                     .stroke(palette.border, lineWidth: 1)
                             )
+                            .uiSlot("timeline-6state-legend")
                         }
                         .uiSlot("timeline-header-card")
 
@@ -263,6 +267,7 @@ public struct SwimlaneTimelineView: View {
                                                         )
                                                 }
                                                 .buttonStyle(.plain)
+                                                .uiAction("openLifecycleAttestation")
                                             }
                                         }
 
@@ -817,6 +822,7 @@ private struct LifecycleAttestationSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                     }
                     .buttonStyle(.plain)
+                    .uiAction("saveLifecycleAttestation")
                     .layoutPriority(1)
                 }
                 .padding(.vertical, 4)
@@ -824,6 +830,7 @@ private struct LifecycleAttestationSheet: View {
             .padding(16)
         }
         .background(palette.surface.ignoresSafeArea())
+        .uiComponent("LifecycleAttestationModal")
     }
 }
 
@@ -984,10 +991,12 @@ private struct BatchAuditModalView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(selectedIds.isEmpty)
+                .uiAction("completeBatchCheckIn")
             }
             .padding(16)
         }
         .background(palette.surface.ignoresSafeArea())
+        .uiComponent("BatchAuditModal")
     }
 }
 
@@ -1158,6 +1167,7 @@ public struct SeasonalCheckupView: View {
                                     }
                                 }
                             }
+                            .uiSlot("checkup-rhythm-section", state: rhythm.id)
                         }
                     }
                 }

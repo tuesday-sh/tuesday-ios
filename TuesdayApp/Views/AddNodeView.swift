@@ -918,6 +918,7 @@ public struct AddNodeView: View {
         .padding(.vertical, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(palette.surface.ignoresSafeArea())
+        .uiComponent("CandidateConfirmModal")
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }

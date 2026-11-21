@@ -339,7 +339,7 @@ public struct AccountSettingsView: View {
                                 palette: palette,
                                 badgeText: "IN-APP ALWAYS",
                                 badgeColor: TuesdayTheme.ledCveRed,
-                                actionName: "toggleCriticalReminders"
+                                actionName: "toggleReminderCategory"
                             )
                             SurfaceListDivider(palette: palette)
                             PreferenceToggleRow(
@@ -367,7 +367,7 @@ public struct AccountSettingsView: View {
                                     set: { repository.setReminderPreference(for: "quarterly_checkup", enabled: $0) }
                                 ),
                                 palette: palette,
-                                actionName: "toggleQuarterlyReminders"
+                                actionName: "toggleReminderCategory"
                             )
                             SurfaceListDivider(palette: palette)
                             PreferenceToggleRow(
@@ -378,7 +378,7 @@ public struct AccountSettingsView: View {
                                     set: { repository.setReminderPreference(for: "routine_firmware", enabled: $0) }
                                 ),
                                 palette: palette,
-                                actionName: "toggleRoutineReminders"
+                                actionName: "toggleReminderCategory"
                             )
                             SurfaceListDivider(palette: palette)
                             PreferenceToggleRow(
@@ -389,7 +389,7 @@ public struct AccountSettingsView: View {
                                     set: { repository.setReminderPreference(for: "lifecycle_eol", enabled: $0) }
                                 ),
                                 palette: palette,
-                                actionName: "toggleLifecycleReminders"
+                                actionName: "toggleReminderCategory"
                             )
                         }
                     )
@@ -413,6 +413,7 @@ public struct AccountSettingsView: View {
                             .padding(10)
                             .background(TuesdayTheme.ledCveRed.opacity(0.08))
                             .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                            .uiSlot("feeds-guardrail-notice")
 
                             ForEach(BulletinsAndInventoryEngine.defaultGoldFeeds()) { feed in
                                 let isMuted = repository.mutedFeedSlugs.contains(feed.slug)
@@ -716,39 +717,42 @@ public struct ReferenceGuideModalSheet: View {
                             .foregroundColor(palette.textPrimary)
                     }
 
-                    Text("SureThingNet Standard Categories (Scale C)")
-                        .font(.system(size: 16, weight: .heavy))
-                        .foregroundColor(palette.textPrimary)
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("SureThingNet Standard Categories (Scale C)")
+                            .font(.system(size: 16, weight: .heavy))
+                            .foregroundColor(palette.textPrimary)
 
-                    Text("The 8 semantic hardware categories (C1 → C8) that govern our faceplate port strip, inventory classification, and progressive disclosure model.")
-                        .font(.system(size: 12))
-                        .foregroundColor(palette.textMuted)
-                        .lineSpacing(3)
+                        Text("The 8 semantic hardware categories (C1 → C8) that govern our faceplate port strip, inventory classification, and progressive disclosure model.")
+                            .font(.system(size: 12))
+                            .foregroundColor(palette.textMuted)
+                            .lineSpacing(3)
 
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                        ForEach(StnHardwareCategory.allCases) { cat in
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text(cat.displayLabel(isStn: isStn))
-                                        .font(.system(size: 11.5, weight: .bold))
-                                        .foregroundColor(palette.textPrimary)
-                                    Spacer()
-                                    MonospaceBadge(text: "\(cat.code)•\(cat.osiLayer)", color: palette.accentText, borderAlpha: 0)
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                            ForEach(StnHardwareCategory.allCases) { cat in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(cat.displayLabel(isStn: isStn))
+                                            .font(.system(size: 11.5, weight: .bold))
+                                            .foregroundColor(palette.textPrimary)
+                                        Spacer()
+                                        MonospaceBadge(text: "\(cat.code)•\(cat.osiLayer)", color: palette.accentText, borderAlpha: 0)
+                                    }
+                                    Text(cat.description)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(palette.textMuted)
+                                    Text(cat.examples)
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundColor(palette.accentText)
                                 }
-                                Text(cat.description)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(palette.textMuted)
-                                Text(cat.examples)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(palette.accentText)
+                                .padding(9)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(palette.elevated)
+                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.border, lineWidth: 1))
                             }
-                            .padding(9)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(palette.elevated)
-                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                            .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.border, lineWidth: 1))
                         }
                     }
+                    .uiSlot("reference-guide-categories")
 
                     SurfaceListDivider(palette: palette)
 
@@ -770,6 +774,7 @@ public struct ReferenceGuideModalSheet: View {
                             ("S6", "Packages & Services", "Apps & Features — Exposed ports & PURLs")
                         ]
                     )
+                    .uiSlot("reference-guide-scale-s")
 
                     ordinalScaleCard(
                         tag: "Scale Z",
@@ -784,6 +789,7 @@ public struct ReferenceGuideModalSheet: View {
                             ("Z5", "Internet Uplink (WAN)", "Internet Doorway — Public ISP modem & WAN")
                         ]
                     )
+                    .uiSlot("reference-guide-scale-z")
 
                     ordinalScaleCard(
                         tag: "Scale R",
@@ -796,39 +802,43 @@ public struct ReferenceGuideModalSheet: View {
                             ("R4", "Annual Gear Review", "Yearly Lifespan Check — Warranty & EOL")
                         ]
                     )
+                    .uiSlot("reference-guide-scale-r")
 
                     SurfaceListDivider(palette: palette)
 
-                    Text("🌐 The OSI 7+1 Layer Reference Model (L1–L8)")
-                        .font(.system(size: 14, weight: .heavy))
-                        .foregroundColor(palette.textPrimary)
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("🌐 The OSI 7+1 Layer Reference Model (L1–L8)")
+                            .font(.system(size: 14, weight: .heavy))
+                            .foregroundColor(palette.textPrimary)
 
-                    ForEach(Array(osiLayers.enumerated()), id: \.offset) { idx, layer in
-                        let isHuman = (idx == 0)
-                        HStack(alignment: .top, spacing: 10) {
-                            MonospaceBadge(
-                                text: layer.0,
-                                color: isHuman ? TuesdayTheme.ledEolAmber : palette.accentText
-                            )
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(layer.1)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(palette.textPrimary)
-                                Text(layer.2)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(palette.textMuted)
-                                    .lineSpacing(2)
+                        ForEach(Array(osiLayers.enumerated()), id: \.offset) { idx, layer in
+                            let isHuman = (idx == 0)
+                            HStack(alignment: .top, spacing: 10) {
+                                MonospaceBadge(
+                                    text: layer.0,
+                                    color: isHuman ? TuesdayTheme.ledEolAmber : palette.accentText
+                                )
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(layer.1)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(palette.textPrimary)
+                                    Text(layer.2)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(palette.textMuted)
+                                        .lineSpacing(2)
+                                }
                             }
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(isHuman ? TuesdayTheme.ledEolAmber.opacity(0.1) : palette.elevated)
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                                    .stroke(isHuman ? TuesdayTheme.ledEolAmber : palette.border, lineWidth: 1)
+                            )
                         }
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(isHuman ? TuesdayTheme.ledEolAmber.opacity(0.1) : palette.elevated)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
-                                .stroke(isHuman ? TuesdayTheme.ledEolAmber : palette.border, lineWidth: 1)
-                        )
                     }
+                    .uiSlot("reference-guide-osi-layers")
 
                     Button(action: { dismiss() }) {
                         Text("Done Reading")

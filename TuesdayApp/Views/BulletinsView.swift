@@ -203,6 +203,7 @@ public struct BulletinsView: View {
                                 RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
                                     .stroke(palette.border, lineWidth: 1)
                             )
+                            .uiSlot("matched-feeds-empty-banner")
                     } else {
                         MatchedFeedsListView(
                             palette: palette,
@@ -220,14 +221,17 @@ public struct BulletinsView: View {
                         .padding(.top, 20)
                         .padding(.bottom, 4)
 
-                        BulletinListView(
-                            palette: palette,
-                            items: payload.completedBulletins,
-                            isCompleted: true,
-                            showWelcomeRow: isComplete,
-                            onSelectWelcome: { expandedModal = .welcome(isCompleted: true) },
-                            onSelectBulletin: { item in expandedModal = .inbox(item, isCompleted: true) }
-                        )
+                        VStack(alignment: .leading, spacing: 0) {
+                            BulletinListView(
+                                palette: palette,
+                                items: payload.completedBulletins,
+                                isCompleted: true,
+                                showWelcomeRow: isComplete,
+                                onSelectWelcome: { expandedModal = .welcome(isCompleted: true) },
+                                onSelectBulletin: { item in expandedModal = .inbox(item, isCompleted: true) }
+                            )
+                        }
+                        .uiSlot("completed-bulletins-section")
                     }
                 }
                 .padding(.horizontal, TuesdayDimens.screenPaddingHorizontal)
@@ -238,72 +242,75 @@ public struct BulletinsView: View {
 
             if let modal = expandedModal {
                 DetailModalDialog(palette: palette, onDismiss: { expandedModal = nil }) {
-                    switch modal {
-                    case .inbox(let item, let completed):
-                        VStack(alignment: .leading, spacing: 10) {
-                            InboxItemNotchCard(
-                                palette: palette,
-                                item: item,
+                    VStack(spacing: 0) {
+                        switch modal {
+                        case .inbox(let item, let completed):
+                            VStack(alignment: .leading, spacing: 10) {
+                                InboxItemNotchCard(
+                                    palette: palette,
+                                    item: item,
+                                    isCompleted: completed,
+                                    onClick: {
+                                        expandedModal = nil
+                                        onInspectDevice(item.affectedDeviceIds.first ?? item.externalId)
+                                    },
+                                    onConfirmModel: { chosen in
+                                        expandedModal = nil
+                                        repository.confirmProvisionalDeviceModel(chosen)
+                                    },
+                                    onRejectModel: {
+                                        expandedModal = nil
+                                        repository.rejectProvisionalDeviceModel()
+                                    }
+                                )
+
+                                if !completed {
+                                    Button(action: {
+                                        repository.markBulletinCompleted(item.externalId)
+                                        expandedModal = nil
+                                    }) {
+                                        Text("✓ Mark Remediated & Update Device Status")
+                                            .font(.system(size: 13.5, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .frame(maxWidth: .infinity, minHeight: 42)
+                                            .background(okGreen)
+                                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+
+                        case .welcome(let completed):
+                            welcomeNotchModal(
                                 isCompleted: completed,
-                                onClick: {
+                                step1Done: step1Done,
+                                step2Done: step2Done,
+                                step3Done: step3Done,
+                                allStepsDone: allStepsDone,
+                                isStn: isStn,
+                                okGreen: okGreen
+                            )
+
+                        case .feed(let feed):
+                            MatchedFeedCard(
+                                palette: palette,
+                                feed: feed,
+                                onToggleMuteFeed: { slug in
                                     expandedModal = nil
-                                    onInspectDevice(item.affectedDeviceIds.first ?? item.externalId)
+                                    repository.toggleMuteFeed(slug)
                                 },
-                                onConfirmModel: { chosen in
+                                onConfirmModel: { model in
                                     expandedModal = nil
-                                    repository.confirmProvisionalDeviceModel(chosen)
+                                    repository.confirmProvisionalDeviceModel(model)
                                 },
                                 onRejectModel: {
                                     expandedModal = nil
                                     repository.rejectProvisionalDeviceModel()
                                 }
                             )
-
-                            if !completed {
-                                Button(action: {
-                                    repository.markBulletinCompleted(item.externalId)
-                                    expandedModal = nil
-                                }) {
-                                    Text("✓ Mark Remediated & Update Device Status")
-                                        .font(.system(size: 13.5, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity, minHeight: 42)
-                                        .background(okGreen)
-                                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                                }
-                                .buttonStyle(.plain)
-                            }
                         }
-
-                    case .welcome(let completed):
-                        welcomeNotchModal(
-                            isCompleted: completed,
-                            step1Done: step1Done,
-                            step2Done: step2Done,
-                            step3Done: step3Done,
-                            allStepsDone: allStepsDone,
-                            isStn: isStn,
-                            okGreen: okGreen
-                        )
-
-                    case .feed(let feed):
-                        MatchedFeedCard(
-                            palette: palette,
-                            feed: feed,
-                            onToggleMuteFeed: { slug in
-                                expandedModal = nil
-                                repository.toggleMuteFeed(slug)
-                            },
-                            onConfirmModel: { model in
-                                expandedModal = nil
-                                repository.confirmProvisionalDeviceModel(model)
-                            },
-                            onRejectModel: {
-                                expandedModal = nil
-                                repository.rejectProvisionalDeviceModel()
-                            }
-                        )
                     }
+                    .uiComponent("BulletinDetailModal")
                 }
             }
 
@@ -482,6 +489,7 @@ private struct RhythmSnoozeOrMuteBanner: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .uiAction("resumeRhythmBulletin")
             }
 
             Text(description)
@@ -497,7 +505,7 @@ private struct RhythmSnoozeOrMuteBanner: View {
             RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
                 .stroke(palette.border, lineWidth: 1)
         )
-        .uiSlot("bulletin-inbox-item", state: slotMeta)
+        .uiSlot("bulletin-rhythm-status-banner", state: slotMeta)
     }
 }
 

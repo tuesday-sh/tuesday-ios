@@ -21,6 +21,7 @@ public struct LegalAndSupportCard: View {
                         .foregroundColor(palette.textMuted)
                 }
             )
+            .uiAction("openPrivacyPolicy")
             SurfaceListDivider(palette: palette)
             TuesdayListRow(
                 palette: palette,
@@ -33,6 +34,7 @@ public struct LegalAndSupportCard: View {
                         .foregroundColor(palette.textMuted)
                 }
             )
+            .uiAction("openTermsOfService")
             SurfaceListDivider(palette: palette)
             TuesdayListRow(
                 palette: palette,
@@ -285,5 +287,6 @@ public struct CondensedCandlestickCard: View {
             RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
                 .stroke(palette.border, lineWidth: 1)
         )
+        .uiComponent("CondensedCandlestickCard")
     }
 }

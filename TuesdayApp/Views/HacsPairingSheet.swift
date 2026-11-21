@@ -104,6 +104,7 @@ public struct HacsPairingSheet: View {
                         RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard)
                             .stroke(palette.border, lineWidth: 1)
                     )
+                    .uiSlot("hacs-coming-soon-notice")
 
                     // Local Network Backup & Restore + Clipboard Copy
                     VStack(alignment: .leading, spacing: 12) {
@@ -186,6 +187,7 @@ public struct HacsPairingSheet: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .uiAction("copyBackupToClipboard")
 
                         if let msg = backupStatusMessage {
                             Text(msg)
@@ -200,6 +202,7 @@ public struct HacsPairingSheet: View {
                         RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard)
                             .stroke(palette.border, lineWidth: 1)
                     )
+                    .uiSlot("local-backup-panel")
 
                     // Family Site Delegation
                     VStack(alignment: .leading, spacing: 10) {
