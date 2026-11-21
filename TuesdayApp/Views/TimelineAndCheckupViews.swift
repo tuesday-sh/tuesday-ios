@@ -219,21 +219,40 @@ public struct SwimlaneTimelineView: View {
                         }
                         .uiSlot("timeline-header-card")
 
-                        if sortedDevices.isEmpty {
-                            Text("No hardware devices tracked in your inventory yet.")
-                                .font(.system(size: 12))
-                                .foregroundColor(palette.textMuted)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity)
-                                .padding(16)
-                                .background(palette.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
-                                        .stroke(palette.border, lineWidth: 1)
-                                )
-                        } else {
-                            ForEach(Array(zip(sortedDevices, candles)), id: \.1.id) { dev, candle in
+                        TuesdayListSection(
+                            palette: palette,
+                            items: Array(zip(sortedDevices, candles)),
+                            id: \.1.id,
+                            layoutStyle: .cardStack,
+                            itemSpacing: 12,
+                            sectionSpacing: 10,
+                            title: isStn ? "Device Lifespan & Supported Versions" : "Hardware Lifecycles",
+                            showHeader: true,
+                            showHeaderTrailing: !sortedDevices.isEmpty,
+                            showEmpty: true,
+                            headerTrailing: {
+                                if !sortedDevices.isEmpty {
+                                    Button(action: { showBatchAuditModal = true }) {
+                                        Text("Batch Check-In")
+                                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                            .foregroundColor(palette.accentText)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .frame(minHeight: 28)
+                                            .background(palette.accent.opacity(0.14))
+                                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                                    .stroke(palette.accent, lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .uiAction("openBatchAuditModal")
+                                }
+                            },
+                            itemContent: { pair in
+                                let dev = pair.0
+                                let candle = pair.1
                                 let summary = TimelineStatusEvaluator.evaluateCandleStatus(
                                     candle: candle,
                                     attestations: attestations
@@ -310,8 +329,15 @@ public struct SwimlaneTimelineView: View {
                                         .allowsHitTesting(false)
                                     }
                                 }
+                            },
+                            emptyContent: {
+                                TuesdayListEmptyBanner(
+                                    message: "No hardware devices tracked in your inventory yet.",
+                                    palette: palette
+                                )
                             }
-                        }
+                        )
+                        .uiComponent("HardwareLifecyclesSection")
                     }
                     .padding(.horizontal, TuesdayDimens.screenPaddingHorizontal)
                     .padding(.vertical, 12)

@@ -169,48 +169,50 @@ public struct BulletinsView: View {
                     }
 
                     // Section 2: Matched Feeds
-                    HStack {
-                        SectionHeading(text: "Matched Feeds", palette: palette)
-                        Spacer()
-                        Button(action: onOpenFeedsSettings) {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(palette.textPrimary)
-                                .frame(width: TuesdayDimens.hitTargetCompact, height: TuesdayDimens.hitTargetCompact)
-                                .background(palette.elevated)
-                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                                        .stroke(palette.border, lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Feeds settings")
-                        .uiAction("openFeedsSettings")
-                    }
-                    .padding(.top, 16)
-                    .padding(.bottom, 4)
-
-                    if payload.matchedFeeds.isEmpty {
-                        Text("Add devices to your inventory to get feeds")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(palette.textMuted)
-                            .frame(maxWidth: .infinity)
-                            .padding(14)
-                            .background(palette.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
-                                    .stroke(palette.border, lineWidth: 1)
+                    TuesdayListSection(
+                        palette: palette,
+                        items: payload.matchedFeeds,
+                        id: \.id,
+                        layoutStyle: .surfaceGrouped,
+                        sectionSpacing: 8,
+                        title: "Matched Feeds",
+                        showHeader: true,
+                        showHeaderTrailing: true,
+                        showEmpty: true,
+                        headerTrailing: {
+                            Button(action: onOpenFeedsSettings) {
+                                Image(systemName: "gearshape.fill")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .frame(width: TuesdayDimens.hitTargetCompact, height: TuesdayDimens.hitTargetCompact)
+                                    .background(palette.elevated)
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                            .stroke(palette.border, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Feeds settings")
+                            .uiAction("openFeedsSettings")
+                        },
+                        itemContent: { feed in
+                            MatchedFeedListRow(
+                                palette: palette,
+                                feed: feed,
+                                onClick: { expandedModal = .feed(feed) }
+                            )
+                        },
+                        emptyContent: {
+                            TuesdayListEmptyBanner(
+                                message: "Add devices to your inventory to get feeds",
+                                palette: palette
                             )
                             .uiSlot("matched-feeds-empty-banner")
-                    } else {
-                        MatchedFeedsListView(
-                            palette: palette,
-                            feeds: payload.matchedFeeds,
-                            onSelectFeed: { feed in expandedModal = .feed(feed) }
-                        )
-                    }
+                        }
+                    )
+                    .padding(.top, 14)
+                    .uiComponent("MatchedFeedsSection")
 
                     // Section 3: Completed
                     if completedCount > 0 {
@@ -611,28 +613,6 @@ private struct BulletinListRow: View {
         }
         .accessibilityLabel("Expand bulletin")
         .uiSlot("bulletin-inbox-item", state: "id=\(item.externalId);type=\(item.bulletinType);completed=\(isCompleted)")
-    }
-}
-
-private struct MatchedFeedsListView: View {
-    let palette: BrandPalette
-    let feeds: [MatchedFeedView]
-    let onSelectFeed: (MatchedFeedView) -> Void
-
-    var body: some View {
-        SurfaceListContainer(palette: palette) {
-            ForEach(Array(feeds.enumerated()), id: \.element.id) { index, feed in
-                MatchedFeedListRow(
-                    palette: palette,
-                    feed: feed,
-                    onClick: { onSelectFeed(feed) }
-                )
-                if index < feeds.count - 1 {
-                    SurfaceListDivider(palette: palette)
-                }
-            }
-        }
-        .uiComponent("MatchedFeedsSection")
     }
 }
 

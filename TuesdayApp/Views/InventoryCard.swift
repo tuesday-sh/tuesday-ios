@@ -102,43 +102,79 @@ public struct InventoryCardView: View {
                     stateFilterStrip(isStn: isStn)
                 }
 
-                // 5. Action-First Header + Show/Hide OK Toggle (Forest Tier)
-                if scaleTier.showFilterChips {
-                    actionListHeader(isStn: isStn)
-                }
-
-                // 6. Device Rows
+                // 5–7. Unified DeviceListSection (Action-First header + device rows + optional secondary "+ Add Another Device" CTA)
                 let rowsToRender: [RackPortDevice] = scaleTier.showFilterChips
                     ? actionDevices
                     : devices
                         .filter { zoneFilter == nil || $0.trustZone == zoneFilter }
                         .filter { portStateFilter == nil || $0.portState == portStateFilter }
+                let deviceListHeaderTitle: String = {
+                    if let filter = portStateFilter {
+                        return "FILTERED: \((isStn ? filter.stnLabel : filter.proLabel).uppercased())"
+                    }
+                    return includeOkDevices ? "ALL NAMED DEVICES" : "NEEDS ATTENTION"
+                }()
+                let deviceListEmptyMessage: String = (portStateFilter != nil || zoneFilter != nil)
+                    ? "No devices match this filter."
+                    : "All devices look healthy — tap Show OK Devices to view all."
 
-                VStack(spacing: 8) {
-                    ForEach(rowsToRender) { dev in
+                TuesdayListSection(
+                    palette: palette,
+                    items: rowsToRender,
+                    id: \.id,
+                    layoutStyle: .cardStack,
+                    itemSpacing: 8,
+                    sectionSpacing: 10,
+                    title: scaleTier.showFilterChips ? deviceListHeaderTitle : nil,
+                    showHeader: scaleTier.showFilterChips,
+                    showHeaderTrailing: scaleTier.showFilterChips && portStateFilter == nil,
+                    showEmpty: true,
+                    headerTrailing: {
+                        if portStateFilter == nil {
+                            Button(action: onToggleIncludeOk) {
+                                Text(includeOkDevices ? "Hide OK Devices" : "Show OK Devices")
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundColor(palette.accentText)
+                                    .padding(.horizontal, 8)
+                                    .frame(minHeight: 28)
+                                    .background(palette.elevated)
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                            .stroke(palette.border, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("toggleIncludeOk")
+                        }
+                    },
+                    itemContent: { dev in
                         cleanDeviceRow(dev, isStn: isStn)
+                    },
+                    emptyContent: {
+                        TuesdayListEmptyBanner(message: deviceListEmptyMessage, palette: palette)
+                    },
+                    showFooter: !scaleTier.showFilterChips,
+                    footerContent: {
+                        Button(action: { onAddDeviceWithClues(nil) }) {
+                            Text("+ Add Another Device")
+                                .font(.system(size: 12.5, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                                .frame(maxWidth: .infinity, minHeight: 48)
+                                .background(Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                                        .stroke(palette.borderStrong, lineWidth: 1)
+                                )
+                                .uiSlot("add-another-device-cta")
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
+                        .uiAction("openAddDevice")
                     }
-                }
-
-                // 7. Secondary "+ Add Another Device" CTA (Pea & Garden tiers)
-                if !scaleTier.showFilterChips {
-                    Button(action: { onAddDeviceWithClues(nil) }) {
-                        Text("+ Add Another Device")
-                            .font(.system(size: 12.5, weight: .bold))
-                            .foregroundColor(palette.textPrimary)
-                            .frame(maxWidth: .infinity, minHeight: 48)
-                            .background(Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
-                                    .stroke(palette.borderStrong, lineWidth: 1)
-                            )
-                            .uiSlot("add-another-device-cta")
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.top, 4)
-                    .uiAction("openAddDevice")
-                }
+                )
+                .uiComponent("DeviceListSection")
             }
         }
     }
@@ -426,42 +462,6 @@ public struct InventoryCardView: View {
             }
         }
         .uiSlot("state-filter-strip")
-    }
-
-    private func actionListHeader(isStn: Bool) -> some View {
-        let title: String = {
-            if let filter = portStateFilter {
-                return "FILTERED: \((isStn ? filter.stnLabel : filter.proLabel).uppercased())"
-            }
-            return includeOkDevices ? "ALL NAMED DEVICES" : "NEEDS ATTENTION"
-        }()
-
-        return HStack {
-            Text(title)
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundColor(palette.textMuted)
-                .uiSlot("action-list-header")
-
-            Spacer()
-
-            if portStateFilter == nil {
-                Button(action: onToggleIncludeOk) {
-                    Text(includeOkDevices ? "Hide OK Devices" : "Show OK Devices")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(palette.accentText)
-                        .padding(.horizontal, 8)
-                        .frame(minHeight: 28)
-                        .background(palette.elevated)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                                .stroke(palette.border, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-                .uiAction("toggleIncludeOk")
-            }
-        }
     }
 
     private func welcomeDayZeroCard() -> some View {

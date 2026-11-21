@@ -303,3 +303,192 @@ public struct DetailModalDialog<Content: View>: View {
         }
     }
 }
+
+public enum ListSectionLayoutStyle {
+    case cardStack
+    case surfaceGrouped
+}
+
+public struct TuesdayListEmptyBanner: View {
+    public let message: String
+    public let palette: BrandPalette
+
+    public init(message: String, palette: BrandPalette) {
+        self.message = message
+        self.palette = palette
+    }
+
+    public var body: some View {
+        Text(message)
+            .font(.system(size: 12, weight: .medium))
+            .foregroundColor(palette.textMuted)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(14)
+            .background(palette.surface)
+            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+            .overlay(
+                RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                    .stroke(palette.border, lineWidth: 1)
+            )
+    }
+}
+
+private struct IndexedSectionItem<Item, ID: Hashable>: Identifiable {
+    let index: Int
+    let item: Item
+    let id: ID
+}
+
+/// Unified section primitive backing DeviceListSection, HardwareLifecyclesSection,
+/// and MatchedFeedsSection across Home, Timeline, and Bulletins.
+public struct TuesdayListSection<
+    Item,
+    ID: Hashable,
+    HeaderTrailing: View,
+    ItemContent: View,
+    EmptyContent: View,
+    FooterContent: View
+>: View {
+    public let palette: BrandPalette
+    public let items: [Item]
+    public let id: KeyPath<Item, ID>
+    public var layoutStyle: ListSectionLayoutStyle
+    public var itemSpacing: CGFloat
+    public var sectionSpacing: CGFloat
+    public var title: String?
+    public var showHeader: Bool
+    public var showHeaderTrailing: Bool
+    public var showEmpty: Bool
+    public var showFooter: Bool
+    @ViewBuilder public let headerTrailing: () -> HeaderTrailing
+    @ViewBuilder public let itemContent: (Item) -> ItemContent
+    @ViewBuilder public let emptyContent: () -> EmptyContent
+    @ViewBuilder public let footerContent: () -> FooterContent
+
+    public init(
+        palette: BrandPalette,
+        items: [Item],
+        id: KeyPath<Item, ID>,
+        layoutStyle: ListSectionLayoutStyle = .cardStack,
+        itemSpacing: CGFloat = 8,
+        sectionSpacing: CGFloat = 8,
+        title: String? = nil,
+        showHeader: Bool = true,
+        showHeaderTrailing: Bool = true,
+        showEmpty: Bool = true,
+        @ViewBuilder headerTrailing: @escaping () -> HeaderTrailing,
+        @ViewBuilder itemContent: @escaping (Item) -> ItemContent,
+        @ViewBuilder emptyContent: @escaping () -> EmptyContent,
+        showFooter: Bool = true,
+        @ViewBuilder footerContent: @escaping () -> FooterContent
+    ) {
+        self.palette = palette
+        self.items = items
+        self.id = id
+        self.layoutStyle = layoutStyle
+        self.itemSpacing = itemSpacing
+        self.sectionSpacing = sectionSpacing
+        self.title = title
+        self.showHeader = showHeader
+        self.showHeaderTrailing = showHeaderTrailing
+        self.showEmpty = showEmpty
+        self.showFooter = showFooter
+        self.headerTrailing = headerTrailing
+        self.itemContent = itemContent
+        self.emptyContent = emptyContent
+        self.footerContent = footerContent
+    }
+
+    @ViewBuilder
+    private var headerRow: some View {
+        HStack(spacing: 8) {
+            if let title {
+                SectionHeading(text: title, palette: palette)
+            }
+
+            Spacer(minLength: 4)
+
+            if showHeaderTrailing {
+                HStack(spacing: 8) {
+                    headerTrailing()
+                }
+            }
+        }
+        .uiSlot("list-section-header")
+    }
+
+    public var body: some View {
+        let indexed = items.enumerated().map { idx, element in
+            IndexedSectionItem(index: idx, item: element, id: element[keyPath: id])
+        }
+
+        VStack(alignment: .leading, spacing: sectionSpacing) {
+            if showHeader && (title != nil || showHeaderTrailing) {
+                headerRow
+            }
+
+            if items.isEmpty {
+                if showEmpty {
+                    emptyContent()
+                }
+            } else if layoutStyle == .surfaceGrouped {
+                SurfaceListContainer(palette: palette) {
+                    ForEach(indexed) { entry in
+                        itemContent(entry.item)
+                        if entry.index < indexed.count - 1 {
+                            SurfaceListDivider(palette: palette)
+                        }
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: itemSpacing) {
+                    ForEach(indexed) { entry in
+                        itemContent(entry.item)
+                    }
+                }
+            }
+
+            if showFooter {
+                footerContent()
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+public extension TuesdayListSection where FooterContent == EmptyView {
+    init(
+        palette: BrandPalette,
+        items: [Item],
+        id: KeyPath<Item, ID>,
+        layoutStyle: ListSectionLayoutStyle = .cardStack,
+        itemSpacing: CGFloat = 8,
+        sectionSpacing: CGFloat = 8,
+        title: String? = nil,
+        showHeader: Bool = true,
+        showHeaderTrailing: Bool = true,
+        showEmpty: Bool = true,
+        @ViewBuilder headerTrailing: @escaping () -> HeaderTrailing,
+        @ViewBuilder itemContent: @escaping (Item) -> ItemContent,
+        @ViewBuilder emptyContent: @escaping () -> EmptyContent
+    ) {
+        self.init(
+            palette: palette,
+            items: items,
+            id: id,
+            layoutStyle: layoutStyle,
+            itemSpacing: itemSpacing,
+            sectionSpacing: sectionSpacing,
+            title: title,
+            showHeader: showHeader,
+            showHeaderTrailing: showHeaderTrailing,
+            showEmpty: showEmpty,
+            headerTrailing: headerTrailing,
+            itemContent: itemContent,
+            emptyContent: emptyContent,
+            showFooter: false,
+            footerContent: { EmptyView() }
+        )
+    }
+}
