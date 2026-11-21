@@ -69,6 +69,7 @@ public struct BulletinsView: View {
     @Environment(\.openURL) private var openURL
     @State private var showingPreferencesDialog = false
     @State private var expandedModal: ExpandedBulletinModal? = nil
+    @State private var serverNotifications: [SiteNotificationItem] = []
 
     public init(
         repository: MockHacsTuesdayService,
@@ -118,6 +119,61 @@ public struct BulletinsView: View {
                     }
                     .frame(width: 0, height: 0)
                     .uiComponent("AiSummaryCard")
+
+                    let activeServerNotifs = serverNotifications.filter { $0.isUnresolved }
+                    if !activeServerNotifs.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            SectionHeading(text: "Active Notifications & Reminders", palette: palette)
+                            ForEach(activeServerNotifs) { notif in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack(alignment: .top) {
+                                        Text(notif.title)
+                                            .font(.system(size: 13.5, weight: .bold))
+                                            .foregroundColor(palette.textPrimary)
+                                            .lineLimit(2)
+                                        Spacer()
+                                        Text(notif.surfaces.joined(separator: " · ").uppercased())
+                                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                            .foregroundColor(palette.accent)
+                                    }
+                                    Text(notif.body)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(palette.textSecondary)
+                                    HStack(spacing: 8) {
+                                        Button("Snooze") {
+                                            handleServerNotificationAction(id: notif.id, action: "snoozed")
+                                        }
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(palette.textSecondary)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(palette.border, lineWidth: 1))
+
+                                        Button("Complete") {
+                                            handleServerNotificationAction(id: notif.id, action: "completed")
+                                        }
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(palette.accent)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(palette.accent, lineWidth: 1))
+
+                                        Button("Dismiss") {
+                                            handleServerNotificationAction(id: notif.id, action: "dismissed")
+                                        }
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(palette.textMuted)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                    }
+                                }
+                                .padding(12)
+                                .background(palette.bgSurface)
+                                .cornerRadius(12)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.border, lineWidth: 1))
+                            }
+                        }
+                    }
 
                     // Section 1: Bulletin Inbox
                     HStack {
@@ -454,6 +510,34 @@ public struct BulletinsView: View {
                     expandedModal = nil
                     showingPreferencesDialog = true
                 }
+            )
+        }
+        .task {
+            await loadServerNotifications()
+        }
+    }
+
+    private func loadServerNotifications() async {
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "ios-default"
+        if let feed = try? await SiteNotificationFeedClient.shared.fetchFeed(
+            ownerKey: deviceId,
+            deviceId: deviceId
+        ) {
+            await MainActor.run {
+                serverNotifications = feed.notifications
+            }
+        }
+    }
+
+    private func handleServerNotificationAction(id: Int, action: String) {
+        serverNotifications.removeAll { $0.id == id }
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "ios-default"
+        Task {
+            _ = try? await SiteNotificationFeedClient.shared.updateState(
+                notificationId: id,
+                actionType: action,
+                ownerKey: deviceId,
+                deviceId: deviceId
             )
         }
     }
