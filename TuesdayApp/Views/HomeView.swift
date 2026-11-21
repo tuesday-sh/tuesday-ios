@@ -492,17 +492,63 @@ public struct HomeView: View {
 
             TuesdayModalCard(
                 palette: palette,
-                title: "Home & Pro Flavors",
-                subtitle: "Dual-experience mode switcher",
+                title: "Coming Soon",
+                subtitle: "Tuesday.sh (PRO) and SureThingNet (HOME) pair deep homelab telemetry with a calm household view so technical operators and families can share one inventory without the jargon.",
                 componentName: "ProComingSoonModal",
                 closeActionName: "closeProComingSoon",
                 onDismiss: { showingProComingSoonModal = false },
                 leading: { TuesdayCalendarHeartIcon(tint: palette.accent, size: 18) },
+                headerTrailing: {
+                    MonospaceBadge(text: "PRO ↔ HOME", color: palette.accent)
+                },
                 content: {
-                    Text("You're viewing the \(repository.brandFlavor.badge) workspace. Full one-tap Home vs Pro flavor customization across households is coming in an upcoming update.")
-                        .font(.system(size: 13.5))
-                        .foregroundColor(palette.textMuted)
-                        .lineSpacing(4)
+                    SurfaceListContainer(palette: palette) {
+                        TuesdayListRow(
+                            palette: palette,
+                            title: "SureThingNet (HOME) Companion View",
+                            subtitle: {
+                                Text("Translates technical CVEs and PURLs into plain-English CPSC Safety Recalls, End-of-Life (EOL) replacement alerts, and guided Seasonal Home Check-Ups.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(palette.textMuted)
+                                    .lineSpacing(2)
+                            },
+                            trailing: {
+                                MonospaceBadge(text: "v1.2", color: palette.accent)
+                            }
+                        )
+                        SurfaceListDivider(palette: palette)
+                        TuesdayListRow(
+                            palette: palette,
+                            title: "Household Sharing & Quiet Notifications",
+                            subtitle: {
+                                Text("Invite a partner or family member with a read-only household view so everyone knows when smart-home, kitchen, or nursery gear needs an update or recall check.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(palette.textMuted)
+                                    .lineSpacing(2)
+                            },
+                            trailing: {
+                                MonospaceBadge(text: "SOON", color: palette.accent)
+                            }
+                        )
+                        SurfaceListDivider(palette: palette)
+                        TuesdayListRow(
+                            palette: palette,
+                            title: "Multi-Site Homelab & Remote Care",
+                            onClick: {
+                                showingProComingSoonModal = false
+                                showingNetworkPicker = true
+                            },
+                            subtitle: {
+                                Text("Free accounts include 1 primary network and 1 demo sandbox. Upgrade to Pro Tier 1 to unlock unlimited network locations and manage your primary rack alongside a parent's home or cabin Wi-Fi.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(palette.textMuted)
+                                    .lineSpacing(2)
+                            },
+                            trailing: {
+                                MonospaceBadge(text: "LIVE", color: TuesdayTheme.ledOkGreen)
+                            }
+                        )
+                    }
 
                     Button(action: { showingProComingSoonModal = false }) {
                         Text("Got It")
