@@ -53,7 +53,7 @@ final class TuesdayAppUITests: XCTestCase {
         }
         XCTAssertTrue(refRow.waitForExistence(timeout: 5))
         refRow.tap()
-        XCTAssertTrue(app.staticTexts["SureThingNet Categories (Scale C1 → C8)"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["SureThingNet Standard Categories (Scale C)"].waitForExistence(timeout: 5))
         app.buttons["ui:action:closeReferenceGuide"].firstMatch.tap()
 
         // 5. Switch back to My Net and open Add Device Offline Gold Search
@@ -62,7 +62,8 @@ final class TuesdayAppUITests: XCTestCase {
         XCTAssertTrue(addBtn.waitForExistence(timeout: 5))
         addBtn.tap()
 
-        XCTAssertTrue(app.staticTexts["SHARED HARDWARE CLUES (OFFLINE GOLD INDEX)"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Inventory Device by Photo"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["CLUES"].waitForExistence(timeout: 5))
         app.buttons["ui:action:cancelAddDevice"].firstMatch.tap()
     }
 }

@@ -249,6 +249,7 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
     }
 
     public func setReminderPreference(for key: String, enabled: Bool) {
+        objectWillChange.send()
         defaults.set(enabled, forKey: Keys.reminderPrefsPrefix + key)
         if key == "monthly_rhythm" {
             setRemindersEnabled(enabled)
@@ -419,6 +420,7 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
     public func updateDeviceDetails(
         id: String,
         name: String,
+        shortLabel: String? = nil,
         category: StnHardwareCategory,
         trustZone: TrustZone,
         roomLocation: String,
@@ -428,11 +430,16 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
     ) {
         guard let idx = rackDevices.firstIndex(where: { $0.id == id }) else { return }
         let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanShort = shortLabel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let cleanRoom = roomLocation.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanVer = version.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if !cleanName.isEmpty {
             rackDevices[idx].name = cleanName
+        }
+        if !cleanShort.isEmpty {
+            rackDevices[idx].shortLabel = String(cleanShort.prefix(18))
+        } else if !cleanName.isEmpty {
             rackDevices[idx].shortLabel = String(cleanName.prefix(18))
         }
         rackDevices[idx].category = category
@@ -442,6 +449,15 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
         rackDevices[idx].serialNumber = serialNumber?.trimmingCharacters(in: .whitespacesAndNewlines)
         rackDevices[idx].macAddress = macAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
         rackDevices[idx].s0Identity = "\(cleanRoom.isEmpty ? "Home" : cleanRoom) • \(trustZone.displayTitle)"
+        saveRackDevices()
+    }
+
+    public func markDeviceRemediated(id: String) {
+        guard let idx = rackDevices.firstIndex(where: { $0.id == id }) else { return }
+        rackDevices[idx].portState = .ok
+        rackDevices[idx].proHeadline = "Remediation Applied • Up to Date"
+        rackDevices[idx].stnHeadline = "All caught up — no action needed"
+        rackDevices[idx].s4Advisories = "All advisories remediated"
         saveRackDevices()
     }
 

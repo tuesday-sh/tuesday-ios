@@ -267,6 +267,12 @@ public struct HomeView: View {
                         showingTier1Upgrade = true
                     }
                 },
+                onOpenNetworkPicker: {
+                    showingHacsSheet = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        showingNetworkPicker = true
+                    }
+                },
                 onDismiss: { showingHacsSheet = false }
             )
         }
@@ -281,6 +287,10 @@ public struct HomeView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                         editingDevice = toEdit
                     }
+                },
+                onApplyPatch: {
+                    repository.markDeviceRemediated(id: dev.id)
+                    inspectedDevice = nil
                 }
             )
         }
@@ -289,10 +299,11 @@ public struct HomeView: View {
                 device: dev,
                 palette: palette,
                 isStn: isStn,
-                onSave: { newName, newCat, newZone, newRoom, newVer, newSerial, newMac in
+                onSave: { newName, newShortLabel, newCat, newZone, newRoom, newVer, newSerial, newMac in
                     repository.updateDeviceDetails(
                         id: dev.id,
                         name: newName,
+                        shortLabel: newShortLabel,
                         category: newCat,
                         trustZone: newZone,
                         roomLocation: newRoom,
@@ -452,12 +463,12 @@ public struct HomeView: View {
                         }
 
                         Text(label)
-                            .font(.system(size: 10.5, weight: isSelected ? .bold : .medium))
+                            .font(.system(size: 11, weight: isSelected ? .bold : .medium))
                             .lineLimit(1)
-                            .uiAction("switchTab")
                     }
                     .foregroundColor(isSelected ? palette.accentText : palette.textMuted)
                     .frame(maxWidth: .infinity, minHeight: 50)
+                    .uiAction("switchTab")
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(label)

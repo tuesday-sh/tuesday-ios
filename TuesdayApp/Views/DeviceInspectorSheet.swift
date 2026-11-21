@@ -6,6 +6,7 @@ public struct DeviceInspectorSheet: View {
     public let palette: BrandPalette
     public let onDismiss: () -> Void
     public let onEditDevice: (RackPortDevice) -> Void
+    public var onApplyPatch: () -> Void = {}
 
     @Environment(\.openURL) private var openURL
 
@@ -14,13 +15,15 @@ public struct DeviceInspectorSheet: View {
         flavor: AppBrandFlavor,
         palette: BrandPalette,
         onDismiss: @escaping () -> Void,
-        onEditDevice: @escaping (RackPortDevice) -> Void
+        onEditDevice: @escaping (RackPortDevice) -> Void,
+        onApplyPatch: @escaping () -> Void = {}
     ) {
         self.device = device
         self.flavor = flavor
         self.palette = palette
         self.onDismiss = onDismiss
         self.onEditDevice = onEditDevice
+        self.onApplyPatch = onApplyPatch
     }
 
     public var body: some View {
@@ -75,8 +78,6 @@ public struct DeviceInspectorSheet: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(palette.textMuted)
                                 .lineSpacing(4)
-                                .uiSlot("remediation-cta")
-                                .uiAction("markRemediationComplete")
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -145,7 +146,22 @@ public struct DeviceInspectorSheet: View {
                         }
                     }
                     .uiSlot("device-details-stack")
-                    .uiSlot("s0-s6-stack")
+
+                    if device.portState != .ok && device.portState != .unassigned {
+                        VStack(spacing: 0) {
+                            Button(action: onApplyPatch) {
+                                Text(isStn ? "✓ Mark Remediation Complete (Set Device OK)" : "✓ Mark Remediation Complete (Set Port OK)")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(isStn ? .white : .black)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .background(TuesdayTheme.ledColor(for: .ok, isStn: isStn))
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("markRemediationComplete")
+                        }
+                        .uiSlot("remediation-cta")
+                    }
                 }
                 .padding(14)
             }

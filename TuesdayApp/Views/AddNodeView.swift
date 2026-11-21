@@ -4,9 +4,9 @@ import Vision
 import AVFoundation
 
 private enum AddDeviceEntryMode: String, CaseIterable, Identifiable {
-    case clues = "Search / Clues"
-    case barcode = "Scan Code"
-    case photo = "Photo / Label"
+    case photo = "Photo"
+    case scan = "Scan"
+    case manual = "Manual"
     var id: String { rawValue }
 }
 
@@ -22,25 +22,28 @@ public struct AddNodeView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
-    @State private var entryMode: AddDeviceEntryMode = .clues
+    @State private var entryMode: AddDeviceEntryMode = .photo
     @State private var clueQuery: String = ""
     @State private var selectedClues: [GoldClueItem] = []
     @State private var manualDeviceName: String = ""
     @State private var accumulatedIdentifiers = ExtractedDeviceIdentifiers()
 
     @State private var capturedImages: [UIImage] = []
+    @State private var scannedBarcodesList: [String] = []
     @State private var photoPickerItem: PhotosPickerItem? = nil
     @State private var barcodePhotoItem: PhotosPickerItem? = nil
     @State private var showCameraSheet = false
     @State private var showBarcodeScanner = false
 
     @State private var isAnalyzing = false
+    @State private var isSaving = false
     @State private var discoveryResult: GeminiDiscoveryTurnResult? = nil
-    @State private var selectedCandidate: DeviceCandidateMatch? = nil
+    @State private var inspectedCandidate: DeviceCandidateMatch? = nil
     @State private var debugLogs: [String] = []
+    @State private var copyLogFeedback: String? = nil
     @State private var statusBanner: String? = nil
+    @State private var manualError: String? = nil
     @State private var didApplyInitialParams = false
-    @State private var providerOverride: String? = nil
 
     public init(
         repository: MockHacsTuesdayService,
@@ -62,83 +65,39 @@ public struct AddNodeView: View {
 
     public var body: some View {
         let isStn = (repository.brandFlavor == .sureThingHome)
+        let warningClue = selectedClues.last(where: { !($0.warningNote ?? "").isEmpty })
+        let totalSignals = capturedImages.count + scannedBarcodesList.count + selectedClues.count
 
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Picker("Enrollment Mode", selection: $entryMode) {
-                        ForEach(AddDeviceEntryMode.allCases) { mode in
-                            Text(mode.rawValue).tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .uiSlot("enrollment-mode-tabs")
-                    .overlay { EmptyView().uiAction("switchEnrollmentMode") }
-
-                    if entryMode == .photo {
-                        photoCaptureCard(isStn: isStn)
-                    } else if entryMode == .barcode {
-                        barcodeScannerCard()
-                    }
-
-                    // Offline Gold Clues & Manual Naming
-                    VStack(alignment: .leading, spacing: 12) {
-                        GoldHardwareCluesPicker(
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        SegmentedTabRow(
+                            options: AddDeviceEntryMode.allCases.map(\.rawValue),
+                            selectedIndex: AddDeviceEntryMode.allCases.firstIndex(of: entryMode) ?? 0,
+                            onSelect: { idx in
+                                entryMode = AddDeviceEntryMode.allCases[idx]
+                            },
                             palette: palette,
-                            queryText: $clueQuery,
-                            selectedClues: $selectedClues,
-                            onClueAdded: { clue in
-                                if let upc = clue.upc { accumulatedIdentifiers.barcode = upc }
-                                if let mac = clue.macAddress { accumulatedIdentifiers.macAddress = mac }
-                                if let model = clue.model { accumulatedIdentifiers.modelNumber = model }
-                            }
+                            actionName: "switchEnrollmentMode"
                         )
-
-                        TuesdayTextField(
-                            text: $manualDeviceName,
-                            label: "Device Name / Location Alias (Optional)",
-                            placeholder: "e.g. Living Room Router, Hallway Ecobee",
-                            palette: palette
-                        )
-
-                        HStack(spacing: 8) {
-                            Button(action: {
-                                Task { await runDeferredDiscoverySearch() }
-                            }) {
-                                HStack(spacing: 6) {
-                                    if isAnalyzing { ProgressView().tint(.white) }
-                                    Text(isAnalyzing ? "Searching..." : "Identify Device")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundColor(.white)
-                                }
-                                .frame(maxWidth: .infinity, minHeight: 44)
-                                .background(palette.accent)
-                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(isAnalyzing)
-                            .uiAction("searchDeviceCandidates")
-
-                            Button(action: {
-                                Task { await enrollManually() }
-                            }) {
-                                Text("Add Direct")
-                                    .font(.system(size: 13.5, weight: .bold))
-                                    .foregroundColor(palette.textPrimary)
-                                    .padding(.horizontal, 14)
-                                    .frame(minHeight: 44)
-                                    .background(palette.elevated)
-                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.borderStrong, lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                            .uiAction("enrollManualDevice")
-                        }
                     }
-                    .padding(12)
-                    .background(palette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+                    .uiSlot("enrollment-mode-tabs")
+
+                    Text(modeHeadline(isStn: isStn))
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(palette.textPrimary)
+
+                    Text(modeSubtitle)
+                        .font(.system(size: 13.5))
+                        .foregroundColor(palette.textMuted)
+                        .lineSpacing(3)
+
+                    if let manualError {
+                        Text(manualError)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(TuesdayTheme.ledColor(for: .cveKev, isStn: isStn))
+                    }
 
                     if let banner = statusBanner {
                         Text(banner)
@@ -150,25 +109,88 @@ public struct AddNodeView: View {
                             .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                     }
 
-                    if let result = discoveryResult {
-                        candidateResultsSection(result: result, isStn: isStn)
+                    switch entryMode {
+                    case .photo:
+                        photoModeControls(isStn: isStn)
+                    case .scan:
+                        scanModeControls(isStn: isStn)
+                    case .manual:
+                        let pickedGoldModel = selectedClues.last(where: { $0.kind == .model })
+                        VStack(alignment: .leading, spacing: 6) {
+                            TuesdayTextField(
+                                text: $manualDeviceName,
+                                label: "Device Name",
+                                placeholder: pickedGoldModel?.chipLabel ?? "e.g. Living Room Router, Front Doorbell, Synology NAS",
+                                palette: palette
+                            )
+
+                            if manualDeviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                               let picked = pickedGoldModel {
+                                Button(action: { manualDeviceName = picked.chipLabel }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "wand.and.stars")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(TuesdayTheme.ledColor(for: .ok, isStn: isStn))
+                                        Text("Use \"\(picked.chipLabel)\"")
+                                            .font(.system(size: 11.5, weight: .medium))
+                                            .foregroundColor(palette.textPrimary)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(palette.surface)
+                                    .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(TuesdayTheme.ledColor(for: .ok, isStn: isStn).opacity(0.4), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
+
+                    let inferredNameClue: GoldClueItem? = (entryMode == .manual)
+                        ? GoldClueSuggestionRepository.shared.inferFromDeviceName(manualDeviceName, selected: selectedClues)
+                        : nil
+
+                    GoldHardwareCluesPicker(
+                        palette: palette,
+                        queryText: $clueQuery,
+                        selectedClues: $selectedClues,
+                        onClueAdded: { clue in applyClueIdentifiers(clue) },
+                        inferredFromDeviceName: inferredNameClue
+                    )
+
+                    contextChipsStrip(isStn: isStn, warningNote: warningClue?.warningNote)
+
+                    sharedActionButtonsRow(totalSignals: totalSignals)
 
                     if repository.isDeveloperMode {
                         devControlsSection()
                     }
+
+                    if isAnalyzing {
+                        analyzingProgressCard()
+                    }
+
+                    if let result = discoveryResult {
+                        candidateResultsSection(result: result, isStn: isStn)
+                    }
+
+                    if repository.isDeveloperMode && repository.isVisionDebugEnabled {
+                        visionDebugLogPanel()
+                    }
                 }
-                .padding(.horizontal, TuesdayDimens.screenPaddingHorizontal)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
             .background(palette.bg.ignoresSafeArea())
-            .navigationTitle(isStn ? "Add Home Device" : "Enroll Hardware Device")
+            .navigationTitle(isStn ? "Add Home Device" : "Add Device")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundColor(palette.accentText)
-                        .uiAction("cancelAddDevice")
                 }
             }
             .sheet(isPresented: $showCameraSheet) {
@@ -186,11 +208,14 @@ public struct AddNodeView: View {
                     onDismiss: { showBarcodeScanner = false }
                 )
             }
+            .sheet(item: $inspectedCandidate) { candidate in
+                candidateConfirmationModal(candidate: candidate, isStn: isStn)
+            }
             .onChange(of: photoPickerItem) { _, item in
-                Task { await loadPhotoPickerImage(item, runFullAnalysis: false) }
+                Task { await loadPhotoPickerImage(item, runBarcodeExtract: false) }
             }
             .onChange(of: barcodePhotoItem) { _, item in
-                Task { await loadPhotoPickerImage(item, runFullAnalysis: false) }
+                Task { await loadPhotoPickerImage(item, runBarcodeExtract: true) }
             }
             .onAppear {
                 applyInitialDeepLinkArgsIfNeeded()
@@ -199,37 +224,28 @@ public struct AddNodeView: View {
         .uiComponent("AddDeviceWizard")
     }
 
+    private func modeHeadline(isStn: Bool) -> String {
+        switch entryMode {
+        case .photo: return isStn ? "Identify Device by Photo" : "Inventory Device by Photo"
+        case .scan: return "Scan Barcode or QR Code"
+        case .manual: return "Add Inventory Device Manually"
+        }
+    }
+
+    private var modeSubtitle: String {
+        switch entryMode {
+        case .photo: return "Snap or upload hardware photos, or pick device type, brand, and model clues below before searching."
+        case .scan: return "Scan 1D/2D barcodes for SureThingNet Insights lookup, or pick device clues below before searching."
+        case .manual: return "Enter a device name and pick clues (e.g. Router, Doorbell, Google, Linksys) to search or add directly."
+        }
+    }
+
     @ViewBuilder
-    private func photoCaptureCard(isStn: Bool) -> some View {
+    private func photoModeControls(isStn: Bool) -> some View {
         let camDenied = (AVCaptureDevice.authorizationStatus(for: .video) == .denied)
 
-        VStack(alignment: .leading, spacing: 10) {
-            Text("ZERO-RETENTION LABEL & CHASSIS VISION")
-                .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                .foregroundColor(palette.accentText)
-
-            Text("Photos are analyzed ephemerally in RAM (`none_ephemeral_ram_only`) and never stored on our servers.")
-                .font(.system(size: 12.5))
-                .foregroundColor(palette.textMuted)
-                .lineSpacing(3)
-
-            if camDenied {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("⚠️ Camera access is currently turned off. Open Settings to grant camera permission or upload an image from your Photo Library.")
-                        .font(.system(size: 12))
-                        .foregroundColor(TuesdayTheme.ledColor(for: .eol, isStn: isStn))
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        Button("Open iOS Settings") { openURL(url) }
-                            .font(.system(size: 12.5, weight: .bold))
-                            .foregroundColor(palette.accentText)
-                    }
-                }
-                .padding(10)
-                .background(TuesdayTheme.ledColor(for: .eol, isStn: isStn).opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-            }
-
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
                 Button(action: {
                     if AVCaptureDevice.default(for: .video) != nil {
                         showCameraSheet = true
@@ -237,313 +253,875 @@ public struct AddNodeView: View {
                         handleCapturedOrPickedImage(GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "router"))
                     }
                 }) {
-                    Label("Take Photo", systemImage: "camera.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background(palette.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                    HStack(spacing: 6) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 13.5, weight: .bold))
+                        Text("Capture Photo")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(TuesdayTheme.healthyGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                 }
                 .buttonStyle(.plain)
-                .uiAction("startNewCapture")
-                .overlay { EmptyView().uiAction("captureHardwarePhoto") }
+                .uiAction("captureHardwarePhoto")
 
                 PhotosPicker(selection: $photoPickerItem, matching: .images) {
-                    Label("Upload Photo", systemImage: "photo.fill")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(palette.textPrimary)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .background(palette.elevated)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.borderStrong, lineWidth: 1))
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.badge.plus")
+                            .font(.system(size: 13.5, weight: .bold))
+                        Text("Upload File")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(palette.textPrimary)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 40)
+                    .background(palette.elevated)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
                 }
                 .uiAction("uploadHardwarePhoto")
             }
 
-            if capturedImages.count > 1 {
-                Text("ℹ️ Multiple photos queued (\(capturedImages.count) frames) — best for capturing both the front chassis and bottom FCC/MAC label.")
-                    .font(.system(size: 12))
-                    .foregroundColor(palette.accentText)
-                    .padding(8)
-                    .background(palette.accent.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                    .uiSlot("multi-device-warning-banner")
+            if camDenied {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Camera access is optional. You can still upload a photo from your library, scan a barcode, or enter brand/model clues below.")
+                        .font(.system(size: 12))
+                        .foregroundColor(palette.textMuted)
+                        .lineSpacing(2)
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        Button("Open iOS Settings") { openURL(url) }
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(palette.accentText)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func scanModeControls(isStn: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Button(action: { showBarcodeScanner = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "qrcode.viewfinder")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Scan Barcode / QR")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(TuesdayTheme.healthyGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                }
+                .buttonStyle(.plain)
+                .uiAction("scanBarcodeOrQr")
+
+                PhotosPicker(selection: $barcodePhotoItem, matching: .images) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.badge.plus")
+                            .font(.system(size: 13.5, weight: .bold))
+                        Text("Upload File")
+                            .font(.system(size: 13, weight: .bold))
+                    }
+                    .foregroundColor(palette.textPrimary)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 40)
+                    .background(palette.elevated)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+                }
+                .uiAction("uploadBarcodeImage")
             }
 
-            if !capturedImages.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(capturedImages.enumerated()), id: \.offset) { idx, img in
-                            ZStack(alignment: .topTrailing) {
-                                Image(uiImage: img)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 72, height: 56)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                Button(action: { capturedImages.remove(at: idx) }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.white)
-                                        .background(Circle().fill(Color.black.opacity(0.6)))
+            if !capturedImages.isEmpty || !scannedBarcodesList.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("CAPTURED SCANS & BARCODES")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(0.5)
+                            .foregroundColor(palette.textMuted)
+                        Spacer()
+                        Button("Clear All") {
+                            capturedImages.removeAll()
+                            scannedBarcodesList.removeAll()
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(TuesdayTheme.ledColor(for: .cveKev, isStn: isStn))
+                    }
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(Array(capturedImages.enumerated()), id: \.offset) { idx, img in
+                                ZStack(alignment: .topTrailing) {
+                                    Image(uiImage: img)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 110, height: 75)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(palette.accent.opacity(0.5), lineWidth: 1)
+                                        )
+                                    Button(action: { capturedImages.remove(at: idx) }) {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .frame(width: 26, height: 26)
+                                            .background(Circle().fill(Color.black.opacity(0.78)))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(3)
                                 }
+                            }
+
+                            ForEach(scannedBarcodesList, id: \.self) { code in
+                                let displayCode = code.count > 28 ? String(code.prefix(25)) + "…" : code
+                                VStack(alignment: .leading, spacing: 0) {
+                                    HStack {
+                                        Image(systemName: "qrcode.viewfinder")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundColor(palette.accentText)
+                                        Spacer()
+                                        Button(action: {
+                                            scannedBarcodesList.removeAll { $0 == code }
+                                        }) {
+                                            Image(systemName: "xmark")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(palette.accentText)
+                                                .frame(width: 26, height: 26)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                    Spacer()
+                                    Text(displayCode)
+                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                        .foregroundColor(palette.textPrimary)
+                                        .lineLimit(2)
+                                }
+                                .padding(.leading, 8)
+                                .padding(.trailing, 4)
+                                .padding(.top, 4)
+                                .padding(.bottom, 8)
+                                .frame(width: 140, height: 75)
+                                .background(palette.accent.opacity(0.12))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(palette.accent.opacity(0.4), lineWidth: 1)
+                                )
                             }
                         }
                     }
                 }
             }
         }
-        .padding(12)
-        .background(palette.surface)
-        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
-        .uiSlot("photo-capture-card")
     }
 
-    private func barcodeScannerCard() -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("RETAIL BARCODE & QR SCANNER")
-                .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                .foregroundColor(palette.accentText)
+    @ViewBuilder
+    private func contextChipsStrip(isStn: Bool, warningNote: String?) -> some View {
+        if !capturedImages.isEmpty || !selectedClues.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(capturedImages.enumerated()), id: \.offset) { idx, img in
+                        ZStack(alignment: .topTrailing) {
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 60, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(TuesdayTheme.healthyGreen.opacity(0.55), lineWidth: 1)
+                                )
+                            Button(action: { capturedImages.remove(at: idx) }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 24, height: 24)
+                                    .background(Circle().fill(Color.black.opacity(0.8)))
+                            }
+                            .buttonStyle(.plain)
+                            .padding(2)
+                        }
+                    }
 
-            Text("Scan UPC retail barcodes, Matter/HomeKit QR codes, or upload a photo of a label for instant on-device barcode extraction.")
-                .font(.system(size: 12.5))
-                .foregroundColor(palette.textMuted)
-                .lineSpacing(3)
+                    ForEach(selectedClues) { clue in
+                        RemovableAttachmentChip(
+                            label: clue.chipLabel,
+                            palette: palette,
+                            onRemove: {
+                                selectedClues.removeAll { $0.id == clue.id }
+                            }
+                        )
+                    }
+                }
+            }
+            .uiSlot("selected-clue-chips")
+        }
 
-            HStack(spacing: 8) {
-                Button(action: { showBarcodeScanner = true }) {
-                    Label("Scan Barcode / QR", systemImage: "barcode.viewfinder")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity, minHeight: 42)
-                        .background(palette.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+        if let warnNote = warningNote, !warnNote.isEmpty {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13))
+                    .foregroundColor(TuesdayTheme.ledColor(for: .eol, isStn: isStn))
+                Text(warnNote)
+                    .font(.system(size: 12))
+                    .foregroundColor(TuesdayTheme.ledColor(for: .eol, isStn: isStn))
+                    .lineSpacing(3)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(TuesdayTheme.ledColor(for: .eol, isStn: isStn).opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+        }
+    }
+
+    private func sharedActionButtonsRow(totalSignals: Int) -> some View {
+        HStack(spacing: 10) {
+            Button(action: {
+                Task { await runDeferredDiscoverySearch() }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 14, weight: .bold))
+                    Text(totalSignals > 0 ? "Search (\(totalSignals))" : "Search")
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity, minHeight: 42)
+                .background(palette.accent)
+                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+            }
+            .buttonStyle(.plain)
+            .disabled(isAnalyzing)
+            .uiAction("searchDeviceCandidates")
+
+            Button(action: { dismiss() }) {
+                Text("Cancel")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(palette.textPrimary)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 42)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .uiAction("cancelAddDevice")
+
+            if entryMode == .manual {
+                Button(action: {
+                    Task { await enrollManually() }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("Add Device")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, minHeight: 42)
+                    .background(TuesdayTheme.healthyGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                 }
                 .buttonStyle(.plain)
-                .uiAction("scanBarcodeOrQr")
-
-                PhotosPicker(selection: $barcodePhotoItem, matching: .images) {
-                    Label("Barcode Photo", systemImage: "photo.badge.checkmark")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(palette.textPrimary)
-                        .frame(maxWidth: .infinity, minHeight: 42)
-                        .background(palette.elevated)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.borderStrong, lineWidth: 1))
-                }
-                .uiAction("uploadBarcodeImage")
+                .disabled(isSaving)
+                .uiAction("enrollManualDevice")
             }
         }
-        .padding(12)
+    }
+
+    private func analyzingProgressCard() -> some View {
+        HStack(spacing: 12) {
+            ProgressView()
+                .tint(palette.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Analyzing device with \(repository.hacsConfig.aiProvider.displayName)...")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(palette.textPrimary)
+                Text("Inspecting chassis profile, ports, OUI prefix, and printed labels")
+                    .font(.system(size: 11))
+                    .foregroundColor(palette.textMuted)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(palette.surface)
         .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+        .overlay(
+            RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
+                .stroke(palette.accent.opacity(0.4), lineWidth: 1)
+        )
+    }
+
+    private func devControlsSection() -> some View {
+        let isElastix = (repository.hacsConfig.aiProvider == .elastix)
+        let activeAiColor = isElastix ? TuesdayTheme.healthyGreen : TuesdayTheme.ledUpdateBlue
+        let debugActiveColor = repository.isVisionDebugEnabled ? TuesdayTheme.warningAmber : palette.textMuted
+        let diagActiveColor = repository.isDiagnosticsEnabled ? palette.accentText : palette.textMuted
+
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Menu {
+                        if entryMode == .photo {
+                            Button(action: {
+                                let sample = GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "router")
+                                capturedImages.append(sample)
+                            }) {
+                                Label("Synth Router", systemImage: "wifi.router")
+                            }
+                            Button(action: {
+                                let sample = GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "zigbee-iot")
+                                capturedImages.append(sample)
+                                let hubClue = GoldClueItem(
+                                    id: "type:hub",
+                                    kind: .deviceType,
+                                    typeId: "hub",
+                                    title: "Smart Hub / Bridge",
+                                    subtitle: "C8 • Device Type",
+                                    chipLabel: "Smart Hub / Bridge",
+                                    categoryCode: "C8"
+                                )
+                                if !selectedClues.contains(where: { $0.id == hubClue.id }) {
+                                    selectedClues.append(hubClue)
+                                }
+                            }) {
+                                Label("Synth IoT", systemImage: "sensor.tag.radiowaves.forward")
+                            }
+                        } else {
+                            Button(action: {
+                                let sample = GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "barcode-udm-pro")
+                                capturedImages.append(sample)
+                                applyScannedBarcode(ParsedBarcodeResult(normalizedValue: "817882027373", is2DMatrix: false))
+                            }) {
+                                Label("Sample Barcode (UDM-Pro)", systemImage: "barcode")
+                            }
+                            Button(action: {
+                                let sample = GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "qr-ucg-ultra")
+                                capturedImages.append(sample)
+                                applyScannedBarcode(
+                                    ParsedBarcodeResult(
+                                        normalizedValue: "https://setup.ui.com/entry?sku=UCG-Ultra&mac=74:AC:B9:4E:88:12",
+                                        is2DMatrix: true
+                                    )
+                                )
+                            }) {
+                                Label("Sample QR (UCG-Ultra)", systemImage: "qrcode.viewfinder")
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "wand.and.stars")
+                                .font(.system(size: 12))
+                            Text("Synthesize...")
+                                .font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(palette.accentText)
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 34)
+                        .background(palette.accent.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(palette.accent.opacity(0.5), lineWidth: 1)
+                        )
+                    }
+
+                    Menu {
+                        Button(action: { seedSnapshotResults() }) {
+                            Label("Seed Snapshot (All Components)", systemImage: "list.bullet.rectangle")
+                        }
+                        Button(action: { seedUnsupportedResult() }) {
+                            Label("Unsupported Device", systemImage: "exclamationmark.triangle")
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "list.bullet.indent")
+                                .font(.system(size: 12))
+                            Text("Results...")
+                                .font(.system(size: 11, weight: .semibold))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(palette.accentText)
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: 34)
+                        .background(palette.accent.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(palette.accent.opacity(0.45), lineWidth: 1)
+                        )
+                    }
+                    .uiAction("openResultsPicker")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Toggle(isOn: Binding(
+                        get: { repository.isVisionDebugEnabled },
+                        set: { repository.toggleVisionDebugMode($0) }
+                    )) {
+                        Text("Debug Mode")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(debugActiveColor)
+                    }
+                    .tint(TuesdayTheme.warningAmber)
+                    .controlSize(.mini)
+                    .uiAction("toggleVisionDebugMode")
+
+                    Toggle(isOn: Binding(
+                        get: { repository.isDiagnosticsEnabled },
+                        set: { repository.toggleDiagnosticsMode($0) }
+                    )) {
+                        Text("Diagnostics")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(diagActiveColor)
+                    }
+                    .tint(palette.accent)
+                    .controlSize(.mini)
+                    .uiAction("toggleDiagnosticsMode")
+
+                    Toggle(isOn: Binding(
+                        get: { repository.hacsConfig.aiProvider == .elastix },
+                        set: { checked in
+                            var next = repository.hacsConfig
+                            next.aiProvider = checked ? .elastix : .gemini
+                            repository.updateHacsConfig(next)
+                        }
+                    )) {
+                        Text(isElastix ? "AI: Elastix" : "AI: Gemini")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(activeAiColor)
+                    }
+                    .tint(TuesdayTheme.healthyGreen)
+                    .controlSize(.mini)
+                    .uiAction("switchAiProvider")
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 10)
+            .padding(.vertical, 8)
+            .background(palette.elevated.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(palette.border.opacity(0.5), lineWidth: 1)
+            )
+            .overlay(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(TuesdayTheme.warningAmber)
+                    .frame(width: 3.5)
+            }
+            .uiSlot("dev-controls")
+        }
+        .uiComponent("DevControlsCallout")
     }
 
     @ViewBuilder
     private func candidateResultsSection(result: GeminiDiscoveryTurnResult, isStn: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("CANDIDATE MATCHES (\(result.candidates.count))")
-                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                Text("RESULTS")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.6)
                     .foregroundColor(palette.textMuted)
                 Spacer()
-                Button("Clear") {
+                Button("Clear All") {
                     discoveryResult = nil
-                    selectedCandidate = nil
+                    inspectedCandidate = nil
                 }
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(palette.accentText)
                 .uiAction("clearDiscoveryResults")
             }
 
-            if !result.isNetworkedDevice, let reason = result.outOfScopeReason {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("⚠️ Non-Networked / USB-Only Peripheral")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(TuesdayTheme.ledColor(for: .eol, isStn: isStn))
-                    Text(reason)
-                        .font(.system(size: 12))
-                        .foregroundColor(palette.textMuted)
-                }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(TuesdayTheme.ledColor(for: .eol, isStn: isStn).opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-            }
-
-            if !result.visualSummary.isEmpty || (result.debugTrace != nil && !result.usedLiveGeminiApi) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(result.visualSummary)
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundColor(palette.textPrimary)
-                        .lineSpacing(2)
-                    if let trace = result.debugTrace, !trace.isEmpty, (!result.usedLiveGeminiApi || repository.isVisionDebugEnabled) {
-                        Text(trace)
-                            .font(.system(size: 10.5, design: .monospaced))
-                            .foregroundColor(result.usedLiveGeminiApi ? palette.accentText : TuesdayTheme.ledColor(for: .eol, isStn: isStn))
-                            .lineLimit(3)
-                    }
-                }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.border, lineWidth: 1))
-            }
-
-            ForEach(result.candidates) { cand in
-                let isSelected = (selectedCandidate?.id == cand.id) || (selectedCandidate == nil && result.candidates.first?.id == cand.id)
-                let goldAligned = cand.goldAlignment?.aligned ?? false
-
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(cand.displayName)
-                                .font(.system(size: 14.5, weight: .bold))
-                                .foregroundColor(palette.textPrimary)
-                            Text("\(cand.manufacturer) • \(cand.deviceCategory)")
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 14) {
+                    if !result.isNetworkedDevice || !(result.outOfScopeReason ?? "").isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("UNSUPPORTED DEVICE")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(0.8)
+                                .foregroundColor(TuesdayTheme.ledColor(for: .eol, isStn: isStn))
+                            Text(result.outOfScopeReason ?? "This item does not appear to have Wi-Fi or Ethernet networking and isn't tracked in SureThingNet Insights.")
                                 .font(.system(size: 12))
-                                .foregroundColor(palette.textMuted)
+                                .foregroundColor(palette.textPrimary)
+                                .lineSpacing(3)
+                            Button(action: {
+                                discoveryResult = nil
+                                capturedImages.removeAll()
+                                scannedBarcodesList.removeAll()
+                                selectedClues.removeAll()
+                                if AVCaptureDevice.default(for: .video) != nil {
+                                    showCameraSheet = true
+                                }
+                            }) {
+                                Text("Start New Capture")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.black)
+                                    .frame(maxWidth: .infinity, minHeight: 38)
+                                    .background(TuesdayTheme.warningAmber)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("startNewCapture")
                         }
-                        Spacer()
-                        MonospaceBadge(
-                            text: "\(cand.confidencePercent)%",
-                            color: goldAligned ? TuesdayTheme.ledColor(for: .ok, isStn: isStn) : palette.accentText
+                        .padding(12)
+                        .background(TuesdayTheme.warningAmber.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(TuesdayTheme.warningAmber.opacity(0.45), lineWidth: 1)
                         )
                     }
 
-                    HStack(spacing: 6) {
-                        MonospaceBadge(
-                            text: cand.goldAlignment?.statusLabel ?? "RAW MATCH",
-                            color: goldAligned ? TuesdayTheme.ledColor(for: .ok, isStn: isStn) : TuesdayTheme.ledColor(for: .eol, isStn: isStn)
-                        )
-                        if let purl = cand.goldAlignment?.inferredPurl {
-                            Text(purl)
-                                .font(.system(size: 10.5, design: .monospaced))
-                                .foregroundColor(palette.textMuted)
-                                .lineLimit(1)
+                    if result.multipleDevicesDetected || !(result.multiDeviceWarning ?? "").isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("⚠ MULTIPLE DEVICES IN PHOTO — LOWER CONFIDENCE")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundColor(TuesdayTheme.ledColor(for: .eol, isStn: isStn))
+                            Text(result.multiDeviceWarning ?? "Multiple devices detected in this photo. Confidence can be lower when neighboring chassis appear in frame — for best results, snap a new photo framed around a single device.")
+                                .font(.system(size: 13.5))
+                                .foregroundColor(palette.textPrimary)
+                                .lineSpacing(3)
                         }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(TuesdayTheme.warningAmber.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(TuesdayTheme.warningAmber.opacity(0.45), lineWidth: 1)
+                        )
+                        .uiSlot("multi-device-warning-banner")
                     }
 
-                    Text(cand.reasoning)
-                        .font(.system(size: 12))
-                        .foregroundColor(palette.textMuted)
-                        .lineSpacing(2)
+                    if !result.candidates.isEmpty {
+                        Text("CANDIDATE DEVICE MATCHES (\(result.candidates.count))")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(1)
+                            .foregroundColor(palette.textMuted)
 
-                    HStack(spacing: 8) {
-                        Button(action: { selectedCandidate = cand }) {
-                            Text(isSelected ? "Selected" : "Select")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(isSelected ? palette.accentText : palette.textPrimary)
-                                .padding(.horizontal, 12)
-                                .frame(minHeight: 34)
-                                .background(palette.elevated)
-                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                        VStack(alignment: .leading, spacing: 0) {
+                            SurfaceListContainer(palette: palette) {
+                                ForEach(Array(result.candidates.enumerated()), id: \.element.id) { idx, candidate in
+                                    if idx > 0 { SurfaceListDivider(palette: palette) }
+                                    candidateResultRow(candidate, isStn: isStn)
+                                }
+                            }
+                            .uiSlot("candidate-results-list")
                         }
-                        .buttonStyle(.plain)
-                        .uiAction("openResultsPicker")
-
-                        Button(action: {
-                            Task { await enrollCandidate(cand) }
-                        }) {
-                            Text("Add to Inventory →")
-                                .font(.system(size: 12.5, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity, minHeight: 34)
-                                .background(palette.accent)
-                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                        }
-                        .buttonStyle(.plain)
-                        .uiAction("addToInventoryFromModal")
-                        .overlay { EmptyView().uiAction("enrollConfirmedDevice").uiAction("enrollGuessedDevice") }
+                        .uiComponent("CandidateResultsList")
                     }
                 }
-                .padding(12)
-                .background(palette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                .overlay(
-                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
-                        .stroke(isSelected ? palette.accent : palette.border, lineWidth: isSelected ? 1.5 : 1)
-                )
-                .uiSlot("candidate-match-card")
-                .uiComponent("CandidateResultItem")
+                .uiSlot("ai-discovery-panel")
             }
-        }
-        .uiSlot("candidate-results-list")
-        .uiSlot("ai-discovery-panel")
-        .uiComponent("AiDiscoveryPanel")
-        .uiComponent("CandidateResultsList")
-        .overlay {
-            EmptyView()
-                .uiSlot("wizard-step-header")
-                .uiSlot("clue-refinement-form")
-                .uiSlot("golden-corpus-bar")
-                .uiSlot("incomplete-guess-fallback-card")
-                .uiAction("discardCaptureSession")
-                .uiAction("refineDiscoveryClue")
+            .uiComponent("AiDiscoveryPanel")
         }
     }
 
-    private func devControlsSection() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("DEV CONTROLS")
-                    .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                    .foregroundColor(palette.accentText)
-                Spacer()
-                Button("Provider: \(providerOverride ?? "Auto")") {
-                    switch providerOverride {
-                    case nil: providerOverride = "elastix"
-                    case "elastix": providerOverride = "gemini"
-                    default: providerOverride = nil
-                    }
-                }
-                .font(.system(size: 11.5, weight: .bold))
-                .foregroundColor(palette.accentText)
-                .uiAction("switchAiProvider")
+    private func candidateResultRow(_ candidate: DeviceCandidateMatch, isStn: Bool) -> some View {
+        let badgeColor: Color = {
+            if candidate.confidencePercent >= 80 { return TuesdayTheme.ledColor(for: .ok, isStn: isStn) }
+            if candidate.confidencePercent >= 50 { return TuesdayTheme.ledColor(for: .eol, isStn: isStn) }
+            return palette.accentText
+        }()
 
-                Button("Cycle API Target") {
-                    let all = ApiEndpointPreset.allCases
-                    let currIdx = all.firstIndex(where: { $0.url == repository.tuesdayApiBaseUrl }) ?? 0
-                    let next = all[(currIdx + 1) % all.count]
-                    repository.setTuesdayApiBaseUrl(next.url)
-                    statusBanner = "API switched to \(next.shortBadge)"
-                }
-                .font(.system(size: 11.5, weight: .bold))
-                .foregroundColor(palette.accentText)
-                .uiAction("cycleApiEndpointPreset")
+        return TuesdayListRow(
+            palette: palette,
+            title: candidate.displayName,
+            titleLineLimit: 2,
+            onClick: { inspectedCandidate = candidate },
+            trailing: {
+                MonospaceBadge(
+                    text: "\(candidate.confidencePercent)% match",
+                    color: badgeColor
+                )
+            }
+        )
+        .uiComponent("CandidateResultItem")
+    }
+
+    @ViewBuilder
+    private func candidateConfirmationModal(candidate: DeviceCandidateMatch, isStn: Bool) -> some View {
+        let badgeColor: Color = {
+            if candidate.confidencePercent >= 80 { return TuesdayTheme.ledColor(for: .ok, isStn: isStn) }
+            if candidate.confidencePercent >= 50 { return TuesdayTheme.ledColor(for: .eol, isStn: isStn) }
+            return palette.accentText
+        }()
+
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center) {
+                Text(candidate.displayName)
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundColor(palette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                MonospaceBadge(
+                    text: "\(candidate.confidencePercent)% match",
+                    color: badgeColor
+                )
             }
 
-            if repository.isVisionDebugEnabled {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Vision & Gold Debug Logs")
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .foregroundColor(palette.textMuted)
-                        Spacer()
-                        Button("Copy") { UIPasteboard.general.string = debugLogs.joined(separator: "\n") }
-                            .font(.system(size: 11, weight: .bold))
-                            .uiAction("copyVisionDebugLog")
-                        Button("Clear") { debugLogs.removeAll() }
-                            .font(.system(size: 11, weight: .bold))
-                            .uiAction("clearVisionDebugLog")
-                    }
-                    Text(debugLogs.isEmpty ? "No turns recorded yet." : debugLogs.joined(separator: "\n"))
-                        .font(.system(size: 10.5, design: .monospaced))
-                        .foregroundColor(palette.textPrimary)
-                }
-                .padding(8)
-                .background(palette.bg)
-                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                .uiSlot("vision-debug-log-panel")
+            SurfaceListDivider(palette: palette)
+
+            detailRow(label: "Manufacturer", value: candidate.manufacturer)
+            detailRow(label: "Model", value: candidate.modelNumber)
+            detailRow(label: "Category", value: candidate.deviceCategory)
+            if let ga = candidate.goldAlignment {
+                detailRow(label: "SureThingNet Insights", value: ga.statusLabel)
+                detailRow(label: "Feed", value: ga.matchedFeedName ?? ga.matchedFeedSlug)
+                detailRow(label: "Latest Release", value: ga.latestGoldRelease)
+                detailRow(label: "PURL", value: ga.inferredPurl)
+            }
+
+            if !candidate.reasoning.isEmpty {
+                Text(candidate.reasoning)
+                    .font(.system(size: 12.5))
+                    .foregroundColor(palette.textMuted)
+                    .lineSpacing(3)
+            }
+
+            Spacer()
+
+            Button(action: {
+                Task { await enrollCandidate(candidate) }
+            }) {
+                Text(isSaving ? "Adding..." : "Add to Inventory")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(TuesdayTheme.healthyGreen)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .disabled(isSaving)
+            .uiAction("addToInventoryFromModal")
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(palette.surface.ignoresSafeArea())
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func detailRow(label: String, value: String?) -> some View {
+        if let v = value, !v.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            HStack {
+                Text(label)
+                    .font(.system(size: 12))
+                    .foregroundColor(palette.textMuted)
+                Spacer()
+                Text(v)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundColor(palette.textPrimary)
+                    .lineLimit(1)
             }
         }
-        .padding(12)
-        .background(palette.accent.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.accent.opacity(0.3), lineWidth: 1))
-        .uiSlot("dev-controls")
-        .uiComponent("DevControlsCallout")
+    }
+
+    private func visionDebugLogPanel() -> some View {
+        let base = repository.tuesdayApiBaseUrl.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let combinedLogText: String = debugLogs.isEmpty
+            ? """
+            === TUESDAY VISION DEBUG CONSOLE READY ===
+            Server Endpoint: \(base)/api/v1/discovery/analyze (debug=true)
+            Active AI Provider: \(repository.hacsConfig.aiProvider.displayName)
+            Submit a photo or clues to inspect trace & candidate alignment.
+            """
+            : debugLogs.reversed().joined(separator: "\n\n" + String(repeating: "=", count: 48) + "\n\n")
+
+        let currentPreset = ApiEndpointPreset.fromUrl(repository.tuesdayApiBaseUrl)
+        let isProd = (currentPreset == .prodGcp)
+        let targetColor = isProd ? TuesdayTheme.ledUpdateBlue : TuesdayTheme.healthyGreen
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("VISION API DEBUG LOG (\(debugLogs.count) TURN\(debugLogs.count == 1 ? "" : "S"))")
+                .font(.system(size: 11.5, weight: .bold, design: .monospaced))
+                .foregroundColor(TuesdayTheme.warningAmber)
+
+            Text("Target: \(repository.tuesdayApiBaseUrl)")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(palette.textMuted)
+                .lineLimit(1)
+
+            if let feedback = copyLogFeedback {
+                Text(feedback)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(TuesdayTheme.healthyGreen)
+            }
+
+            HStack(spacing: 6) {
+                Button(action: {
+                    let all = ApiEndpointPreset.allCases
+                    let idx = currentPreset.flatMap { all.firstIndex(of: $0) } ?? 0
+                    let next = all[(idx + 1) % all.count]
+                    repository.setTuesdayApiBaseUrl(next.url)
+                    copyLogFeedback = "Switched API → \(next.url)"
+                }) {
+                    Text("\(currentPreset?.shortBadge ?? "CUSTOM") ⇄")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(targetColor)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(targetColor.opacity(0.16))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(targetColor.opacity(0.55), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .uiAction("cycleApiEndpointPreset")
+
+                Button(action: {
+                    UIPasteboard.general.string = combinedLogText
+                    copyLogFeedback = "Copied \(combinedLogText.count) chars to clipboard"
+                }) {
+                    Text("Copy Log")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundColor(palette.accentText)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(palette.accent.opacity(0.18))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(palette.accent.opacity(0.5), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .uiAction("copyVisionDebugLog")
+
+                if !debugLogs.isEmpty {
+                    Button(action: {
+                        debugLogs.removeAll()
+                        copyLogFeedback = nil
+                    }) {
+                        Text("Clear")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(TuesdayTheme.criticalRed)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(TuesdayTheme.criticalRed.opacity(0.18))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(TuesdayTheme.criticalRed.opacity(0.5), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .uiAction("clearVisionDebugLog")
+                }
+            }
+
+            ScrollView {
+                Text(combinedLogText)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(Color(red: 0.89, green: 0.91, blue: 0.94))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(minHeight: 140, maxHeight: 280)
+            .padding(10)
+            .background(Color(red: 0.02, green: 0.04, blue: 0.07))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .padding(14)
+        .background(Color(red: 0.04, green: 0.05, blue: 0.09))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(TuesdayTheme.warningAmber.opacity(0.55), lineWidth: 1)
+        )
+        .uiSlot("vision-debug-log-panel")
+    }
+
+    private func seedSnapshotResults() {
+        discoveryResult = GeminiDiscoveryTurnResult(
+            visualSummary: "Identified a circular white ceiling-mounted Ubiquiti UniFi U6-Pro access point with centered status LED ring; a second switch chassis is partially visible on the left edge.",
+            isNetworkedDevice: true,
+            extractedIdentifiers: ExtractedDeviceIdentifiers(
+                barcode: "810010074512",
+                serialNumber: "2245K-U6P-00192",
+                modelNumber: "U6-Pro",
+                macAddress: "74:AC:B9:12:34:56"
+            ),
+            candidates: [
+                DeviceCandidateMatch(
+                    manufacturer: "Ubiquiti",
+                    modelNumber: "U6-Pro",
+                    displayName: "Ubiquiti UniFi U6-Pro",
+                    deviceCategory: "Access Point",
+                    confidencePercent: 94,
+                    reasoning: "Dual-band Wi-Fi 6 ceiling AP matching chassis diameter and LED ring.",
+                    suggestedHostname: "unifi-u6-pro.local",
+                    suggestedOsDetails: "UniFi OS 4.0.20",
+                    suggestedPackageManager: "apt",
+                    goldAlignment: GoldAlignmentInfo(
+                        aligned: true,
+                        inferredPurl: "pkg:generic/ubiquiti/u6-pro",
+                        statusLabel: "GOLD ALIGNED",
+                        matchedFeedName: "Ubiquiti UniFi Network",
+                        latestGoldRelease: "6.6.77"
+                    )
+                ),
+                DeviceCandidateMatch(
+                    manufacturer: "Ubiquiti",
+                    modelNumber: "U6-LR",
+                    displayName: "Ubiquiti UniFi U6-LR",
+                    deviceCategory: "Access Point",
+                    confidencePercent: 68,
+                    reasoning: "Similar circular form factor; slightly larger diameter.",
+                    suggestedHostname: "unifi-u6-lr.local",
+                    suggestedOsDetails: "UniFi OS 4.0.20",
+                    suggestedPackageManager: "apt"
+                )
+            ],
+            usedLiveGeminiApi: true,
+            debugTrace: "Seed Snapshot (Local)",
+            multipleDevicesDetected: true,
+            multiDeviceWarning: "Multiple devices detected in frame. Candidate #1 targets the central access point."
+        )
+    }
+
+    private func seedUnsupportedResult() {
+        discoveryResult = GeminiDiscoveryTurnResult(
+            visualSummary: "Identified a portable Bluetooth speaker with no Ethernet port or Wi-Fi radio.",
+            isNetworkedDevice: false,
+            outOfScopeReason: "This appears to be a Bluetooth-only speaker with no Wi-Fi or Ethernet radio and is outside SureThingNet Insights' scope.",
+            candidates: [],
+            usedLiveGeminiApi: true,
+            debugTrace: "Seed Snapshot (Local)"
+        )
+    }
+
+    private func applyClueIdentifiers(_ clue: GoldClueItem) {
+        if let model = clue.model, !model.isEmpty {
+            accumulatedIdentifiers.modelNumber = model
+        }
+        if clue.kind == .identifier {
+            if let mac = clue.macAddress, !mac.isEmpty { accumulatedIdentifiers.macAddress = mac }
+            if let upc = clue.upc, !upc.isEmpty { accumulatedIdentifiers.barcode = upc }
+        }
     }
 
     private func handleCapturedOrPickedImage(_ image: UIImage) {
@@ -551,17 +1129,17 @@ public struct AddNodeView: View {
         extractBarcodesFromImage(image)
     }
 
-    private func loadPhotoPickerImage(_ item: PhotosPickerItem?, runFullAnalysis: Bool) async {
+    private func loadPhotoPickerImage(_ item: PhotosPickerItem?, runBarcodeExtract: Bool) async {
         guard let item,
               let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
             return
         }
         await MainActor.run {
-            handleCapturedOrPickedImage(image)
-        }
-        if runFullAnalysis {
-            await runDeferredDiscoverySearch()
+            capturedImages.append(image)
+            if runBarcodeExtract {
+                extractBarcodesFromImage(image)
+            }
         }
     }
 
@@ -591,12 +1169,17 @@ public struct AddNodeView: View {
         } else {
             accumulatedIdentifiers.barcode = parsed.normalizedValue
         }
-        let hits = GoldClueSuggestionRepository.shared.querySuggestions(rawQuery: parsed.normalizedValue, selected: selectedClues, limit: 1)
+        if !scannedBarcodesList.contains(parsed.normalizedValue) {
+            scannedBarcodesList.append(parsed.normalizedValue)
+        }
+        let hits = GoldClueSuggestionRepository.shared.querySuggestions(
+            rawQuery: parsed.normalizedValue,
+            selected: selectedClues,
+            limit: 1
+        )
         if let firstHit = hits.first, !selectedClues.contains(where: { $0.id == firstHit.id }) {
             selectedClues.append(firstHit)
-            statusBanner = "✓ Barcode matched offline: \(firstHit.title)"
-        } else {
-            statusBanner = "Captured code: \(parsed.normalizedValue)"
+            statusBanner = "Barcode matched offline: \(firstHit.title)"
         }
         debugLogs.append("[Barcode] \(parsed.normalizedValue) (2D=\(parsed.is2DMatrix))")
     }
@@ -606,47 +1189,48 @@ public struct AddNodeView: View {
         defer { isAnalyzing = false }
 
         let trimmedQuery = clueQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedQuery.isEmpty && selectedClues.isEmpty {
+        if !trimmedQuery.isEmpty {
             let clue = GoldClueSuggestionRepository.shared.classifyFreeTextClue(trimmedQuery)
-            selectedClues.append(clue)
-            if clue.kind == .freeText {
-                accumulatedIdentifiers.modelNumber = trimmedQuery
+            if !selectedClues.contains(where: { $0.id == clue.id }) {
+                selectedClues.append(clue)
             }
+            applyClueIdentifiers(clue)
+            clueQuery = ""
         }
 
-        // 1. Offline 0-turn Gold Catalog resolution first
         if capturedImages.isEmpty,
            let localMatch = GoldClueSuggestionRepository.shared.resolveLocalDiscoveryResult(
                selected: selectedClues,
                accumulatedIdentifiers: accumulatedIdentifiers,
-               manualDeviceName: manualDeviceName
+               manualDeviceName: entryMode == .manual ? manualDeviceName : ""
            ) {
             discoveryResult = localMatch
-            selectedCandidate = localMatch.candidates.first
             debugLogs.append("[Gold 0-Turn] Resolved \(localMatch.candidates.first?.displayName ?? "SKU")")
             return
         }
 
-        // 2. Escalate to backend Vision / LLM service only when needed
+        let isElastix = (repository.hacsConfig.aiProvider == .elastix)
         let notes = selectedClues.map(\.title)
         let result = await GeminiDeviceDiscoveryService.shared.analyzeDeviceProgressive(
             images: capturedImages,
             accumulatedIdentifiers: accumulatedIdentifiers,
             userClueNotes: notes,
-            apiKeyOverride: repository.hacsConfig.geminiApiKey,
-            modelName: repository.hacsConfig.geminiModel,
-            providerOverride: providerOverride,
+            apiKeyOverride: isElastix ? repository.hacsConfig.elastixApiKey : repository.hacsConfig.geminiApiKey,
+            modelName: isElastix ? repository.hacsConfig.elastixModel : repository.hacsConfig.geminiModel,
+            providerOverride: repository.hacsConfig.aiProvider.rawValue,
             serverBaseUrl: repository.tuesdayApiBaseUrl,
             debugCapture: repository.isVisionDebugEnabled
         )
         discoveryResult = result
-        selectedCandidate = result.candidates.first
         if let trace = result.debugTrace {
             debugLogs.append("[API] \(trace)")
         }
     }
 
     private func enrollCandidate(_ candidate: DeviceCandidateMatch) async {
+        isSaving = true
+        defer { isSaving = false }
+
         let host = manualDeviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? candidate.displayName
             : manualDeviceName
@@ -680,18 +1264,34 @@ public struct AddNodeView: View {
             accumulatedIdentifiers: accumulatedIdentifiers,
             serverBaseUrl: repository.tuesdayApiBaseUrl
         )
+        inspectedCandidate = nil
         dismiss()
     }
 
     private func enrollManually() async {
+        let trimmedClue = clueQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        var effectiveClues = selectedClues
+        if !trimmedClue.isEmpty {
+            let resolved = GoldClueSuggestionRepository.shared.classifyFreeTextClue(trimmedClue)
+            if !effectiveClues.contains(where: { $0.id == resolved.id }) {
+                effectiveClues.append(resolved)
+                selectedClues.append(resolved)
+            }
+            applyClueIdentifiers(resolved)
+            clueQuery = ""
+        }
+
         guard let resolved = ManualEnrollmentResolver.resolve(
             manualHostname: manualDeviceName,
-            selectedClues: selectedClues,
+            selectedClues: effectiveClues,
             accumulatedIdentifiers: accumulatedIdentifiers
         ) else {
-            statusBanner = "Enter a Device Name or pick a hardware model clue first."
+            manualError = "Enter a Device Name or pick a SureThingNet Insights Model clue."
             return
         }
+
+        isSaving = true
+        defer { isSaving = false }
 
         await repository.enrollNode(
             hostname: resolved.hostname,
@@ -709,9 +1309,9 @@ public struct AddNodeView: View {
         didApplyInitialParams = true
 
         if let mode = initialMode?.lowercased() {
-            if mode == "scan" { entryMode = .barcode }
-            else if mode == "photo" { entryMode = .photo }
-            else { entryMode = .clues }
+            if mode == "scan" || mode == "barcode" { entryMode = .scan }
+            else if mode == "manual" || mode == "clues" { entryMode = .manual }
+            else { entryMode = .photo }
         }
         if let q = initialQuery, !q.isEmpty {
             clueQuery = q
@@ -722,11 +1322,43 @@ public struct AddNodeView: View {
                 let clue = hits.first ?? GoldClueSuggestionRepository.shared.classifyFreeTextClue(token)
                 if !selectedClues.contains(where: { $0.id == clue.id }) {
                     selectedClues.append(clue)
+                    applyClueIdentifiers(clue)
                 }
             }
         }
-        if let preset = initialSynthPreset, preset.contains("barcode") {
-            applyScannedBarcode(ParsedBarcodeResult(normalizedValue: "817882027373", is2DMatrix: false))
+        if let preset = initialSynthPreset?.lowercased(), !preset.isEmpty {
+            if preset.contains("barcode") {
+                entryMode = .scan
+                capturedImages.append(GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "barcode-udm-pro"))
+                applyScannedBarcode(ParsedBarcodeResult(normalizedValue: "817882027373", is2DMatrix: false))
+            } else if preset.contains("qr") {
+                entryMode = .scan
+                capturedImages.append(GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "qr-ucg-ultra"))
+                applyScannedBarcode(
+                    ParsedBarcodeResult(
+                        normalizedValue: "https://setup.ui.com/entry?sku=UCG-Ultra&mac=74:AC:B9:4E:88:12",
+                        is2DMatrix: true
+                    )
+                )
+            } else if preset.contains("iot") || preset.contains("zigbee") {
+                entryMode = .photo
+                capturedImages.append(GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "zigbee-iot"))
+                let hubClue = GoldClueItem(
+                    id: "type:hub",
+                    kind: .deviceType,
+                    typeId: "hub",
+                    title: "Smart Hub / Bridge",
+                    subtitle: "C8 • Device Type",
+                    chipLabel: "Smart Hub / Bridge",
+                    categoryCode: "C8"
+                )
+                if !selectedClues.contains(where: { $0.id == hubClue.id }) {
+                    selectedClues.append(hubClue)
+                }
+            } else if preset.contains("router") {
+                entryMode = .photo
+                capturedImages.append(GeminiDeviceDiscoveryService.renderSampleHardwareImage(presetName: "router"))
+            }
         }
         if autoSearch {
             Task { await runDeferredDiscoverySearch() }

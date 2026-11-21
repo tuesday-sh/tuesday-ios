@@ -22,49 +22,102 @@ public struct HacsPairingSheet: View {
     @ObservedObject public var repository: MockHacsTuesdayService
     public let palette: BrandPalette
     public var onOpenUpgrade: () -> Void = {}
+    public var onOpenNetworkPicker: () -> Void = {}
     public let onDismiss: () -> Void
 
-    @State private var baseUrl: String
-    @State private var apiToken: String
-    @State private var trustedSsid: String
-    @State private var requireLocalWifi: Bool
     @State private var showingExporter = false
     @State private var showingImporter = false
     @State private var exportDocument = InventoryJsonDocument()
     @State private var backupStatusMessage: String? = nil
+    @State private var isSuccessStatus: Bool = true
+    @State private var familyInviteFeedback: String? = nil
 
     public init(
         repository: MockHacsTuesdayService,
         palette: BrandPalette,
         onOpenUpgrade: @escaping () -> Void = {},
+        onOpenNetworkPicker: @escaping () -> Void = {},
         onDismiss: @escaping () -> Void
     ) {
         self.repository = repository
         self.palette = palette
         self.onOpenUpgrade = onOpenUpgrade
+        self.onOpenNetworkPicker = onOpenNetworkPicker
         self.onDismiss = onDismiss
-        _baseUrl = State(initialValue: repository.hacsConfig.baseUrl)
-        _apiToken = State(initialValue: repository.hacsConfig.apiToken)
-        _trustedSsid = State(initialValue: repository.hacsConfig.trustedSsid)
-        _requireLocalWifi = State(initialValue: repository.hacsConfig.requireLocalWifi)
     }
 
     public var body: some View {
+        let isProTier1 = EntitlementGatePolicy.isProTier1Entitled(repository.entitlementTier)
+        let okGreen = TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn)
+        let activeNetworkName = repository.userNetworks.first(where: { $0.id == repository.activeNetworkId })?.name ?? "My Network"
+
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    // Sovereign Local JSON Backup Card (Local-First Data Portability)
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("SOVEREIGN LOCAL BACKUP")
-                                .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                VStack(alignment: .leading, spacing: 16) {
+                    // HACS Bridge Header
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(palette.accent.opacity(0.15))
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Image(systemName: "house.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(palette.accent)
+                            )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Home Assistant Integration")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                            Text("Tuesday.sh Bridge")
+                                .font(.system(size: 12))
                                 .foregroundColor(palette.accentText)
-                            Spacer()
-                            MonospaceBadge(text: "ZERO-LOGIN JSON", color: TuesdayTheme.ledColor(for: .ok, isStn: palette.isStn))
+                        }
+                        Spacer()
+                    }
+                    .padding(16)
+                    .background(palette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+                    .uiSlot("hacs-bridge-header")
+
+                    // Deferred HACS Notice
+                    VStack(spacing: 6) {
+                        Text("Home Assistant sync coming soon.")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(palette.textPrimary)
+                            .multilineTextAlignment(.center)
+                        Text("Native integration for Home Assistant and HACS is currently in development.")
+                            .font(.system(size: 12))
+                            .foregroundColor(palette.textMuted)
+                            .lineSpacing(3)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 22)
+                    .padding(.horizontal, 18)
+                    .frame(maxWidth: .infinity)
+                    .background(palette.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
+
+                    // Local Network Backup & Restore + Clipboard Copy
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "externaldrive.badge.checkmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(okGreen)
+                            Text("Local Network Backup & Restore")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
                         }
 
-                        Text("Export your entire device inventory, custom names, and audit history as portable plain-text JSON — no account or cloud lock-in required.")
-                            .font(.system(size: 13))
+                        Text("Save your full network inventory, device aliases, port allocations, and settings off-device (iCloud Drive, Files, local storage) without creating an account.")
+                            .font(.system(size: 12))
                             .foregroundColor(palette.textMuted)
                             .lineSpacing(3)
 
@@ -75,21 +128,25 @@ public struct HacsPairingSheet: View {
                                     showingExporter = true
                                 }
                             }) {
-                                Label("Export JSON", systemImage: "square.and.arrow.up")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity, minHeight: 42)
-                                    .background(palette.accent)
+                                Label("Export JSON", systemImage: "square.and.arrow.down")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .frame(maxWidth: .infinity, minHeight: 40)
+                                    .background(palette.elevated)
                                     .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                                            .stroke(palette.borderStrong, lineWidth: 1)
+                                    )
                             }
                             .buttonStyle(.plain)
                             .uiAction("exportBackupFile")
 
                             Button(action: { showingImporter = true }) {
-                                Label("Import JSON", systemImage: "square.and.arrow.down")
-                                    .font(.system(size: 13, weight: .bold))
+                                Label("Import JSON", systemImage: "square.and.arrow.up")
+                                    .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(palette.textPrimary)
-                                    .frame(maxWidth: .infinity, minHeight: 42)
+                                    .frame(maxWidth: .infinity, minHeight: 40)
                                     .background(palette.elevated)
                                     .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                                     .overlay(
@@ -101,105 +158,154 @@ public struct HacsPairingSheet: View {
                             .uiAction("importBackupFile")
                         }
 
+                        Button(action: {
+                            if let data = repository.exportInventoryBackupJSON(),
+                               let jsonText = String(data: data, encoding: .utf8) {
+                                UIPasteboard.general.string = jsonText
+                                backupStatusMessage = "Copied JSON payload to clipboard"
+                                isSuccessStatus = true
+                            }
+                        }) {
+                            HStack {
+                                Text("Copy Backup to Clipboard")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(palette.textPrimary)
+                                Spacer()
+                                Text("COPY")
+                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                    .foregroundColor(palette.accentText)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .frame(minHeight: TuesdayDimens.hitTargetCompact)
+                            .background(palette.bg)
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                    .stroke(palette.border, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+
                         if let msg = backupStatusMessage {
                             Text(msg)
-                                .font(.system(size: 11.5, design: .monospaced))
-                                .foregroundColor(palette.textPrimary)
+                                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                .foregroundColor(isSuccessStatus ? okGreen : TuesdayTheme.ledColor(for: .cveKev, isStn: palette.isStn))
                         }
                     }
-                    .padding(12)
+                    .padding(16)
                     .background(palette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard)
+                            .stroke(palette.border, lineWidth: 1)
+                    )
 
-                    // Home Assistant HACS Pairing
-                    SurfaceListContainer(palette: palette) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("HOME ASSISTANT (HACS)")
-                                .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                                .foregroundColor(palette.textMuted)
-                                .uiSlot("hacs-bridge-header")
-
-                            TuesdayTextField(text: $baseUrl, label: "Home Assistant URL", placeholder: "http://homeassistant.local:8123", palette: palette)
-                            TuesdayTextField(text: $apiToken, label: "Long-Lived Access Token", placeholder: "Bearer token", palette: palette)
-                            TuesdayTextField(text: $trustedSsid, label: "Trusted Local Wi-Fi SSID", placeholder: "Home-WiFi", palette: palette)
-
-                            PreferenceToggleRow(
-                                title: "Require Trusted Wi-Fi for Local Sync",
-                                description: "Shows a guardrail overlay if syncing away from your trusted SSID.",
-                                isOn: $requireLocalWifi,
-                                palette: palette,
-                                actionName: "toggleRequireLocalWifi"
-                            )
-
-                            Button(action: {
-                                var updated = repository.hacsConfig
-                                updated.baseUrl = baseUrl
-                                updated.apiToken = apiToken
-                                updated.trustedSsid = trustedSsid
-                                updated.requireLocalWifi = requireLocalWifi
-                                repository.updateHacsConfig(updated)
-                                onDismiss()
-                            }) {
-                                Text("Save HACS Pairing")
+                    // Family Site Delegation
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "person.2.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(isProTier1 ? okGreen : palette.accent)
+                                Text("Family Site Management")
                                     .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(palette.textPrimary)
+                            }
+                            Spacer()
+                            MonospaceBadge(
+                                text: isProTier1 ? "PRO TIER 1 • ACTIVE" : "PRO TIER 1",
+                                color: isProTier1 ? okGreen : palette.accentText
+                            )
+                        }
+
+                        Text(
+                            isProTier1
+                                ? "Included with your Pro Tier 1 entitlement. Manage multiple household or family locations, delegate co-admin access, and share pairing invites for '\(activeNetworkName.isEmpty ? "My Network" : activeNetworkName)'."
+                                : "Part of Tuesday.sh Pro Tier 1. Remotely monitor parents' or family members' home networks, manage unlimited sites, and share delegated pairing invites."
+                        )
+                        .font(.system(size: 12))
+                        .foregroundColor(palette.textMuted)
+                        .lineSpacing(3)
+
+                        if isProTier1 {
+                            HStack(spacing: 8) {
+                                Button(action: {
+                                    let encoded = activeNetworkName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "My%20Network"
+                                    UIPasteboard.general.string = "tuesday://join-site?site=\(encoded)&code=FAM-2026"
+                                    familyInviteFeedback = "✓ Copied Family Pairing Invite link to clipboard"
+                                }) {
+                                    Text("Copy Family Invite")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(palette.textPrimary)
+                                        .frame(maxWidth: .infinity, minHeight: 38)
+                                        .background(palette.elevated)
+                                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                                                .stroke(palette.borderStrong, lineWidth: 1)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .uiAction("copyFamilySiteInvite")
+
+                                Button(action: {
+                                    onDismiss()
+                                    onOpenNetworkPicker()
+                                }) {
+                                    Text("Manage Sites")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity, minHeight: 38)
+                                        .background(palette.accent)
+                                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                }
+                                .buttonStyle(.plain)
+                                .uiAction("manageFamilySites")
+                            }
+
+                            if let feedback = familyInviteFeedback {
+                                Text(feedback)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(okGreen)
+                            }
+                        } else {
+                            Button(action: {
+                                onDismiss()
+                                onOpenUpgrade()
+                            }) {
+                                Text("⚡ Unlock with Pro Tier 1")
+                                    .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity, minHeight: 42)
+                                    .frame(maxWidth: .infinity, minHeight: 40)
                                     .background(palette.accent)
                                     .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                             }
                             .buttonStyle(.plain)
-                            .uiAction("saveHacsConfig")
-                        }
-                        .padding(12)
-                    }
-
-                    // Family Site Delegation
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("FAMILY SITE MANAGEMENT")
-                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                            .foregroundColor(palette.textMuted)
-
-                        Text("Share read-only Check-Up posture summaries or unlock Pro Tier 1 to coordinate patches for parents' homes.")
-                            .font(.system(size: 12.5))
-                            .foregroundColor(palette.textMuted)
-                            .lineSpacing(3)
-
-                        HStack(spacing: 8) {
-                            Button(action: {
-                                UIPasteboard.general.string = "tuesday://join-site?site=My%20Network"
-                                backupStatusMessage = "✓ Copied local site invite link"
-                            }) {
-                                Text("Copy Site Invite")
-                                    .font(.system(size: 12.5, weight: .bold))
-                                    .foregroundColor(palette.textPrimary)
-                                    .frame(maxWidth: .infinity, minHeight: 38)
-                                    .background(palette.elevated)
-                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                            }
-                            .buttonStyle(.plain)
-                            .uiAction("copyFamilySiteInvite")
-
-                            Button(action: onOpenUpgrade) {
-                                Text("Manage / Upgrade")
-                                    .font(.system(size: 12.5, weight: .bold))
-                                    .foregroundColor(palette.accentText)
-                                    .frame(maxWidth: .infinity, minHeight: 38)
-                                    .background(palette.accent.opacity(0.14))
-                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                                    .uiAction("openFamilyTier1Upgrade")
-                            }
-                            .buttonStyle(.plain)
-                            .uiAction("manageFamilySites")
+                            .uiAction("openFamilyTier1Upgrade")
                         }
                     }
-                    .padding(12)
+                    .padding(16)
                     .background(palette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard)
+                            .stroke((isProTier1 ? okGreen : palette.accent).opacity(0.45), lineWidth: 1)
+                    )
                     .uiSlot("family-site-management-panel")
+
+                    Button(action: onDismiss) {
+                        Text("Done")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(palette.accentText)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(palette.accent.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                    }
+                    .buttonStyle(.plain)
+                    .uiAction("saveHacsConfig")
                 }
-                .padding(14)
+                .padding(16)
             }
             .background(palette.bg.ignoresSafeArea())
             .navigationTitle("Integrations & Backup")
@@ -218,9 +324,11 @@ public struct HacsPairingSheet: View {
             ) { result in
                 switch result {
                 case .success:
-                    backupStatusMessage = "✓ Exported sovereign JSON backup"
+                    backupStatusMessage = "Backup exported successfully!"
+                    isSuccessStatus = true
                 case .failure(let error):
-                    backupStatusMessage = "⚠ Export failed: \(error.localizedDescription)"
+                    backupStatusMessage = "Export failed: \(error.localizedDescription)"
+                    isSuccessStatus = false
                 }
             }
             .fileImporter(
@@ -236,13 +344,16 @@ public struct HacsPairingSheet: View {
                     if let data = try? Data(contentsOf: url) {
                         switch repository.importInventoryBackupJSON(data) {
                         case .success(let count):
-                            backupStatusMessage = "✓ Restored \(count) device(s) from backup"
+                            backupStatusMessage = "Restored \(count) device(s) from backup!"
+                            isSuccessStatus = true
                         case .failure(let error):
-                            backupStatusMessage = "⚠ Invalid backup JSON: \(error.localizedDescription)"
+                            backupStatusMessage = "Invalid backup JSON: \(error.localizedDescription)"
+                            isSuccessStatus = false
                         }
                     }
                 case .failure(let error):
-                    backupStatusMessage = "⚠ Import failed: \(error.localizedDescription)"
+                    backupStatusMessage = "Import failed: \(error.localizedDescription)"
+                    isSuccessStatus = false
                 }
             }
         }

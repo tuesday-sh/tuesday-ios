@@ -142,4 +142,13 @@ final class GoldClueSuggestionRepositoryTests: XCTestCase {
         XCTAssertEqual(usbReconciled.outOfScopeReason, usbReason)
         XCTAssertEqual(usbReconciled.candidates.first?.goldAlignment?.aligned, false)
     }
+
+    func testInferFromDeviceNameMatchesGoldModelAndSkipsSelected() throws {
+        let inferred = try XCTUnwrap(GoldClueSuggestionRepository.shared.inferFromDeviceName("My Living Room UDM-Pro", selected: []))
+        XCTAssertEqual(inferred.kind, .model)
+        XCTAssertEqual(inferred.model, "UDM-Pro")
+
+        let alreadySelected = GoldClueSuggestionRepository.shared.inferFromDeviceName("My Living Room UDM-Pro", selected: [inferred])
+        XCTAssertNil(alreadySelected)
+    }
 }

@@ -176,7 +176,7 @@ public struct TuesdayModalCard<Leading: View, HeaderTrailing: View, Content: Vie
 
     public var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            Button(action: onDismiss) {
+            let closeBtn = Button(action: onDismiss) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(palette.textPrimary)
@@ -186,7 +186,12 @@ public struct TuesdayModalCard<Leading: View, HeaderTrailing: View, Content: Vie
                     .overlay(Circle().stroke(palette.border, lineWidth: 1))
             }
             .buttonStyle(.plain)
-            .uiAction(closeActionName)
+
+            if closeActionName == "closeTier1UpgradeModal" {
+                closeBtn.uiAction("closeTier1UpgradeModal")
+            } else {
+                closeBtn.uiAction(closeActionName)
+            }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {

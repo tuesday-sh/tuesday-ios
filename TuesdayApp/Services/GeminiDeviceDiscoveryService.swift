@@ -36,17 +36,26 @@ public struct GoldAlignmentInfo: Codable, Equatable {
     public var inferredPurl: String?
     public var catalogItemId: String?
     public var statusLabel: String
+    public var matchedFeedName: String?
+    public var matchedFeedSlug: String?
+    public var latestGoldRelease: String?
 
     public init(
         aligned: Bool = false,
         inferredPurl: String? = nil,
         catalogItemId: String? = nil,
-        statusLabel: String = "UNALIGNED RAW MATCH"
+        statusLabel: String = "UNALIGNED RAW MATCH",
+        matchedFeedName: String? = nil,
+        matchedFeedSlug: String? = nil,
+        latestGoldRelease: String? = nil
     ) {
         self.aligned = aligned
         self.inferredPurl = inferredPurl
         self.catalogItemId = catalogItemId
         self.statusLabel = statusLabel
+        self.matchedFeedName = matchedFeedName
+        self.matchedFeedSlug = matchedFeedSlug
+        self.latestGoldRelease = latestGoldRelease
     }
 }
 
@@ -143,6 +152,8 @@ public struct GeminiDiscoveryTurnResult: Codable, Equatable {
     public var usedLiveGeminiApi: Bool
     public var debugTrace: String?
     public var rawJsonResponse: String?
+    public var multipleDevicesDetected: Bool
+    public var multiDeviceWarning: String?
 
     public init(
         visualSummary: String,
@@ -154,7 +165,9 @@ public struct GeminiDiscoveryTurnResult: Codable, Equatable {
         candidates: [DeviceCandidateMatch] = [],
         usedLiveGeminiApi: Bool = false,
         debugTrace: String? = nil,
-        rawJsonResponse: String? = nil
+        rawJsonResponse: String? = nil,
+        multipleDevicesDetected: Bool = false,
+        multiDeviceWarning: String? = nil
     ) {
         self.visualSummary = visualSummary
         self.isNetworkedDevice = isNetworkedDevice
@@ -166,6 +179,8 @@ public struct GeminiDiscoveryTurnResult: Codable, Equatable {
         self.usedLiveGeminiApi = usedLiveGeminiApi
         self.debugTrace = debugTrace
         self.rawJsonResponse = rawJsonResponse
+        self.multipleDevicesDetected = multipleDevicesDetected
+        self.multiDeviceWarning = multiDeviceWarning
     }
 }
 
@@ -497,7 +512,13 @@ public final class GeminiDeviceDiscoveryService {
                         ?? (g["catalog_item_id"] as? String)?.nilIfBlank),
                     statusLabel: ((g["statusLabel"] as? String)?.nilIfBlank
                         ?? (g["status_label"] as? String)?.nilIfBlank)
-                        ?? (aligned ? "GOLD ALIGNED" : "UNALIGNED RAW MATCH")
+                        ?? (aligned ? "GOLD ALIGNED" : "UNALIGNED RAW MATCH"),
+                    matchedFeedName: ((g["matchedFeedName"] as? String)?.nilIfBlank
+                        ?? (g["matched_feed_name"] as? String)?.nilIfBlank),
+                    matchedFeedSlug: ((g["matchedFeedSlug"] as? String)?.nilIfBlank
+                        ?? (g["matched_feed_slug"] as? String)?.nilIfBlank),
+                    latestGoldRelease: ((g["latestGoldRelease"] as? String)?.nilIfBlank
+                        ?? (g["latest_gold_release"] as? String)?.nilIfBlank)
                 )
             }
 
@@ -545,6 +566,12 @@ public final class GeminiDeviceDiscoveryService {
             )
         }
 
+        let multipleDevicesDetected = (root["multipleDevicesDetected"] as? Bool)
+            ?? (root["multiple_devices_detected"] as? Bool)
+            ?? false
+        let multiDeviceWarning = (root["multiDeviceWarning"] as? String)?.nilIfBlank
+            ?? (root["multi_device_warning"] as? String)?.nilIfBlank
+
         return GeminiDiscoveryTurnResult(
             visualSummary: visualSummary,
             isNetworkedDevice: isNetworked,
@@ -554,7 +581,9 @@ public final class GeminiDeviceDiscoveryService {
             extractedIdentifiers: extracted,
             candidates: candidates,
             usedLiveGeminiApi: true,
-            debugTrace: debugTrace ?? providerLabel
+            debugTrace: debugTrace ?? providerLabel,
+            multipleDevicesDetected: multipleDevicesDetected,
+            multiDeviceWarning: multiDeviceWarning
         )
     }
 
@@ -691,9 +720,18 @@ public final class GeminiDeviceDiscoveryService {
             UIColor(red: 0.92, green: 0.94, blue: 0.96, alpha: 1.0).setFill()
             path.fill()
 
-            let label = presetName == "zigbee-iot"
-                ? "Smart Home Sensor • MAC 44:61:32"
-                : "UniFi Cloud Gateway Ultra (UCG-Ultra)"
+            let label: String = {
+                switch presetName.lowercased() {
+                case "barcode-udm-pro":
+                    return "UPC 817882027373 • UniFi UDM-Pro"
+                case "qr-ucg-ultra":
+                    return "QR • UniFi UCG-Ultra"
+                case "zigbee-iot", "iot-zigbee":
+                    return "Smart Home Sensor • MAC 44:61:32"
+                default:
+                    return "UniFi Cloud Gateway Ultra (UCG-Ultra)"
+                }
+            }()
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.boldSystemFont(ofSize: 20),
                 .foregroundColor: UIColor.darkGray

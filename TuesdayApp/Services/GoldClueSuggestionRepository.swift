@@ -277,6 +277,29 @@ public final class GoldClueIndexData {
         )
     }
 
+    public func inferFromDeviceName(_ deviceName: String, selected: [GoldClueItem]) -> GoldClueItem? {
+        let clean = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard clean.count >= 3 else { return nil }
+        let selectedIds = Set(selected.map(\.id))
+        let separators = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "/()_"))
+        let tokens = clean.components(separatedBy: separators).filter { $0.count >= 3 }
+
+        for tok in tokens {
+            let normTok = Self.normalizeAlnum(tok)
+            let hasDigit = normTok.unicodeScalars.contains(where: { CharacterSet.decimalDigits.contains($0) })
+            let hasModelHyphen = tok.contains("-") && normTok.count >= 4
+            if normTok.count >= 3 && (hasDigit || hasModelHyphen) {
+                if let exactSku = models.first(where: { $0.normModel == normTok }) {
+                    let item = modelClue(from: exactSku)
+                    if !selectedIds.contains(item.id) {
+                        return item
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
     public func classifyFreeTextClue(_ rawQuery: String) -> GoldClueItem {
         let trimmed = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         if let firstHit = querySuggestions(rawQuery: trimmed, selected: [], limit: 1).first,
@@ -790,6 +813,14 @@ public final class GoldClueSuggestionRepository {
         limit: Int = 10
     ) -> [GoldClueItem] {
         index.contextualQuickPicks(selected, limit: limit)
+    }
+
+    public var datalakeVersion: String {
+        index.datalakeVersion
+    }
+
+    public func inferFromDeviceName(_ deviceName: String, selected: [GoldClueItem] = []) -> GoldClueItem? {
+        index.inferFromDeviceName(deviceName, selected: selected)
     }
 
     public func classifyFreeTextClue(_ rawQuery: String) -> GoldClueItem {

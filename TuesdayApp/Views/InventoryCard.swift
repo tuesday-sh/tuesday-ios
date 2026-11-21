@@ -59,7 +59,7 @@ public struct InventoryCardView: View {
 
     public var body: some View {
         let isStn = (flavor == .sureThingHome)
-        let tier = InventoryScaleTier.forCount(devices.count)
+        let scaleTier = InventoryScaleTier.forCount(devices.count)
         let ledSlots = BulletinsAndInventoryEngine.build128LedMatrix(devices: devices, zoneFilter: zoneFilter)
         let actionDevices = BulletinsAndInventoryEngine.filterActionFirstDevices(
             devices: devices,
@@ -73,7 +73,7 @@ public struct InventoryCardView: View {
             VStack(alignment: .leading, spacing: 8) {
                 inventoryHeaderRow()
 
-                inventoryChassisCard(isStn: isStn, tier: tier, ledSlots: ledSlots)
+                inventoryChassisCard(isStn: isStn, tier: scaleTier, ledSlots: ledSlots)
 
                 if !devices.isEmpty && showZoneFilterStrip {
                     zoneFilterStrip(isStn: isStn)
@@ -86,14 +86,14 @@ public struct InventoryCardView: View {
                 RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
                     .stroke(palette.border, lineWidth: 1)
             )
-            .uiComponent("InventoryCard", state: "tier=\(tier.rawValue);active=\(devices.count)")
+            .uiComponent("InventoryCard", state: "tier=\(scaleTier.rawValue);active=\(devices.count)")
 
             // 2. Day 0 Conditional Callout Card below InventoryCard
             if devices.isEmpty {
                 welcomeDayZeroCard()
             } else {
                 // 3. Tracked Hardware Profiles Strip (Forest Tier >= 8 devices on STN-Pro)
-                if tier == .FOREST && !isStn {
+                if scaleTier == .FOREST && !isStn {
                     trackedHardwareProfilesCard(isStn: isStn)
                 }
 
@@ -103,12 +103,12 @@ public struct InventoryCardView: View {
                 }
 
                 // 5. Action-First Header + Show/Hide OK Toggle (Forest Tier)
-                if tier.showFilterChips {
+                if scaleTier.showFilterChips {
                     actionListHeader(isStn: isStn)
                 }
 
                 // 6. Device Rows
-                let rowsToRender: [RackPortDevice] = tier.showFilterChips
+                let rowsToRender: [RackPortDevice] = scaleTier.showFilterChips
                     ? actionDevices
                     : devices
                         .filter { zoneFilter == nil || $0.trustZone == zoneFilter }
@@ -121,7 +121,7 @@ public struct InventoryCardView: View {
                 }
 
                 // 7. Secondary "+ Add Another Device" CTA (Pea & Garden tiers)
-                if !tier.showFilterChips {
+                if !scaleTier.showFilterChips {
                     Button(action: { onAddDeviceWithClues(nil) }) {
                         Text("+ Add Another Device")
                             .font(.system(size: 12.5, weight: .bold))
@@ -214,70 +214,72 @@ public struct InventoryCardView: View {
         let colWidth = max(24, (stripWidth - 35) / 8.0)
         let iconSize = max(14, colWidth * 0.56)
 
-        return HStack(spacing: 5) {
-            ForEach(StnHardwareCategory.allCases) { cat in
-                let count = devices.filter { $0.category == cat }.count
-                let hasDevices = count > 0
-                let worst = TimelineStatusEvaluator.worstCategoryState(category: cat, devices: devices)
-                let stateColor = worst.map { TuesdayTheme.ledColor(for: $0, isStn: isStn) } ?? palette.textMuted
-                let isExpanded = (expandedCategory == cat)
+        return VStack(spacing: 0) {
+            HStack(spacing: 5) {
+                ForEach(StnHardwareCategory.allCases) { cat in
+                    let count = devices.filter { $0.category == cat }.count
+                    let hasDevices = count > 0
+                    let worst = TimelineStatusEvaluator.worstCategoryState(category: cat, devices: devices)
+                    let stateColor = worst.map { TuesdayTheme.ledColor(for: $0, isStn: isStn) } ?? palette.textMuted
+                    let isExpanded = (expandedCategory == cat)
 
-                let iconBoxBg = isExpanded ? palette.accent.opacity(0.22) : palette.elevated
-                let iconBorder = isExpanded
-                    ? palette.accent
-                    : (hasDevices ? stateColor.opacity(0.53) : palette.borderStrong)
-                let tickColor = hasDevices ? stateColor.opacity(0.53) : palette.borderStrong
-                let tileBg = hasDevices ? stateColor : palette.border
-                let tileTextColor: Color = {
-                    if !hasDevices { return palette.textMuted }
-                    if !isStn && (worst == .ok || worst == .eol) {
-                        return Color(hex: "090D0A")
+                    let iconBoxBg = isExpanded ? palette.accent.opacity(0.22) : palette.elevated
+                    let iconBorder = isExpanded
+                        ? palette.accent
+                        : (hasDevices ? stateColor.opacity(0.53) : palette.borderStrong)
+                    let tickColor = hasDevices ? stateColor.opacity(0.53) : palette.borderStrong
+                    let tileBg = hasDevices ? stateColor : palette.border
+                    let tileTextColor: Color = {
+                        if !hasDevices { return palette.textMuted }
+                        if !isStn && (worst == .ok || worst == .eol) {
+                            return Color(hex: "090D0A")
+                        }
+                        return .white
+                    }()
+
+                    Button(action: {
+                        expandedCategory = (expandedCategory == cat) ? nil : cat
+                    }) {
+                        VStack(spacing: 0) {
+                            // Top 1:1 hardware silhouette tile
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                .fill(iconBoxBg)
+                                .aspectRatio(1, contentMode: .fit)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                        .stroke(iconBorder, lineWidth: isExpanded ? 1.5 : 1)
+                                )
+                                .overlay(
+                                    HardwareCategoryIcon(category: cat, tint: stateColor, size: iconSize)
+                                )
+                                .uiSlot("category-col")
+
+                            // Vertical connector tick
+                            Rectangle()
+                                .fill(tickColor)
+                                .frame(width: 1, height: 6)
+                                .padding(.vertical, 2)
+
+                            // Bottom 1:1 count tile
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusMicro)
+                                .fill(tileBg)
+                                .aspectRatio(1, contentMode: .fit)
+                                .overlay(
+                                    Text("\(count)")
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .foregroundColor(tileTextColor)
+                                        .lineLimit(1)
+                                )
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    return .white
-                }()
-
-                Button(action: {
-                    expandedCategory = (expandedCategory == cat) ? nil : cat
-                }) {
-                    VStack(spacing: 0) {
-                        // Top 1:1 hardware silhouette tile
-                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                            .fill(iconBoxBg)
-                            .aspectRatio(1, contentMode: .fit)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                                    .stroke(iconBorder, lineWidth: isExpanded ? 1.5 : 1)
-                            )
-                            .overlay(
-                                HardwareCategoryIcon(category: cat, tint: stateColor, size: iconSize)
-                            )
-                            .uiSlot("category-col")
-
-                        // Vertical connector tick
-                        Rectangle()
-                            .fill(tickColor)
-                            .frame(width: 1, height: 6)
-                            .padding(.vertical, 2)
-
-                        // Bottom 1:1 count tile
-                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusMicro)
-                            .fill(tileBg)
-                            .aspectRatio(1, contentMode: .fit)
-                            .overlay(
-                                Text("\(count)")
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .foregroundColor(tileTextColor)
-                                    .lineLimit(1)
-                            )
-                    }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
+                    .uiAction("inspectCategoryDevice")
                 }
-                .buttonStyle(.plain)
-                .uiAction("inspectCategoryDevice")
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { stripWidth = $0 }
+            .uiSlot("c1-c8-strip")
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { stripWidth = $0 }
-        .uiSlot("c1-c8-strip")
         .uiComponent("CategoryFaceplateStrip")
     }
 
@@ -554,17 +556,19 @@ public struct InventoryCardView: View {
                         .foregroundColor(palette.textPrimary)
                         .uiSlot("category-popover-title")
                     Spacer()
-                    Button(action: { expandedCategory = nil }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(palette.textMuted)
-                            .frame(width: 28, height: 28)
-                            .background(palette.elevated)
-                            .clipShape(Circle())
+                    VStack(spacing: 0) {
+                        Button(action: { expandedCategory = nil }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(palette.textMuted)
+                                .frame(width: 28, height: 28)
+                                .background(palette.elevated)
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .uiAction("closeCategoryPopover")
                     }
-                    .buttonStyle(.plain)
                     .uiSlot("category-popover-close")
-                    .uiAction("closeCategoryPopover")
                 }
                 .uiSlot("category-popover-header")
 
@@ -607,20 +611,22 @@ public struct InventoryCardView: View {
                     .uiSlot("category-popover-gallery")
                 }
 
-                Button(action: {
-                    expandedCategory = nil
-                    onAddDeviceWithClues(category.discoveryClueLabel)
-                }) {
-                    Text("+ Add \(category.shortLabel)")
-                        .font(.system(size: 12.5, weight: .bold))
-                        .foregroundColor(palette.accentText)
-                        .frame(maxWidth: .infinity, minHeight: 36)
-                        .background(palette.accent.opacity(0.14))
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                VStack(spacing: 0) {
+                    Button(action: {
+                        expandedCategory = nil
+                        onAddDeviceWithClues(category.discoveryClueLabel)
+                    }) {
+                        Text("+ Add \(category.shortLabel)")
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundColor(palette.accentText)
+                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .background(palette.accent.opacity(0.14))
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                    }
+                    .buttonStyle(.plain)
+                    .uiAction("addCategoryDevice")
                 }
-                .buttonStyle(.plain)
                 .uiSlot("category-popover-add-cta")
-                .uiAction("addCategoryDevice")
             }
             .padding(12)
             .background(palette.surface)
@@ -650,29 +656,7 @@ public struct InventoryCardView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array(featured.enumerated()), id: \.element.id) { idx, dev in
-                        let tint = TuesdayTheme.ledColor(for: dev.portState, isStn: isStn)
-                        let isSelected = (idx == 0)
-                        Button(action: { onInspectDevice(dev) }) {
-                            VStack(spacing: 4) {
-                                RoundedRectangle(cornerRadius: 11)
-                                    .fill(isSelected ? palette.accent.opacity(0.14) : palette.elevated)
-                                    .frame(width: 42, height: 42)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 11)
-                                            .stroke(isSelected ? palette.accent : tint.opacity(0.35), lineWidth: 1)
-                                    )
-                                    .overlay(
-                                        HardwareCategoryIcon(category: dev.category, tint: tint, size: 19)
-                                    )
-                                    .uiSlot("tracked-profile-squircle")
-                                Text(dev.shortLabel)
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(palette.textPrimary)
-                                    .lineLimit(1)
-                                    .frame(width: 58)
-                            }
-                        }
-                        .buttonStyle(.plain)
+                        trackedProfileSquircle(dev, isSelected: idx == 0, isStn: isStn)
                     }
                 }
             }
@@ -687,6 +671,31 @@ public struct InventoryCardView: View {
                 .stroke(palette.border, lineWidth: 1)
         )
         .uiComponent("TrackedHardwareProfilesCard")
+    }
+
+    private func trackedProfileSquircle(_ dev: RackPortDevice, isSelected: Bool, isStn: Bool) -> some View {
+        let tint = TuesdayTheme.ledColor(for: dev.portState, isStn: isStn)
+        return Button(action: { onInspectDevice(dev) }) {
+            VStack(spacing: 4) {
+                RoundedRectangle(cornerRadius: 11)
+                    .fill(isSelected ? palette.accent.opacity(0.14) : palette.elevated)
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 11)
+                            .stroke(isSelected ? palette.accent : tint.opacity(0.35), lineWidth: 1)
+                    )
+                    .overlay(
+                        HardwareCategoryIcon(category: dev.category, tint: tint, size: 19)
+                    )
+                    .uiSlot("tracked-profile-squircle")
+                Text(dev.shortLabel)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(palette.textPrimary)
+                    .lineLimit(1)
+                    .frame(width: 58)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private func cleanDeviceRow(_ dev: RackPortDevice, isStn: Bool) -> some View {

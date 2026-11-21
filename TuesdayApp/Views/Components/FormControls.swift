@@ -47,10 +47,25 @@ public struct PreferenceToggleRow: View {
                     .lineSpacing(2)
             }
             Spacer()
-            Toggle("", isOn: $isOn)
+            let prefToggle = Toggle("", isOn: $isOn)
                 .labelsHidden()
                 .tint(tintColor ?? palette.accent)
-                .uiAction(actionName)
+            switch actionName {
+            case "toggleShowStateFilterStrip":
+                prefToggle.uiAction("toggleShowStateFilterStrip")
+            case "toggleShowZoneFilterStrip":
+                prefToggle.uiAction("toggleShowZoneFilterStrip")
+            case "toggleVisionDebugMode":
+                prefToggle.uiAction("toggleVisionDebugMode")
+            case "toggleDiagnosticsMode":
+                prefToggle.uiAction("toggleDiagnosticsMode")
+            case "toggleDeveloperMode":
+                prefToggle.uiAction("toggleDeveloperMode")
+            case "toggleMonthlyReminders":
+                prefToggle.uiAction("toggleMonthlyReminders")
+            default:
+                prefToggle.uiAction(actionName)
+            }
         }
     }
 }
@@ -207,5 +222,61 @@ public struct SubscriptionLegalDisclosure: View {
             .font(.system(size: 11))
             .foregroundColor(palette.textMuted)
             .lineSpacing(2)
+    }
+}
+
+public struct SegmentedTabRow: View {
+    public let options: [String]
+    public let selectedIndex: Int
+    public let onSelect: (Int) -> Void
+    public let palette: BrandPalette
+    public var actionName: String = "switchEnrollmentMode"
+
+    public init(
+        options: [String],
+        selectedIndex: Int,
+        onSelect: @escaping (Int) -> Void,
+        palette: BrandPalette,
+        actionName: String = "switchEnrollmentMode"
+    ) {
+        self.options = options
+        self.selectedIndex = selectedIndex
+        self.onSelect = onSelect
+        self.palette = palette
+        self.actionName = actionName
+    }
+
+    public var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(options.enumerated()), id: \.offset) { idx, title in
+                let isSelected = (idx == selectedIndex)
+                let tabButton = Button(action: { onSelect(idx) }) {
+                    Text(title)
+                        .font(.system(size: 13, weight: isSelected ? .bold : .semibold))
+                        .foregroundColor(isSelected ? palette.textPrimary : palette.textMuted)
+                        .frame(maxWidth: .infinity, minHeight: 34)
+                        .background(isSelected ? palette.surface : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                .stroke(isSelected ? palette.borderStrong : Color.clear, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                if actionName == "switchEnrollmentMode" {
+                    tabButton.uiAction("switchEnrollmentMode")
+                } else {
+                    tabButton.uiAction(actionName)
+                }
+            }
+        }
+        .padding(3)
+        .background(palette.elevated)
+        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+        .overlay(
+            RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                .stroke(palette.border, lineWidth: 1)
+        )
     }
 }

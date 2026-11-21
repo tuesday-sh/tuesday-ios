@@ -204,4 +204,30 @@ final class MonitoredNodeTests: XCTestCase {
 
         XCTAssertTrue(hasActiveCheckupRecommendation(devices: devices, welcomeComplete: true))
     }
+
+    @MainActor
+    func testUpdateDeviceDetailsShortLabelAndMarkDeviceRemediated() throws {
+        let suiteName = "sh.tuesday.tests.phase2d.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let service = MockHacsTuesdayService(defaults: defaults)
+        service.setSimulatedDeviceCount(12)
+
+        let target = try XCTUnwrap(service.rackDevices.first(where: { $0.portState == .cveKev }))
+        service.updateDeviceDetails(
+            id: target.id,
+            name: "Main Basement Router",
+            shortLabel: "MainGW",
+            category: target.category,
+            trustZone: target.trustZone,
+            roomLocation: "Utility Closet",
+            version: "4.0.21"
+        )
+        let edited = try XCTUnwrap(service.rackDevices.first(where: { $0.id == target.id }))
+        XCTAssertEqual(edited.name, "Main Basement Router")
+        XCTAssertEqual(edited.shortLabel, "MainGW")
+
+        service.markDeviceRemediated(id: target.id)
+        let remediated = try XCTUnwrap(service.rackDevices.first(where: { $0.id == target.id }))
+        XCTAssertEqual(remediated.portState, .ok)
+    }
 }

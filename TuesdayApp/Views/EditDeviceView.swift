@@ -4,7 +4,7 @@ public struct EditDeviceView: View {
     public let device: RackPortDevice
     public let palette: BrandPalette
     public let isStn: Bool
-    public let onSave: (String, StnHardwareCategory, TrustZone, String, String, String?, String?) -> Void
+    public let onSave: (String, String /* shortLabel */, StnHardwareCategory, TrustZone, String, String, String?, String?) -> Void
     public let onDelete: (String) -> Void
     public let onCancel: () -> Void
 
@@ -22,7 +22,7 @@ public struct EditDeviceView: View {
         device: RackPortDevice,
         palette: BrandPalette,
         isStn: Bool,
-        onSave: @escaping (String, StnHardwareCategory, TrustZone, String, String, String?, String?) -> Void,
+        onSave: @escaping (String, String, StnHardwareCategory, TrustZone, String, String, String?, String?) -> Void,
         onDelete: @escaping (String) -> Void,
         onCancel: @escaping () -> Void
     ) {
@@ -104,6 +104,7 @@ public struct EditDeviceView: View {
                     Button(action: {
                         onSave(
                             name,
+                            shortLabel,
                             category,
                             trustZone,
                             roomLocation,

@@ -11,6 +11,8 @@ public struct SetupNetworkModalView: View {
     public let onOpenNetworkSettings: () -> Void
     public let onDismiss: () -> Void
 
+    @State private var showSetupModal: Bool = false
+    @State private var setupFlowIndex: Int = 0
     @State private var newSiteName: String = ""
 
     public init(
@@ -36,114 +38,174 @@ public struct SetupNetworkModalView: View {
     }
 
     public var body: some View {
-        let activeSite = networks.first(where: { $0.id == activeNetworkId }) ?? networks.first
-        let gatedForNewSite = EntitlementGatePolicy.requiresUpgradeForNewSite(tier: entitlementTier, networks: networks)
+        if showSetupModal {
+            setupNetworkContent
+                .uiComponent("SetupNetworkModal")
+        } else {
+            networkPickerContent
+                .uiComponent("NetworkPickerModal")
+        }
+    }
 
-        NavigationStack {
+    private var networkPickerContent: some View {
+        let activeSite = networks.first(where: { $0.id == activeNetworkId }) ?? networks.first
+        let availableNetworks = networks.filter { $0.id != activeNetworkId }
+        let canAddNetwork = EntitlementGatePolicy.canCreateAdditionalNetwork(tier: entitlementTier, networks: networks)
+
+        return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let activeSite {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("CURRENT SITE")
-                                .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                                .foregroundColor(palette.textMuted)
+                        VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text("\(activeSite.emoji) \(activeSite.name)")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(palette.textPrimary)
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(TuesdayTheme.ledOkGreen)
+                                        .frame(width: 8, height: 8)
+                                    Text("CURRENT NETWORK")
+                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                        .tracking(0.5)
+                                        .foregroundColor(palette.accentText)
+                                }
                                 Spacer()
-                                MonospaceBadge(text: "\(activeSite.devicesCount) devices", color: palette.accentText)
+                                Button(action: onOpenNetworkSettings) {
+                                    Image(systemName: "gearshape.fill")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(palette.textPrimary)
+                                        .frame(width: TuesdayDimens.hitTargetCompact, height: TuesdayDimens.hitTargetCompact)
+                                }
+                                .buttonStyle(.plain)
+                                .uiAction("openNetworkSettings")
                             }
-                            Button(action: onOpenNetworkSettings) {
-                                Text("Rename or Configure Current Site →")
-                                    .font(.system(size: 12.5, weight: .bold))
-                                    .foregroundColor(palette.accentText)
+
+                            HStack(alignment: .bottom) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(activeSite.name.isEmpty ? "My Network" : activeSite.name)
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(palette.textPrimary)
+                                    Text(activeSite.role)
+                                        .font(.system(size: 12))
+                                        .foregroundColor(palette.textMuted)
+                                }
+                                Spacer()
+                                MonospaceBadge(text: "\(activeSite.devicesCount) devices", color: palette.textPrimary)
                             }
-                            .buttonStyle(.plain)
-                            .uiAction("openNetworkSettings")
                         }
-                        .padding(12)
-                        .background(palette.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+                        .padding(14)
+                        .background(palette.accent.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusModalCard)
+                                .stroke(palette.accent.opacity(0.6), lineWidth: 1)
+                        )
                         .uiSlot("current-network-widget")
                     }
 
-                    SurfaceListContainer(palette: palette) {
-                        ForEach(Array(networks.enumerated()), id: \.element.id) { idx, site in
-                            if idx > 0 { SurfaceListDivider(palette: palette) }
-                            TuesdayListRow(
-                                palette: palette,
-                                title: "\(site.emoji) \(site.name)",
-                                onClick: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !availableNetworks.isEmpty {
+                            Text("SWITCH TO NETWORK")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .tracking(0.5)
+                                .foregroundColor(palette.textMuted)
+
+                            ForEach(availableNetworks) { site in
+                                Button(action: {
                                     onSelectNetwork(site.id)
                                     onDismiss()
-                                },
-                                leading: {
-                                    Image(systemName: site.id == activeNetworkId ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor(site.id == activeNetworkId ? palette.accent : palette.textMuted)
-                                        .uiAction("selectNetwork")
-                                },
-                                subtitle: {
-                                    Text("\(site.role) • \(site.devicesCount) device(s)")
-                                        .font(.system(size: 11.5))
-                                        .foregroundColor(palette.textMuted)
+                                }) {
+                                    HStack {
+                                        HStack(spacing: 10) {
+                                            Circle()
+                                                .fill(palette.textMuted.opacity(0.5))
+                                                .frame(width: 7, height: 7)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(site.name.isEmpty ? "My Network" : site.name)
+                                                    .font(.system(size: 13, weight: .semibold))
+                                                    .foregroundColor(palette.textPrimary)
+                                                Text("\(site.role) • \(site.devicesCount) devices")
+                                                    .font(.system(size: 11))
+                                                    .foregroundColor(palette.textMuted)
+                                            }
+                                        }
+                                        Spacer()
+                                        HStack(spacing: 4) {
+                                            Text("Switch")
+                                                .font(.system(size: 11.5, weight: .bold))
+                                                .foregroundColor(palette.accentText)
+                                            Image(systemName: "arrow.right")
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(palette.accentText)
+                                        }
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 10)
+                                    .background(palette.surface)
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
+                                            .stroke(palette.border, lineWidth: 1)
+                                    )
                                 }
-                            )
+                                .buttonStyle(.plain)
+                                .uiAction("selectNetwork")
+                            }
+                        } else {
+                            // Empty switcher placeholder only when single-site; keep interactive selectNetwork bound to active row
+                            Button(action: {
+                                if let activeSite {
+                                    onSelectNetwork(activeSite.id)
+                                }
+                                onDismiss()
+                            }) {
+                                HStack {
+                                    Text(activeSite?.name ?? "My Network")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(palette.textPrimary)
+                                    Spacer()
+                                    Text("Active Site")
+                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                        .foregroundColor(TuesdayTheme.ledOkGreen)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .background(palette.surface)
+                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
+                                        .stroke(palette.border, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("selectNetwork")
                         }
                     }
                     .uiSlot("available-networks-list")
-                    .uiSlot("network-picker-list")
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(gatedForNewSite ? "ADD SECOND SITE (PRO TIER 1)" : "ADD ADDITIONAL SITE")
-                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
-                            .foregroundColor(palette.textMuted)
-
-                        if gatedForNewSite {
-                            Text("Free includes 1 primary site. Upgrade to Pro Tier 1 to manage multiple family homes, vacation cabins, or lab sites.")
-                                .font(.system(size: 12.5))
-                                .foregroundColor(palette.textMuted)
-                                .lineSpacing(3)
-
-                            Button(action: onOpenUpgrade) {
-                                Text("Unlock Multi-Site with Pro Tier 1")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity, minHeight: 44)
-                                    .background(palette.accent)
-                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                            }
-                            .buttonStyle(.plain)
-                            .uiAction("openSetupNetworkModal")
+                    Button(action: {
+                        if canAddNetwork {
+                            showSetupModal = true
                         } else {
-                            TuesdayTextField(text: $newSiteName, label: "New Site Name", placeholder: "e.g. Mom's House", palette: palette)
-                            Button(action: {
-                                onCreateNetwork(newSiteName)
-                                newSiteName = ""
-                                onDismiss()
-                            }) {
-                                Text("Create Site")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity, minHeight: 44)
-                                    .background(palette.accent)
-                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(newSiteName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                            .uiAction("createNetwork")
+                            onOpenUpgrade()
                         }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 14, weight: .bold))
+                            Text(canAddNetwork ? "Add a network" : "Add a network (Multi-Site)")
+                                .font(.system(size: 13.5, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(palette.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
                     }
-                    .padding(12)
-                    .background(palette.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+                    .buttonStyle(.plain)
+                    .uiAction("openSetupNetworkModal")
                 }
                 .padding(14)
             }
             .background(palette.bg.ignoresSafeArea())
-            .navigationTitle("Network Sites")
+            .navigationTitle("Networks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -153,8 +215,83 @@ public struct SetupNetworkModalView: View {
                 }
             }
         }
-        .uiComponent("SetupNetworkModal")
-        .uiComponent("NetworkPickerModal")
+    }
+
+    private var setupNetworkContent: some View {
+        let trimmedName = newSiteName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    SegmentedTabRow(
+                        options: ["New", "Join"],
+                        selectedIndex: setupFlowIndex,
+                        onSelect: { setupFlowIndex = $0 },
+                        palette: palette,
+                        actionName: "switchSetupFlow"
+                    )
+
+                    if setupFlowIndex == 0 {
+                        Text("Create a new isolated site or installation profile for your hardware rack.")
+                            .font(.system(size: 12.5))
+                            .foregroundColor(palette.textMuted)
+                            .lineSpacing(3)
+
+                        TuesdayTextField(
+                            text: $newSiteName,
+                            label: "Network Name",
+                            placeholder: "e.g. Vacation Cabin, Office Rack",
+                            palette: palette
+                        )
+
+                        Button(action: {
+                            guard !trimmedName.isEmpty else { return }
+                            onCreateNetwork(trimmedName)
+                            newSiteName = ""
+                            showSetupModal = false
+                            onDismiss()
+                        }) {
+                            Text("Create Network & Join")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(trimmedName.isEmpty ? palette.borderStrong : palette.accent)
+                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(trimmedName.isEmpty)
+                    } else {
+                        VStack(spacing: 8) {
+                            Text("Family & Team Delegation")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                            Text("Joining existing networks via QR code invitation or pairing tokens is coming soon in M4 (Family Delegation Networks).")
+                                .font(.system(size: 12))
+                                .foregroundColor(palette.textMuted)
+                                .lineSpacing(3)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity)
+                        .background(palette.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
+                                .stroke(palette.border, lineWidth: 1)
+                        )
+                    }
+                }
+                .padding(14)
+            }
+            .background(palette.bg.ignoresSafeArea())
+            .navigationTitle("Setup a network")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Back") { showSetupModal = false }
+                        .foregroundColor(palette.accentText)
+                }
+            }
+        }
     }
 }
 
@@ -179,76 +316,95 @@ public struct Tier1UpgradeModalView: View {
                 .ignoresSafeArea()
                 .onTapGesture(perform: onDismiss)
 
-            TuesdayModalCard(
-                palette: palette,
-                title: "Tuesday.sh Pro Tier 1",
-                subtitle: "Unlimited physical sites, family site delegation, and priority multi-site cloud backup sync.",
-                borderColor: palette.accent.opacity(0.5),
-                componentName: "Tier1UpgradeModal",
-                closeActionName: "closeTier1UpgradeModal",
-                onDismiss: onDismiss,
-                leading: {
-                    MondayBadgeMark(palette: palette)
-                },
-                content: {
-                    PlanOfferSelector(
-                        plans: storeKitManager.plans,
-                        selectedProductId: storeKitManager.selectedProductId,
-                        palette: palette,
-                        onSelectPlan: { storeKitManager.selectPlan($0) }
-                    )
-
-                    Button(action: {
-                        Task {
-                            let ok = await storeKitManager.purchase(productId: storeKitManager.selectedProductId)
-                            if ok { onDismiss() }
+            VStack(spacing: 0) {
+                TuesdayModalCard(
+                    palette: palette,
+                    title: "Tuesday.sh Pro Tier 1",
+                    subtitle: "Free accounts include 1 primary network and 1 demo sandbox. Upgrade to Pro Tier 1 to unlock unlimited network locations, Family Site Management, and live cloud sync.",
+                    borderColor: palette.accent.opacity(0.6),
+                    componentName: "TuesdayModalCard",
+                    closeActionName: "closeTier1UpgradeModal",
+                    onDismiss: onDismiss,
+                    leading: {
+                        MondayBadgeMark(palette: palette)
+                    },
+                    headerTrailing: {
+                        MonospaceBadge(text: "MULTI-SITE", color: palette.accentText)
+                    },
+                    content: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("✓ Unlimited physical sites & remote locations")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(palette.textPrimary)
+                            Text("✓ Family & Team Site Delegation (QR & invite pairing)")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(palette.textPrimary)
+                            Text("✓ Live cross-site security bulletins & cloud sync")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(palette.textPrimary)
                         }
-                    }) {
-                        HStack {
-                            if storeKitManager.isPurchasing {
-                                ProgressView().tint(.white)
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(palette.elevated)
+                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
+                                .stroke(palette.border, lineWidth: 1)
+                        )
+                        .uiSlot("tier1-upgrade-card")
+
+                        PlanOfferSelector(
+                            plans: storeKitManager.plans,
+                            selectedProductId: storeKitManager.selectedProductId,
+                            palette: palette,
+                            onSelectPlan: { storeKitManager.selectPlan($0) }
+                        )
+
+                        Button(action: {
+                            Task {
+                                let ok = await storeKitManager.purchase(productId: storeKitManager.selectedProductId)
+                                if ok { onDismiss() }
                             }
-                            Text(storeKitManager.isPurchasing ? "Confirming in App Store..." : "Subscribe Now")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(.white)
+                        }) {
+                            HStack {
+                                if storeKitManager.isPurchasing {
+                                    ProgressView().tint(.white)
+                                }
+                                Text(storeKitManager.isPurchasing ? "Confirming in App Store..." : "Upgrade & Continue")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 46)
+                            .background(palette.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                         }
-                        .frame(maxWidth: .infinity, minHeight: 46)
-                        .background(palette.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(storeKitManager.isPurchasing || storeKitManager.isRestoring)
-                    .uiAction("confirmTier1Upgrade")
+                        .buttonStyle(.plain)
+                        .disabled(storeKitManager.isPurchasing || storeKitManager.isRestoring)
+                        .uiAction("confirmTier1Upgrade")
 
-                    Button(action: {
-                        Task { await storeKitManager.restorePurchases() }
-                    }) {
-                        Text(storeKitManager.isRestoring ? "Restoring..." : "Restore Purchases")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(palette.accentText)
-                            .frame(maxWidth: .infinity, minHeight: 36)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(storeKitManager.isPurchasing || storeKitManager.isRestoring)
-                    .uiAction("restorePurchases")
+                        Button(action: {
+                            Task { await storeKitManager.restorePurchases() }
+                        }) {
+                            Text(storeKitManager.isRestoring ? "Restoring..." : "Restore Purchases")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(palette.accentText)
+                                .frame(maxWidth: .infinity, minHeight: 36)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(storeKitManager.isPurchasing || storeKitManager.isRestoring)
+                        .uiAction("restorePurchases")
 
-                    if let status = storeKitManager.statusMessage, !status.isEmpty {
-                        Text(status)
-                            .font(.system(size: 11.5, design: .monospaced))
-                            .foregroundColor(palette.textPrimary)
-                    }
+                        if let status = storeKitManager.statusMessage, !status.isEmpty {
+                            Text(status)
+                                .font(.system(size: 11.5, design: .monospaced))
+                                .foregroundColor(palette.textPrimary)
+                        }
 
-                    SubscriptionLegalDisclosure(palette: palette)
-                }
-            )
-            .uiSlot("tier1-upgrade-card")
-            .uiComponent("Tier1UpgradeModal")
-            .overlay(alignment: .topTrailing) {
-                Button("") { onDismiss() }
-                    .frame(width: 0, height: 0)
-                    .hidden()
-                    .uiAction("closeTier1UpgradeModal")
+                        SubscriptionLegalDisclosure(palette: palette)
+                    }
+                )
             }
+            .uiComponent("Tier1UpgradeModal")
         }
     }
 }

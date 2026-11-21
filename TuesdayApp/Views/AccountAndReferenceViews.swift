@@ -115,13 +115,15 @@ public struct AccountSettingsView: View {
 
                     SurfaceListDivider(palette: palette)
 
+                    let reminderKeys = ["high_severity_alerts", "monthly_rhythm", "quarterly_checkup", "routine_firmware", "lifecycle_eol"]
+                    let activeReminders = reminderKeys.filter { repository.reminderPreference(for: $0) }.count
                     TuesdayListRow(
                         palette: palette,
                         title: "Patch Tuesday Reminders",
                         onClick: { activeModal = .reminders },
                         leading: { Image(systemName: "bell.badge.fill").foregroundColor(palette.accentText) },
                         subtitle: {
-                            Text(repository.remindersEnabled ? "Monthly reminder ON (2nd Tuesday 10:00 AM)" : "Monthly reminders paused")
+                            Text("\(activeReminders) of 5 active • \(repository.remindersEnabled ? "Monthly 2nd Tuesday ON" : "Monthly paused")")
                                 .font(.system(size: 12))
                                 .foregroundColor(palette.textMuted)
                         }
@@ -328,8 +330,21 @@ public struct AccountSettingsView: View {
                         onDismiss: { activeModal = nil },
                         content: {
                             PreferenceToggleRow(
-                                title: "Monthly Patch Tuesday Alert",
-                                description: "2nd Tuesday at 10:00 AM local reminder.",
+                                title: "High Severity Alerts (CVEs & Recalls)",
+                                description: "Critical vulnerabilities, active CISA KEV disclosures, and physical recalls. (If disabled, alerts still display in app without ringing push notifications).",
+                                isOn: Binding(
+                                    get: { repository.reminderPreference(for: "high_severity_alerts") },
+                                    set: { repository.setReminderPreference(for: "high_severity_alerts", enabled: $0) }
+                                ),
+                                palette: palette,
+                                badgeText: "IN-APP ALWAYS",
+                                badgeColor: TuesdayTheme.ledCveRed,
+                                actionName: "toggleCriticalReminders"
+                            )
+                            SurfaceListDivider(palette: palette)
+                            PreferenceToggleRow(
+                                title: "Monthly Patch Tuesday Readiness",
+                                description: "Prep checklists and release day drop digests scheduled for the second Tuesday of each month.",
                                 isOn: Binding(
                                     get: { repository.remindersEnabled },
                                     set: { newVal in
@@ -343,19 +358,38 @@ public struct AccountSettingsView: View {
                                 palette: palette,
                                 actionName: "toggleMonthlyReminders"
                             )
-                            .uiAction("toggleMonthlyReminders")
                             SurfaceListDivider(palette: palette)
                             PreferenceToggleRow(
-                                title: "CISA KEV & Recall Alerts",
-                                description: "Critical safety notices always remain visible in Bulletins.",
+                                title: "Quarterly Physical Audit & Checkup",
+                                description: "Quarterly reminders to inspect physical patch cabling, port labels, and admin credential hygiene.",
                                 isOn: Binding(
-                                    get: { repository.reminderPreference(for: "critical_cves") },
-                                    set: { repository.setReminderPreference(for: "critical_cves", enabled: $0) }
+                                    get: { repository.reminderPreference(for: "quarterly_checkup") },
+                                    set: { repository.setReminderPreference(for: "quarterly_checkup", enabled: $0) }
                                 ),
                                 palette: palette,
-                                badgeText: "IN-APP ALWAYS",
-                                badgeColor: TuesdayTheme.ledCveRed,
-                                actionName: "toggleCriticalReminders"
+                                actionName: "toggleQuarterlyReminders"
+                            )
+                            SurfaceListDivider(palette: palette)
+                            PreferenceToggleRow(
+                                title: "Routine Firmware & Maintenance",
+                                description: "General manufacturer software improvements, minor patches, and feature updates.",
+                                isOn: Binding(
+                                    get: { repository.reminderPreference(for: "routine_firmware") },
+                                    set: { repository.setReminderPreference(for: "routine_firmware", enabled: $0) }
+                                ),
+                                palette: palette,
+                                actionName: "toggleRoutineReminders"
+                            )
+                            SurfaceListDivider(palette: palette)
+                            PreferenceToggleRow(
+                                title: "Lifespan & Hardware Retirement (EOL)",
+                                description: "Early warning notices before vendor security support and firmware patch commitments expire.",
+                                isOn: Binding(
+                                    get: { repository.reminderPreference(for: "lifecycle_eol") },
+                                    set: { repository.setReminderPreference(for: "lifecycle_eol", enabled: $0) }
+                                ),
+                                palette: palette,
+                                actionName: "toggleLifecycleReminders"
                             )
                         }
                     )
@@ -416,7 +450,6 @@ public struct AccountSettingsView: View {
                                     actionName: "toggleShowStateFilterStrip"
                                 )
                                 .uiSlot("pref-state-filter-row")
-                                .overlay { EmptyView().uiAction("toggleShowStateFilterStrip") }
 
                                 SurfaceListDivider(palette: palette)
 
@@ -431,7 +464,6 @@ public struct AccountSettingsView: View {
                                     actionName: "toggleShowZoneFilterStrip"
                                 )
                                 .uiSlot("pref-zone-filter-row")
-                                .overlay { EmptyView().uiAction("toggleShowZoneFilterStrip") }
                             }
                             .uiSlot("preferences-toggle-list")
                         }
@@ -455,7 +487,6 @@ public struct AccountSettingsView: View {
                                 palette: palette,
                                 actionName: "toggleDeveloperMode"
                             )
-                            .uiAction("toggleDeveloperMode")
 
                             if repository.isDeveloperMode {
                                 SurfaceListDivider(palette: palette)
@@ -471,7 +502,6 @@ public struct AccountSettingsView: View {
                                     actionName: "toggleVisionDebugMode"
                                 )
                                 .uiSlot("vision-debug-toggle-row")
-                                .overlay { EmptyView().uiAction("toggleVisionDebugMode") }
 
                                 PreferenceToggleRow(
                                     title: "Diagnostics Session Retention",
@@ -484,7 +514,6 @@ public struct AccountSettingsView: View {
                                     actionName: "toggleDiagnosticsMode"
                                 )
                                 .uiSlot("diagnostics-toggle-row")
-                                .overlay { EmptyView().uiAction("toggleDiagnosticsMode") }
 
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("TUESDAY API ENDPOINT TARGET")
@@ -666,21 +695,42 @@ public struct ReferenceGuideModalSheet: View {
 
     public var body: some View {
         let isStn = (flavor == .sureThingHome)
+        let osiLayers: [(String, String, String)] = [
+            ("LAYER 8", "The Human Layer (Users • Admins • Policy)", "Human approval workflows, advisory mute overrides, and quarterly audit accountability."),
+            ("LAYER 7", "Application (HTTP • DNS • RTSP • MQTT)", "Smart cameras (C5), IoT bridges (C6), Home Assistant, and application CVEs."),
+            ("LAYER 6", "Presentation (TLS/SSL • JSON • Encryption)", "Device TLS certificates and cryptographic firmware handshakes."),
+            ("LAYER 5", "Session (RPC • Sockets • WebRTC)", "Persistent camera streams and cloud telemetry tunnels."),
+            ("LAYER 4", "Transport (TCP • UDP • Port Numbers)", "Homelab servers (C4) listening on port daemons (443, 80, 53)."),
+            ("LAYER 3", "Network (IP Routing • Subnets • NAT)", "Core Gateways (C1: UDM-Pro / UXG) and VLAN routing boundaries."),
+            ("LAYER 2", "Data Link (MAC Frames • Switches • 802.1Q)", "Switch Backbone (C2) and the 16×8 LED matrix chassis (Ports 1–128)."),
+            ("LAYER 1", "Physical (Cat6 Copper • Fiber SFP+ • RF)", "Wireless Access Points (C3) and physical RJ45 switch jacks.")
+        ]
+
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    MonospaceBadge(text: "SURETHINGNET STANDARD", color: palette.accentText)
+                    HStack(spacing: 8) {
+                        MonospaceBadge(text: "REFERENCE GUIDE", color: palette.accentText)
+                        Text("SureThingNet Standard & Ordinal Spine")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(palette.textPrimary)
+                    }
 
-                    Text("SureThingNet Categories (Scale C1 → C8)")
-                        .font(.system(size: 17, weight: .heavy))
+                    Text("SureThingNet Standard Categories (Scale C)")
+                        .font(.system(size: 16, weight: .heavy))
                         .foregroundColor(palette.textPrimary)
+
+                    Text("The 8 semantic hardware categories (C1 → C8) that govern our faceplate port strip, inventory classification, and progressive disclosure model.")
+                        .font(.system(size: 12))
+                        .foregroundColor(palette.textMuted)
+                        .lineSpacing(3)
 
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
                         ForEach(StnHardwareCategory.allCases) { cat in
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack {
                                     Text(cat.displayLabel(isStn: isStn))
-                                        .font(.system(size: 12, weight: .bold))
+                                        .font(.system(size: 11.5, weight: .bold))
                                         .foregroundColor(palette.textPrimary)
                                     Spacer()
                                     MonospaceBadge(text: "\(cat.code)•\(cat.osiLayer)", color: palette.accentText, borderAlpha: 0)
@@ -689,47 +739,106 @@ public struct ReferenceGuideModalSheet: View {
                                     .font(.system(size: 11))
                                     .foregroundColor(palette.textMuted)
                                 Text(cat.examples)
-                                    .font(.system(size: 10.5, design: .monospaced))
+                                    .font(.system(size: 11, design: .monospaced))
                                     .foregroundColor(palette.accentText)
                             }
-                            .padding(10)
+                            .padding(9)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(palette.surface)
+                            .background(palette.elevated)
                             .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                             .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.border, lineWidth: 1))
                         }
                     }
 
+                    SurfaceListDivider(palette: palette)
+
+                    Text("📐 Industry-Standard Ordinal Scales (S0→S6 • Z0→Z5 • R1→R4)")
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundColor(palette.textPrimary)
+
                     ordinalScaleCard(
                         tag: "Scale S",
                         title: "The 7-Step Vertical Stack (S0 Space → S6 Apps)",
+                        description: "Orders device detail sheets and powers root-cause alert suppression: if S0 Power or S2 Switch Port fails, downstream S6 App alerts are suppressed.",
                         rows: [
-                            ("S0", "Room & Outlet — Where it lives & powers"),
-                            ("S1", "Hardware & Lifespan — Support & EOL tier"),
-                            ("S2", "Link & Speed — Upstream Ethernet / Wi-Fi"),
-                            ("S3", "Trust Lane — Z0–Z5 segmentation boundary"),
-                            ("S4", "Firmware — Bootloader & vendor OTA"),
-                            ("S5", "OS & Runtime — Host OS & containers"),
-                            ("S6", "Packages & PURLs — Exposed ports & CVEs")
+                            ("S0", "Rack, Room & Power", "Room & Outlet — Where it lives & powers"),
+                            ("S1", "Hardware & Lifespan", "Device & Warranty — Support & EOL tier"),
+                            ("S2", "Port, Speed & PoE", "Cable & Wi-Fi Signal — Upstream switch jack"),
+                            ("S3", "VLAN, IP & Firewall", "Network Lane — Trust ring & isolation"),
+                            ("S4", "Firmware", "Built-in Software — Bootloader & OTA"),
+                            ("S5", "OS, Kernel & Runtime", "System Software — Host OS & containers"),
+                            ("S6", "Packages & Services", "Apps & Features — Exposed ports & PURLs")
                         ]
                     )
 
                     ordinalScaleCard(
                         tag: "Scale Z",
-                        title: "Inside-Out Trust Rings (Z0 Core → Z4 Guest)",
-                        rows: TrustZone.allCases.map { ($0.code, "\(isStn ? $0.stnTitle : $0.displayTitle) (\($0.vlanHint))") }
+                        title: "The 6 Inside-Out Trust Rings (Z0 Core → Z5 Internet)",
+                        description: "Derived from CISA OT Asset Inventory & NSA Home Network Best Practices. Lower rings can initiate outward to higher rings, never backward.",
+                        rows: [
+                            ("Z0", "Core Gear (VLAN 1)", "Wi-Fi & Network Gear — Routers, switches, APs"),
+                            ("Z1", "Trusted (VLAN 10)", "Main Home Wi-Fi — Family laptops & phones"),
+                            ("Z2", "Homelab (VLAN 20)", "Home Storage & Media — TrueNAS, Unraid, PVE"),
+                            ("Z3", "Smart Home (VLAN 30)", "Smart Home Lane — TVs, cameras, IoT hubs"),
+                            ("Z4", "Guest (VLAN 99)", "Guest Wi-Fi — Client-isolated visitor access"),
+                            ("Z5", "Internet Uplink (WAN)", "Internet Doorway — Public ISP modem & WAN")
+                        ]
                     )
 
                     ordinalScaleCard(
                         tag: "Scale R",
-                        title: "4 Operational Rhythms (R1 Event → R4 Annual)",
+                        title: "The 4 Operational Rhythms (R1→R4)",
+                        description: "Structures notifications and maintenance habits aligned with NIST CM-8 and NIST CSF without ITIL overhead.",
                         rows: [
-                            ("R1", "New Device Intake & Tagging"),
-                            ("R2", "Monthly Patch Tuesday Readiness (2nd Tuesday)"),
-                            ("R3", "Seasonal Check-Up (90-day drift audit)"),
-                            ("R4", "Annual Hardware Lifespan Review")
+                            ("R1", "Plug & Tag (NIST CM-8)", "Name New Device — Instant on link-up"),
+                            ("R2", "Monthly Patch Tuesday Readiness", "Monthly CVE/KEV & Firmware Triage — 2nd Tuesday"),
+                            ("R3", "Seasonal Safety, Passwords & Drift Audit", "Seasonal Checkup — Every 90 days drift audit"),
+                            ("R4", "Annual Gear Review", "Yearly Lifespan Check — Warranty & EOL")
                         ]
                     )
+
+                    SurfaceListDivider(palette: palette)
+
+                    Text("🌐 The OSI 7+1 Layer Reference Model (L1–L8)")
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundColor(palette.textPrimary)
+
+                    ForEach(Array(osiLayers.enumerated()), id: \.offset) { idx, layer in
+                        let isHuman = (idx == 0)
+                        HStack(alignment: .top, spacing: 10) {
+                            MonospaceBadge(
+                                text: layer.0,
+                                color: isHuman ? TuesdayTheme.ledEolAmber : palette.accentText
+                            )
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(layer.1)
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(palette.textPrimary)
+                                Text(layer.2)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(palette.textMuted)
+                                    .lineSpacing(2)
+                            }
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(isHuman ? TuesdayTheme.ledEolAmber.opacity(0.1) : palette.elevated)
+                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                                .stroke(isHuman ? TuesdayTheme.ledEolAmber : palette.border, lineWidth: 1)
+                        )
+                    }
+
+                    Button(action: { dismiss() }) {
+                        Text("Done Reading")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity, minHeight: 42)
+                            .background(palette.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(14)
             }
@@ -747,29 +856,38 @@ public struct ReferenceGuideModalSheet: View {
         .uiComponent("ReferenceGuideModal")
     }
 
-    private func ordinalScaleCard(tag: String, title: String, rows: [(String, String)]) -> some View {
+    private func ordinalScaleCard(tag: String, title: String, description: String, rows: [(String, String, String)]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 MonospaceBadge(text: tag, color: palette.accentText)
                 Text(title)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(palette.textPrimary)
             }
-            ForEach(rows, id: \.0) { code, desc in
+            Text(description)
+                .font(.system(size: 11))
+                .foregroundColor(palette.textMuted)
+                .lineSpacing(2)
+            ForEach(rows, id: \.0) { code, pro, stn in
                 HStack(alignment: .top, spacing: 8) {
                     Text(code)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(palette.accentText)
                         .frame(width: 28, alignment: .leading)
-                    Text(desc)
-                        .font(.system(size: 12))
-                        .foregroundColor(palette.textMuted)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(pro)
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundColor(palette.textPrimary)
+                        Text(stn)
+                            .font(.system(size: 11))
+                            .foregroundColor(palette.textMuted)
+                    }
                 }
             }
         }
-        .padding(12)
+        .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(palette.surface)
+        .background(palette.elevated)
         .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
         .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
     }

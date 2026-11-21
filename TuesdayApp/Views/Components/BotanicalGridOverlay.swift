@@ -16,76 +16,78 @@ public struct BotanicalGridOverlay: View {
     public var body: some View {
         let fgColor = palette.textMuted
 
-        Group {
-            switch scaleTier {
-            case .DAY_ZERO:
-                ZStack {
+        return ZStack {
+            Group {
+                switch scaleTier {
+                case .DAY_ZERO:
+                    ZStack {
+                        VStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            PixelArtMountainHorizon(
+                                color: fgColor.opacity(palette.isStn ? 0.35 : 0.38)
+                            )
+                            .frame(height: 48)
+                        }
+
+                        Text("Inventory Empty")
+                            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                            .foregroundColor(palette.textMuted)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(palette.elevated)
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
+                                    .stroke(palette.border, lineWidth: 1)
+                            )
+                            .uiSlot("inventory-empty-pill")
+                    }
+
+                case .PEA:
                     VStack(spacing: 0) {
                         Spacer(minLength: 0)
-                        PixelArtMountainHorizon(
-                            color: fgColor.opacity(palette.isStn ? 0.35 : 0.38)
-                        )
-                        .frame(height: 48)
+                        PixelArtSprout(color: fgColor.opacity(0.85), size: 32)
+                            .padding(.bottom, 4)
                     }
+                    .frame(maxWidth: .infinity)
 
-                    Text("Inventory Empty")
-                        .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                        .foregroundColor(palette.textMuted)
-                        .lineLimit(1)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(palette.elevated)
-                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                                .stroke(palette.border, lineWidth: 1)
-                        )
-                        .uiSlot("inventory-empty-pill")
-                }
-
-            case .PEA:
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    PixelArtSprout(color: fgColor.opacity(0.85), size: 32)
-                        .padding(.bottom, 4)
-                }
-                .frame(maxWidth: .infinity)
-
-            case .GARDEN:
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    HStack(alignment: .bottom, spacing: 16) {
-                        PixelArtPineTree(color: fgColor.opacity(0.75), width: 24, height: 34)
-                        PixelArtPineTree(color: fgColor.opacity(0.75), width: 30, height: 42)
-                        PixelArtPineTree(color: fgColor.opacity(0.75), width: 20, height: 28)
-                    }
-                    .padding(.bottom, 2)
-                }
-                .frame(maxWidth: .infinity)
-
-            case .FOREST:
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    HStack(alignment: .bottom, spacing: 0) {
-                        ForEach(0..<9, id: \.self) { idx in
-                            let isTall = (idx % 2 == 0)
-                            Spacer(minLength: 0)
-                            PixelArtPineTree(
-                                color: fgColor.opacity(0.45),
-                                width: isTall ? 22 : 18,
-                                height: isTall ? 32 : 26
-                            )
-                            Spacer(minLength: 0)
+                case .GARDEN:
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        HStack(alignment: .bottom, spacing: 16) {
+                            PixelArtPineTree(color: fgColor.opacity(0.75), width: 24, height: 34)
+                            PixelArtPineTree(color: fgColor.opacity(0.75), width: 30, height: 42)
+                            PixelArtPineTree(color: fgColor.opacity(0.75), width: 20, height: 28)
                         }
+                        .padding(.bottom, 2)
                     }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
+                    .frame(maxWidth: .infinity)
+
+                case .FOREST:
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        HStack(alignment: .bottom, spacing: 0) {
+                            ForEach(0..<9, id: \.self) { idx in
+                                let isTall = (idx % 2 == 0)
+                                Spacer(minLength: 0)
+                                PixelArtPineTree(
+                                    color: fgColor.opacity(0.45),
+                                    width: isTall ? 22 : 18,
+                                    height: isTall ? 32 : 26
+                                )
+                                Spacer(minLength: 0)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
+            .uiSlot("botanical-overlay")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .allowsHitTesting(false)
-        .uiSlot("botanical-overlay")
         .uiComponent("BotanicalGridOverlay")
     }
 }
