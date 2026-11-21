@@ -191,6 +191,7 @@ public struct AccountSettingsView: View {
 
                 DiscordCommunityCard(palette: palette)
                 LegalAndSupportCard(palette: palette)
+                AppVersionFooter(palette: palette)
             }
             .padding(.horizontal, TuesdayDimens.screenPaddingHorizontal)
             .padding(.vertical, 12)
@@ -900,5 +901,26 @@ public struct ReferenceGuideModalSheet: View {
         .background(palette.elevated)
         .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
         .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+    }
+}
+
+private struct AppVersionFooter: View {
+    let palette: BrandPalette
+
+    private var versionString: String {
+        let marketingVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+        let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "10"
+        let appTitle = palette.isStn ? "SureThingNet" : "Tuesday.sh"
+        return "\(appTitle) v\(marketingVersion) (Build \(buildNumber))"
+    }
+
+    var body: some View {
+        Text(versionString)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundColor(palette.textMuted.opacity(0.75))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+            .uiSlot("app-version-footer")
     }
 }
