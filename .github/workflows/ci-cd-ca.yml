@@ -115,19 +115,42 @@ jobs:
         run: |
           xcodegen generate
 
-      - name: Archive TuesdayApp for iOS
+      - name: Archive TuesdayApp for iOS (Unsigned for Cloud Signing Export)
         run: |
           xcodebuild -project TuesdayApp.xcodeproj \
             -scheme TuesdayApp \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath build/TuesdayApp.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
             archive
 
-      - name: Upload Archive to TestFlight Internal via App Store Connect API
+      - name: Export & Upload to TestFlight Internal (Xcode Cloud Signing)
         run: |
-          xcrun altool --upload-app \
-            --type ios \
-            --file build/TuesdayApp.xcarchive \
-            --apiKey "V454WXMVT4" \
-            --apiIssuer "10598ce5-4223-4253-9a48-acd984ddf3e2"
+          mkdir -p build
+          cat > build/ExportOptions.plist <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store-connect</string>
+            <key>destination</key>
+            <string>upload</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>C64X2B2J54</string>
+            <key>manageAppVersionAndBuildNumber</key>
+            <false/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/TuesdayApp.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist build/ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/.appstoreconnect/private_keys/AuthKey_YNY9528L3L.p8" \
+            -authenticationKeyID "YNY9528L3L" \
+            -authenticationKeyIssuerID "10598ce5-4223-4253-9a48-acd984ddf3e2"
