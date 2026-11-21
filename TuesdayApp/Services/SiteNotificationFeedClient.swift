@@ -120,4 +120,27 @@ public final class SiteNotificationFeedClient {
         }
         return try JSONDecoder().decode(SiteNotificationUpdateResponse.self, from: data).notification
     }
+
+    /// Registers an iOS APNs device token with `POST /api/v1/notifications/register_token`.
+    public func registerDeviceToken(
+        apnsTokenHex: String,
+        deviceId: String,
+        appFlavor: String = "tuesday"
+    ) async {
+        let url = baseURL.appendingPathComponent("api/v1/notifications/register_token")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(deviceId, forHTTPHeaderField: "X-Tuesday-Device-ID")
+        request.setValue("ios", forHTTPHeaderField: "X-Tuesday-Client-Platform")
+
+        let payload: [String: Any] = [
+            "fcm_token": apnsTokenHex,
+            "platform": "ios",
+            "app_flavor": appFlavor,
+            "client_device_id": deviceId
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+        _ = try? await session.data(for: request)
+    }
 }
