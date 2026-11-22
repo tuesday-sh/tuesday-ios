@@ -169,9 +169,7 @@ public struct AddNodeView: View {
                         devControlsSection()
                     }
 
-                    if isAnalyzing {
-                        analyzingProgressCard()
-                    }
+                    // Search in progress is rendered inline via spinner inside the Search button (no extra callout card).
 
                     if let result = discoveryResult {
                         candidateResultsSection(result: result, isStn: isStn)
@@ -491,10 +489,15 @@ public struct AddNodeView: View {
                 Task { await runDeferredDiscoverySearch() }
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14, weight: .bold))
-                    Text(totalSignals > 0 ? "Search (\(totalSignals))" : "Search")
-                        .font(.system(size: 14, weight: .bold))
+                    if isAnalyzing {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14, weight: .bold))
+                        Text(totalSignals > 0 ? "Search (\(totalSignals))" : "Search")
+                            .font(.system(size: 14, weight: .bold))
+                    }
                 }
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity, minHeight: 42)
