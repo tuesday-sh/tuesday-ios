@@ -60,7 +60,11 @@ struct TuesdayApp: App {
                 await GoldClueSuggestionRepository.shared.refreshFromServerIfNeeded(
                     baseUrl: repository.tuesdayApiBaseUrl
                 )
-                if await notificationManager.requestAuthorizationIfNeeded() {
+                // Only register for remote notifications on cold launch if permission was ALREADY granted.
+                // Never fire the one-shot OS permission dialog before the Pre-Permission Primer.
+                await notificationManager.refreshAuthorizationStatus()
+                if notificationManager.authorizationStatus == .authorized ||
+                    notificationManager.authorizationStatus == .provisional {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
             }
