@@ -10,7 +10,7 @@ settings:
   base:
     SWIFT_VERSION: "5.10"
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "11"
+    CURRENT_PROJECT_VERSION: "12"
     DEVELOPMENT_TEAM: "C64X2B2J54"
     CODE_SIGN_STYLE: Automatic
 
@@ -48,12 +48,13 @@ targets:
               - tuesday
         NSCameraUsageDescription: "Tuesday.sh uses the camera to capture hardware device photos, barcodes, serial numbers, QR codes, and MAC labels for hardware discovery. Photos are processed ephemerally in memory and are never stored on Tuesday.sh servers."
         NSPhotoLibraryUsageDescription: "Tuesday.sh uses your photo library to analyze photos of routers, switches, and IoT devices for inventory discovery."
-        NSLocalNetworkUsageDescription: "Tuesday.sh connects to your Home Assistant HACS integration on your local Wi-Fi network."
+        NSLocalNetworkUsageDescription: "Tuesday.sh optionally connects to local network integrations on your Wi-Fi when configured."
         ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: sh.tuesday.pro
         INFOPLIST_FILE: TuesdayApp/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TuesdayApp/TuesdayApp.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
 

@@ -520,42 +520,42 @@ public struct HomeView: View {
 
             TuesdayModalCard(
                 palette: palette,
-                title: "Coming Soon",
-                subtitle: "Tuesday.sh (PRO) and SureThingNet (HOME) pair deep homelab telemetry with a calm household view so technical operators and families can share one inventory without the jargon.",
+                title: "Tuesday.sh Pro",
+                subtitle: "Tuesday.sh tracks hardware lifecycles, firmware advisories, and seasonal check-ups across your home and homelab networks.",
                 componentName: "ProComingSoonModal",
                 closeActionName: "closeProComingSoon",
                 onDismiss: { showingProComingSoonModal = false },
                 leading: { TuesdayCalendarHeartIcon(tint: palette.accent, size: 18) },
                 headerTrailing: {
-                    MonospaceBadge(text: "PRO ↔ HOME", color: palette.accent)
+                    MonospaceBadge(text: "PRO", color: palette.accent)
                 },
                 content: {
                     SurfaceListContainer(palette: palette) {
                         TuesdayListRow(
                             palette: palette,
-                            title: "SureThingNet (HOME) Companion View",
+                            title: "Plain-English Security & Recall Advisories",
                             subtitle: {
-                                Text("Translates technical CVEs and PURLs into plain-English CPSC Safety Recalls, End-of-Life (EOL) replacement alerts, and guided Seasonal Home Check-Ups.")
+                                Text("Tracks manufacturer and security researcher notices from global feeds and filters only the CVEs, firmware updates, recalls, and End-of-Life alerts that match your inventory.")
                                     .font(.system(size: 12))
                                     .foregroundColor(palette.textMuted)
                                     .lineSpacing(2)
                             },
                             trailing: {
-                                MonospaceBadge(text: "v1.2", color: palette.accent)
+                                MonospaceBadge(text: "LIVE", color: TuesdayTheme.ledOkGreen)
                             }
                         )
                         SurfaceListDivider(palette: palette)
                         TuesdayListRow(
                             palette: palette,
-                            title: "Household Sharing & Quiet Notifications",
+                            title: "Seasonal Check-Ups & Printable Summaries",
                             subtitle: {
-                                Text("Invite a partner or family member with a read-only household view so everyone knows when smart-home, kitchen, or nursery gear needs an update or recall check.")
+                                Text("Run guided seasonal check-ups and share a clean plain-text or printable network check-up report with a partner or household helper.")
                                     .font(.system(size: 12))
                                     .foregroundColor(palette.textMuted)
                                     .lineSpacing(2)
                             },
                             trailing: {
-                                MonospaceBadge(text: "SOON", color: palette.accent)
+                                MonospaceBadge(text: "LIVE", color: TuesdayTheme.ledOkGreen)
                             }
                         )
                         SurfaceListDivider(palette: palette)
@@ -573,7 +573,7 @@ public struct HomeView: View {
                                     .lineSpacing(2)
                             },
                             trailing: {
-                                MonospaceBadge(text: "LIVE", color: TuesdayTheme.ledOkGreen)
+                                MonospaceBadge(text: "PRO", color: palette.accent)
                             }
                         )
                     }

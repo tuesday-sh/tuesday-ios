@@ -261,10 +261,10 @@ public struct SetupNetworkModalView: View {
                         .disabled(trimmedName.isEmpty)
                     } else {
                         VStack(spacing: 8) {
-                            Text("Family & Team Delegation")
+                            Text("Import an Existing Network")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("Joining existing networks via QR code invitation or pairing tokens is coming soon in M4 (Family Delegation Networks).")
+                            Text("To load a network inventory exported from another device, open Account → Backup & Restore and import a saved JSON backup file.")
                                 .font(.system(size: 12))
                                 .foregroundColor(palette.textMuted)
                                 .lineSpacing(3)

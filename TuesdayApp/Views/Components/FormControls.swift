@@ -220,10 +220,28 @@ public struct SubscriptionLegalDisclosure: View {
     }
 
     public var body: some View {
-        Text("Subscriptions auto-renew via Apple App Store unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings → Apple Account → Subscriptions.")
-            .font(.system(size: 11))
-            .foregroundColor(palette.textMuted)
-            .lineSpacing(2)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Subscriptions auto-renew via Apple App Store unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings → Apple Account → Subscriptions.")
+                .font(.system(size: 11))
+                .foregroundColor(palette.textMuted)
+                .lineSpacing(2)
+
+            HStack(spacing: 12) {
+                if let termsUrl = URL(string: "https://tuesday.sh/terms") {
+                    Link("Terms of Use", destination: termsUrl)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(palette.accentText)
+                }
+                Text("•")
+                    .font(.system(size: 11))
+                    .foregroundColor(palette.textMuted)
+                if let privacyUrl = URL(string: "https://tuesday.sh/privacy") {
+                    Link("Privacy Policy", destination: privacyUrl)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(palette.accentText)
+                }
+            }
+        }
     }
 }
 

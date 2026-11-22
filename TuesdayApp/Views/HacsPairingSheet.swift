@@ -83,13 +83,13 @@ public struct HacsPairingSheet: View {
                     )
                     .uiSlot("hacs-bridge-header")
 
-                    // Deferred HACS Notice
+                    // Portable Local Backup Info
                     VStack(spacing: 6) {
-                        Text("Home Assistant sync coming soon.")
+                        Text("Portable JSON Inventory")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(palette.textPrimary)
                             .multilineTextAlignment(.center)
-                        Text("Native integration for Home Assistant and HACS is currently in development.")
+                        Text("Your network inventory is stored locally on this device. Export or restore a standard JSON backup below at any time.")
                             .font(.system(size: 12))
                             .foregroundColor(palette.textMuted)
                             .lineSpacing(3)
