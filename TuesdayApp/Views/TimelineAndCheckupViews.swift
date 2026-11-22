@@ -228,28 +228,9 @@ public struct SwimlaneTimelineView: View {
                             sectionSpacing: 10,
                             title: isStn ? "Device Lifespan & Supported Versions" : "Hardware Lifecycles",
                             showHeader: true,
-                            showHeaderTrailing: !sortedDevices.isEmpty,
+                            showHeaderTrailing: false,
                             showEmpty: true,
-                            headerTrailing: {
-                                if !sortedDevices.isEmpty {
-                                    Button(action: { showBatchAuditModal = true }) {
-                                        Text("Batch Check-In")
-                                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                            .foregroundColor(palette.accentText)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .frame(minHeight: 28)
-                                            .background(palette.accent.opacity(0.14))
-                                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                                                    .stroke(palette.accent, lineWidth: 1)
-                                            )
-                                    }
-                                    .buttonStyle(.plain)
-                                    .uiAction("openBatchAuditModal")
-                                }
-                            },
+                            headerTrailing: { EmptyView() },
                             itemContent: { pair in
                                 let dev = pair.0
                                 let candle = pair.1
