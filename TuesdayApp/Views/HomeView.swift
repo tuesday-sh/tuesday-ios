@@ -38,6 +38,8 @@ public struct HomeView: View {
     var notificationManager: TuesdayNotificationManager?
     var storeKitManager: TuesdayStoreKitManager?
     @Binding var pendingDeepLink: DeepLinkDestination?
+    @State private var showNotificationPrimer = false
+    @State private var primerDeviceName: String? = nil
 
     public init(
         repository: MockHacsTuesdayService,
@@ -133,6 +135,32 @@ public struct HomeView: View {
                     .background(palette.bg.ignoresSafeArea())
                 }
                 .tag(MainNavigationTab.status)
+                .onChange(of: visibleDevices.count) { oldCount, newCount in
+                    if oldCount == 0 && newCount > 0 && notificationManager?.authorizationStatus == .notDetermined {
+                        primerDeviceName = visibleDevices.first?.name
+                        showNotificationPrimer = true
+                    }
+                }
+                .sheet(isPresented: $showNotificationPrimer) {
+                    NotificationPrimerSheet(
+                        palette: palette,
+                        appName: isStn ? "SureThingNet" : "Tuesday.sh",
+                        deviceName: primerDeviceName,
+                        onEnableSelected: { _, patchTuesdayEnabled in
+                            showNotificationPrimer = false
+                            Task {
+                                if let mgr = notificationManager, await mgr.requestAuthorizationIfNeeded() {
+                                    await MainActor.run {
+                                        UIApplication.shared.registerForRemoteNotifications()
+                                        repository.setRemindersEnabled(patchTuesdayEnabled)
+                                    }
+                                }
+                            }
+                        },
+                        onDismiss: { showNotificationPrimer = false }
+                    )
+                    .presentationDetents([.medium, .large])
+                }
 
                 BulletinsView(
                     repository: repository,
