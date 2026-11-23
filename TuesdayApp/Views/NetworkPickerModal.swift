@@ -319,8 +319,8 @@ public struct Tier1UpgradeModalView: View {
             VStack(spacing: 0) {
                 TuesdayModalCard(
                     palette: palette,
-                    title: "Tuesday.sh Pro Tier 1",
-                    subtitle: "Free accounts include 1 primary network (up to 15 devices) and 1 demo sandbox. Upgrade to Pro Tier 1 for up to 128 devices per site and unlimited network locations.",
+                    title: "Tuesday.sh Pro — Founding Member",
+                    subtitle: "Built at SURF Incubator in Seattle. Free includes 1 primary site, 15 devices, and 15 AI photo scans. Lock in Founding Member pricing for the full Pro suite:",
                     borderColor: palette.accent.opacity(0.6),
                     componentName: "TuesdayModalCard",
                     closeActionName: "closeTier1UpgradeModal",
@@ -329,17 +329,20 @@ public struct Tier1UpgradeModalView: View {
                         MondayBadgeMark(palette: palette)
                     },
                     headerTrailing: {
-                        MonospaceBadge(text: "PRO TIER 1", color: palette.accentText)
+                        MonospaceBadge(text: "FOUNDING", color: palette.accentText)
                     },
                     content: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("✓ Up to 128 tracked devices per network site (15 on Free)")
+                            Text("✓ Up to 128 devices/site & unlimited network locations")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("✓ Unlimited physical network sites & remote locations")
+                            Text("✓ Unlimited AI photo hardware identification (15 free)")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("✓ Separate inventory & advisories for home, cabin, or lab")
+                            Text("✓ Printable PDF, CSV & Markdown rack dossier exports")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(palette.textPrimary)
+                            Text("✓ Multi-year EOL forecast, audit log & Ask Claude briefs")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
                         }
