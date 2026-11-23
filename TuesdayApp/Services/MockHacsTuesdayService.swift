@@ -73,6 +73,7 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
     @Published public private(set) var isSyncing: Bool = false
     @Published public var entitlementTier: String = "free"
     @Published public var activeSubscriptionSku: String = TuesdayStoreKitManager.skuProTier1Annual
+    @Published public var aiPhotoScansUsed: Int = 0
 
     @Published public var remindersEnabled: Bool = false
     @Published public var dispatchSubscribed: Bool = false
@@ -158,6 +159,7 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
         self.isDiagnosticsEnabled = defaults.bool(forKey: Keys.diagnostics)
         self.entitlementTier = defaults.string(forKey: Keys.entitlementTier) ?? "free"
         self.activeSubscriptionSku = defaults.string(forKey: Keys.subscriptionSku) ?? TuesdayStoreKitManager.skuProTier1Annual
+        self.aiPhotoScansUsed = defaults.integer(forKey: "tuesday_ios_ai_photo_scans_used_v1")
 
         self.remindersEnabled = defaults.bool(forKey: Keys.remindersEnabled)
         self.dispatchSubscribed = defaults.bool(forKey: Keys.dispatchSubscribed)
@@ -677,6 +679,11 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
     public func downgradeToFreeTier() {
         entitlementTier = "free"
         defaults.set("free", forKey: Keys.entitlementTier)
+    }
+
+    public func recordAiPhotoScanUsed() {
+        aiPhotoScansUsed += 1
+        defaults.set(aiPhotoScansUsed, forKey: "tuesday_ios_ai_photo_scans_used_v1")
     }
 
     public func reconcileWhenStoreHasNoActivePurchase() async {

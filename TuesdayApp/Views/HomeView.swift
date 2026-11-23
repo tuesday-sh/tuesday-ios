@@ -356,7 +356,11 @@ public struct HomeView: View {
                 initialSynthPreset: req.synth,
                 initialQuery: req.query,
                 initialCluesCsv: req.clues,
-                autoSearch: req.autoSearch
+                autoSearch: req.autoSearch,
+                onOpenUpgrade: {
+                    addDeviceRequest = nil
+                    showingTier1Upgrade = true
+                }
             )
         }
         .sheet(isPresented: $showingReferenceGuide) {

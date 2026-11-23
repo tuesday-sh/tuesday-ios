@@ -18,6 +18,7 @@ public struct AddNodeView: View {
     public var initialQuery: String? = nil
     public var initialCluesCsv: String? = nil
     public var autoSearch: Bool = false
+    public var onOpenUpgrade: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -52,7 +53,8 @@ public struct AddNodeView: View {
         initialSynthPreset: String? = nil,
         initialQuery: String? = nil,
         initialCluesCsv: String? = nil,
-        autoSearch: Bool = false
+        autoSearch: Bool = false,
+        onOpenUpgrade: @escaping () -> Void = {}
     ) {
         self.repository = repository
         self.palette = palette
@@ -61,6 +63,7 @@ public struct AddNodeView: View {
         self.initialQuery = initialQuery
         self.initialCluesCsv = initialCluesCsv
         self.autoSearch = autoSearch
+        self.onOpenUpgrade = onOpenUpgrade
     }
 
     public var body: some View {
@@ -241,8 +244,39 @@ public struct AddNodeView: View {
     @ViewBuilder
     private func photoModeControls(isStn: Bool) -> some View {
         let camDenied = (AVCaptureDevice.authorizationStatus(for: .video) == .denied)
+        let remainingScans = EntitlementGatePolicy.remainingFreeAiPhotoScans(
+            tier: repository.entitlementTier,
+            scansUsed: repository.aiPhotoScansUsed
+        )
 
         VStack(alignment: .leading, spacing: 8) {
+            if let remaining = remainingScans {
+                let isExhausted = remaining == 0
+                Button(action: {
+                    if isExhausted { onOpenUpgrade() }
+                }) {
+                    HStack {
+                        Text(
+                            isExhausted
+                                ? "⚡ 0 / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left — Upgrade to Pro"
+                                : "⚡ \(remaining) / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left (Clues & Barcode always free)"
+                        )
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundColor(isExhausted ? palette.accentText : palette.textMuted)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(isExhausted ? palette.accent.opacity(0.14) : palette.elevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isExhausted ? palette.accent.opacity(0.55) : palette.border, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
             HStack(spacing: 10) {
                 Button(action: {
                     if AVCaptureDevice.default(for: .video) != nil {
@@ -1230,6 +1264,18 @@ public struct AddNodeView: View {
             discoveryResult = localMatch
             debugLogs.append("[Gold 0-Turn] Resolved \(localMatch.candidates.first?.displayName ?? "SKU")")
             return
+        }
+
+        if !capturedImages.isEmpty {
+            if EntitlementGatePolicy.requiresUpgradeForAiPhotoScan(
+                tier: repository.entitlementTier,
+                scansUsed: repository.aiPhotoScansUsed
+            ) {
+                manualError = "You've used all \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans. Upgrade to Pro Tier 1 for unlimited AI photo identification — or use Barcode / Manual Clues free."
+                onOpenUpgrade()
+                return
+            }
+            repository.recordAiPhotoScanUsed()
         }
 
         let isElastix = (repository.hacsConfig.aiProvider == .elastix)
