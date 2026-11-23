@@ -1373,7 +1373,7 @@ public struct AddNodeView: View {
         dismiss()
     }
 
-    private func enrollRoughGuessedDevice(from result: DeviceDiscoveryResult) async {
+    private func enrollRoughGuessedDevice(from result: GeminiDiscoveryTurnResult) async {
         let topCandidate = result.candidates.first
         let fallbackManual = ManualEnrollmentResolver.resolve(
             manualHostname: manualDeviceName,

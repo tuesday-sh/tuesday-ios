@@ -329,6 +329,7 @@ public final class GoldClueIndexData {
         let normQ = Self.normalizeAlnum(trimmed)
         let selectedBrand = selected.last(where: { $0.kind == .brand })
         let selectedType = selected.last(where: { $0.kind == .deviceType })
+        let selectedIds = Set(selected.map(\.id))
 
         var results: [GoldClueItem] = []
         var seenIds = Set<String>()

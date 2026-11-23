@@ -138,13 +138,13 @@ public struct BulletinsView: View {
                                     }
                                     Text(notif.body)
                                         .font(.system(size: 12))
-                                        .foregroundColor(palette.textSecondary)
+                                        .foregroundColor(palette.textMuted)
                                     HStack(spacing: 8) {
                                         Button("Snooze") {
                                             handleServerNotificationAction(id: notif.id, action: "snoozed")
                                         }
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(palette.textSecondary)
+                                        .foregroundColor(palette.textMuted)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
                                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(palette.border, lineWidth: 1))
@@ -168,7 +168,7 @@ public struct BulletinsView: View {
                                     }
                                 }
                                 .padding(12)
-                                .background(palette.bgSurface)
+                                .background(palette.surface)
                                 .cornerRadius(12)
                                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.border, lineWidth: 1))
                             }
@@ -385,6 +385,9 @@ public struct BulletinsView: View {
         }
         .onAppear { handleInitialBulletinIfNeeded() }
         .onChange(of: initialBulletinId) { _, _ in handleInitialBulletinIfNeeded() }
+        .task {
+            await loadServerNotifications()
+        }
     }
 
     private func handleInitialBulletinIfNeeded() {
@@ -505,9 +508,6 @@ public struct BulletinsView: View {
                     showingPreferencesDialog = true
                 }
             )
-        }
-        .task {
-            await loadServerNotifications()
         }
     }
 
