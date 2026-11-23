@@ -184,9 +184,11 @@ public struct HomeView: View {
                     attestations: repository.attestations,
                     flavor: repository.brandFlavor,
                     palette: palette,
+                    entitlementTier: repository.entitlementTier,
                     initialModal: timelineInitialModal,
                     onConsumeInitialModal: { timelineInitialModal = nil },
                     onOpenReferenceGuide: { showingReferenceGuide = true },
+                    onOpenUpgrade: { showingTier1Upgrade = true },
                     onInspectDevice: { inspectedDevice = $0 },
                     onRecordAttestation: { devId, type, presence, date, notes in
                         repository.recordAttestation(
@@ -214,7 +216,9 @@ public struct HomeView: View {
                     flavor: repository.brandFlavor,
                     palette: palette,
                     welcomeComplete: repository.welcomeCompleted || repository.bulletinDismissed,
-                    onOpenReferenceGuide: { showingReferenceGuide = true }
+                    entitlementTier: repository.entitlementTier,
+                    onOpenReferenceGuide: { showingReferenceGuide = true },
+                    onOpenUpgrade: { showingTier1Upgrade = true }
                 )
                 .tag(MainNavigationTab.checkup)
 

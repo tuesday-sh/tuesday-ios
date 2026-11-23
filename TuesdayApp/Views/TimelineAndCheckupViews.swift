@@ -12,15 +12,17 @@ public struct SwimlaneTimelineView: View {
     public let attestations: [DeviceAttestation]
     public let flavor: AppBrandFlavor
     public let palette: BrandPalette
+    public var entitlementTier: String = "free"
     public var initialModal: String? = nil
     public var onConsumeInitialModal: () -> Void = {}
     public var onOpenReferenceGuide: () -> Void = {}
+    public var onOpenUpgrade: () -> Void = {}
     public let onInspectDevice: (RackPortDevice) -> Void
     public let onRecordAttestation: (String, AttestationType, DevicePresenceState, String, String?) -> Void
     public let onRecordBatchAttestation: ([String], String, String, String?) -> Void
 
     @State private var scrubberXNorm: Double = 0.72
-    @State private var zoomWidthPt: CGFloat? = nil
+    @State private var zoomWidthPt: CGFloat?
     @State private var selectedDeviceForAttestation: RackPortDevice? = nil
     @State private var showBatchAuditModal: Bool = false
 
@@ -29,9 +31,11 @@ public struct SwimlaneTimelineView: View {
         attestations: [DeviceAttestation] = [],
         flavor: AppBrandFlavor,
         palette: BrandPalette,
+        entitlementTier: String = "free",
         initialModal: String? = nil,
         onConsumeInitialModal: @escaping () -> Void = {},
         onOpenReferenceGuide: @escaping () -> Void = {},
+        onOpenUpgrade: @escaping () -> Void = {},
         onInspectDevice: @escaping (RackPortDevice) -> Void,
         onRecordAttestation: @escaping (String, AttestationType, DevicePresenceState, String, String?) -> Void = { _, _, _, _, _ in },
         onRecordBatchAttestation: @escaping ([String], String, String, String?) -> Void = { _, _, _, _ in }
@@ -40,12 +44,16 @@ public struct SwimlaneTimelineView: View {
         self.attestations = attestations
         self.flavor = flavor
         self.palette = palette
+        self.entitlementTier = entitlementTier
         self.initialModal = initialModal
         self.onConsumeInitialModal = onConsumeInitialModal
         self.onOpenReferenceGuide = onOpenReferenceGuide
+        self.onOpenUpgrade = onOpenUpgrade
         self.onInspectDevice = onInspectDevice
         self.onRecordAttestation = onRecordAttestation
         self.onRecordBatchAttestation = onRecordBatchAttestation
+        let isPro = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
+        _zoomWidthPt = State(initialValue: isPro ? nil : 560)
     }
 
     public var body: some View {
@@ -147,15 +155,21 @@ public struct SwimlaneTimelineView: View {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 6) {
+                                let isProTier1 = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
                                 HStack(spacing: 6) {
                                     ForEach([("All time", CGFloat?.none), ("1yr", CGFloat?(560)), ("6mo", CGFloat?(840))], id: \.0) { label, widthPt in
+                                        let isProLockedRange = (widthPt == nil && !isProTier1)
                                         SelectableFilterChip(
-                                            label: label,
+                                            label: isProLockedRange ? "⚡ \(label)" : label,
                                             selected: zoomWidthPt == widthPt,
                                             palette: palette,
                                             action: {
-                                                zoomWidthPt = widthPt
-                                                scrubberXNorm = 0.72
+                                                if isProLockedRange {
+                                                    onOpenUpgrade()
+                                                } else {
+                                                    zoomWidthPt = widthPt
+                                                    scrubberXNorm = 0.72
+                                                }
                                             }
                                         )
                                         .uiAction("setTimelineRange")
@@ -187,6 +201,40 @@ public struct SwimlaneTimelineView: View {
                                 }
                             }
                             .padding(.horizontal, 2)
+
+                            // Multi-Year EOL Replacement Forecast & Full Attestation Audit Banner (Pro Tier 1)
+                            let isProForForecast = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
+                            let eolForecastCount = candles.filter { $0.vendorEolNorm <= 0.85 || $0.deployEndNorm >= $0.vendorEolNorm }.count
+                            Button(action: {
+                                if !isProForForecast { onOpenUpgrade() }
+                            }) {
+                                HStack(spacing: 8) {
+                                    Text(
+                                        isProForForecast
+                                            ? "EOL Forecast: \(eolForecastCount) device\(eolForecastCount == 1 ? "" : "s") nearing/past EOL • \(attestations.count) audit log\(attestations.count == 1 ? "" : "s")"
+                                            : "⚡ Multi-Year EOL Forecast & Full Audit Log — Unlock with Pro Tier 1"
+                                    )
+                                    .font(.system(size: 11.5, weight: .semibold))
+                                    .foregroundColor(isProForForecast ? palette.textPrimary : palette.accentText)
+                                    .multilineTextAlignment(.leading)
+                                    Spacer()
+                                    if isProForForecast {
+                                        MonospaceBadge(
+                                            text: "PRO",
+                                            color: TuesdayTheme.ledColor(for: .ok, isStn: isStn)
+                                        )
+                                    }
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(isProForForecast ? palette.surface : palette.accent.opacity(0.10))
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isProForForecast ? palette.border : palette.accent.opacity(0.45), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
 
                             // 6-State Visual Grammar Legend
                             VStack(alignment: .leading, spacing: 4) {
@@ -1013,7 +1061,9 @@ public struct SeasonalCheckupView: View {
     public let flavor: AppBrandFlavor
     public let palette: BrandPalette
     public var welcomeComplete: Bool = false
+    public var entitlementTier: String = "free"
     public var onOpenReferenceGuide: () -> Void = {}
+    public var onOpenUpgrade: () -> Void = {}
 
     @Environment(\.openURL) private var openURL
 
@@ -1023,14 +1073,18 @@ public struct SeasonalCheckupView: View {
         flavor: AppBrandFlavor,
         palette: BrandPalette,
         welcomeComplete: Bool = false,
-        onOpenReferenceGuide: @escaping () -> Void = {}
+        entitlementTier: String = "free",
+        onOpenReferenceGuide: @escaping () -> Void = {},
+        onOpenUpgrade: @escaping () -> Void = {}
     ) {
         self.devices = devices
         self.bulletins = bulletins
         self.flavor = flavor
         self.palette = palette
         self.welcomeComplete = welcomeComplete
+        self.entitlementTier = entitlementTier
         self.onOpenReferenceGuide = onOpenReferenceGuide
+        self.onOpenUpgrade = onOpenUpgrade
     }
 
     private func accentColorForRhythm(_ id: String, isStn: Bool) -> Color {
@@ -1075,9 +1129,15 @@ public struct SeasonalCheckupView: View {
 
                         Spacer()
 
+                        let isProTier1 = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
                         HStack(spacing: 6) {
                             Button(action: {
-                                let prompt = "I am reviewing my network check-up:\n\n" + shareReport
+                                if !isProTier1 {
+                                    onOpenUpgrade()
+                                    return
+                                }
+                                let fleetList = devices.prefix(30).map { "- \($0.name) (\($0.category.code), \($0.version), \($0.portState.rawValue.uppercased()))" }.joined(separator: "\n")
+                                let prompt = "I am reviewing my Tuesday.sh Pro network check-up (\(devices.count) devices):\n\n" + shareReport + (fleetList.isEmpty ? "" : "\n\nTracked Fleet:\n\(fleetList)")
                                 var allowed = CharacterSet.urlQueryAllowed
                                 allowed.remove(charactersIn: "&+=#")
                                 let encoded = prompt.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
@@ -1085,7 +1145,7 @@ public struct SeasonalCheckupView: View {
                                     openURL(url)
                                 }
                             }) {
-                                Text("✦ Ask Claude")
+                                Text(isProTier1 ? "✦ Ask Claude" : "✦ Ask Claude • PRO")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(amberColor)
                                     .padding(.horizontal, 8)
