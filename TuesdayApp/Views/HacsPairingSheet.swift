@@ -18,6 +18,23 @@ public struct InventoryJsonDocument: FileDocument {
     }
 }
 
+public struct DossierExportDocument: FileDocument {
+    public static var readableContentTypes: [UTType] { [.pdf, .commaSeparatedText, .plainText] }
+    public var data: Data
+
+    public init(data: Data = Data()) {
+        self.data = data
+    }
+
+    public init(configuration: ReadConfiguration) throws {
+        self.data = configuration.file.regularFileContents ?? Data()
+    }
+
+    public func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
+    }
+}
+
 public struct HacsPairingSheet: View {
     @ObservedObject public var repository: MockHacsTuesdayService
     public let palette: BrandPalette
@@ -28,6 +45,10 @@ public struct HacsPairingSheet: View {
     @State private var showingExporter = false
     @State private var showingImporter = false
     @State private var exportDocument = InventoryJsonDocument()
+    @State private var showingDossierExporter = false
+    @State private var dossierDocument = DossierExportDocument()
+    @State private var dossierContentType: UTType = .pdf
+    @State private var dossierDefaultFilename: String = "tuesday_dossier.pdf"
     @State private var backupStatusMessage: String? = nil
     @State private var isSuccessStatus: Bool = true
     @State private var familyInviteFeedback: String? = nil
@@ -194,6 +215,102 @@ public struct HacsPairingSheet: View {
                                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                                 .foregroundColor(isSuccessStatus ? okGreen : TuesdayTheme.ledColor(for: .cveKev, isStn: palette.isStn))
                         }
+
+                        Divider().overlay(palette.border.opacity(0.6))
+
+                        HStack {
+                            Text("Home & Rack Dossier Exports")
+                                .font(.system(size: 12.5, weight: .bold))
+                                .foregroundColor(palette.textPrimary)
+                            Spacer()
+                            MonospaceBadge(
+                                text: isProTier1 ? "PRO • UNLOCKED" : "PRO TIER 1",
+                                color: isProTier1 ? okGreen : palette.accentText
+                            )
+                        }
+
+                        Text("Export a printable insurance/disaster-recovery PDF, spreadsheet CSV, or Markdown rack spec sheet.")
+                            .font(.system(size: 11.5))
+                            .foregroundColor(palette.textMuted)
+                            .lineSpacing(2)
+
+                        let safeSlug = activeNetworkName.lowercased()
+                            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                            .filter { !$0.isEmpty }
+                            .joined(separator: "_")
+                        let slugPrefix = safeSlug.isEmpty ? "network" : safeSlug
+
+                        HStack(spacing: 6) {
+                            Button(action: {
+                                if isProTier1 {
+                                    dossierDocument = DossierExportDocument(
+                                        data: RackDossierExporter.renderPdfData(siteName: activeNetworkName, devices: repository.visibleRackDevices)
+                                    )
+                                    dossierContentType = .pdf
+                                    dossierDefaultFilename = "tuesday_dossier_\(slugPrefix).pdf"
+                                    showingDossierExporter = true
+                                } else {
+                                    onDismiss()
+                                    onOpenUpgrade()
+                                }
+                            }) {
+                                Text(isProTier1 ? "PDF" : "⚡ PDF")
+                                    .font(.system(size: 11.5, weight: .bold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .frame(maxWidth: .infinity, minHeight: 34)
+                                    .background(palette.elevated)
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.borderStrong, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("exportDossierPdf")
+
+                            Button(action: {
+                                if isProTier1 {
+                                    let csv = RackDossierExporter.formatCsv(siteName: activeNetworkName, devices: repository.visibleRackDevices)
+                                    dossierDocument = DossierExportDocument(data: Data(csv.utf8))
+                                    dossierContentType = .commaSeparatedText
+                                    dossierDefaultFilename = "tuesday_dossier_\(slugPrefix).csv"
+                                    showingDossierExporter = true
+                                } else {
+                                    onDismiss()
+                                    onOpenUpgrade()
+                                }
+                            }) {
+                                Text(isProTier1 ? "CSV" : "⚡ CSV")
+                                    .font(.system(size: 11.5, weight: .bold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .frame(maxWidth: .infinity, minHeight: 34)
+                                    .background(palette.elevated)
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.borderStrong, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("exportDossierCsv")
+
+                            Button(action: {
+                                if isProTier1 {
+                                    let md = RackDossierExporter.formatMarkdown(siteName: activeNetworkName, devices: repository.visibleRackDevices)
+                                    dossierDocument = DossierExportDocument(data: Data(md.utf8))
+                                    dossierContentType = .plainText
+                                    dossierDefaultFilename = "tuesday_dossier_\(slugPrefix).md"
+                                    showingDossierExporter = true
+                                } else {
+                                    onDismiss()
+                                    onOpenUpgrade()
+                                }
+                            }) {
+                                Text(isProTier1 ? "Markdown" : "⚡ MD")
+                                    .font(.system(size: 11.5, weight: .bold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .frame(maxWidth: .infinity, minHeight: 34)
+                                    .background(palette.elevated)
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                                    .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl).stroke(palette.borderStrong, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("exportDossierMarkdown")
+                        }
                     }
                     .padding(16)
                     .background(palette.surface)
@@ -304,6 +421,21 @@ public struct HacsPairingSheet: View {
                     isSuccessStatus = true
                 case .failure(let error):
                     backupStatusMessage = "Export failed: \(error.localizedDescription)"
+                    isSuccessStatus = false
+                }
+            }
+            .fileExporter(
+                isPresented: $showingDossierExporter,
+                document: dossierDocument,
+                contentType: dossierContentType,
+                defaultFilename: dossierDefaultFilename
+            ) { result in
+                switch result {
+                case .success:
+                    backupStatusMessage = "Dossier exported successfully!"
+                    isSuccessStatus = true
+                case .failure(let error):
+                    backupStatusMessage = "Dossier export failed: \(error.localizedDescription)"
                     isSuccessStatus = false
                 }
             }
