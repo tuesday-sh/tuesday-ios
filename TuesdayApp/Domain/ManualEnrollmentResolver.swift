@@ -20,9 +20,10 @@ public struct ResolvedManualEnrollment: Equatable {
 }
 
 public enum ManualEnrollmentResolver {
-    /// Resolves manual hardware enrollment metadata from selected Gold Catalog clues,
-    /// scanned/OCR identifiers, and optional user-typed hostname.
-    /// Returns `nil` if neither a hostname nor a Gold Model clue is present.
+    /// Resolves manual or rough/progressive hardware enrollment metadata from selected Gold Catalog
+    /// clues, custom clues, scanned/OCR identifiers, and optional user-typed hostname.
+    /// Accepts any minimal signal (Type only, Brand + Type, Custom clue, or Name) and marks
+    /// non-SKU entries as `.incompleteOrGuessed` so R1/R3/R4 check-ups can refine them later.
     public static func resolve(
         manualHostname: String,
         selectedClues: [GoldClueItem],
@@ -31,10 +32,29 @@ public enum ManualEnrollmentResolver {
         let matchedModelClue = selectedClues.last(where: { $0.kind == .model })
         let matchedBrandClue = selectedClues.last(where: { !($0.vendor ?? "").isEmpty })
         let matchedTypeClue = selectedClues.last(where: { $0.kind == .deviceType })
+        let matchedCustomClue = selectedClues.last(where: { $0.kind == .freeText })
 
         let trimmedHost = manualHostname.trimmingCharacters(in: .whitespacesAndNewlines)
-        let resolvedName = trimmedHost.isEmpty ? (matchedModelClue?.chipLabel ?? "") : trimmedHost
-        guard !resolvedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let brandLabel = (matchedBrandClue?.vendor ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let typeLabel = (matchedTypeClue?.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let customLabel = (matchedCustomClue?.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallbackIdLabel = accumulatedIdentifiers.modelNumber?.nilIfBlank
+            ?? accumulatedIdentifiers.barcode?.nilIfBlank
+            ?? accumulatedIdentifiers.macAddress?.nilIfBlank
+            ?? ""
+
+        let synthesizedName: String = {
+            if !trimmedHost.isEmpty { return trimmedHost }
+            if let modelLabel = matchedModelClue?.chipLabel.nilIfBlank { return modelLabel }
+            if !brandLabel.isEmpty && !typeLabel.isEmpty { return "\(brandLabel) \(typeLabel)" }
+            if !typeLabel.isEmpty { return typeLabel }
+            if !brandLabel.isEmpty { return "\(brandLabel) Device" }
+            if !customLabel.isEmpty { return customLabel }
+            return fallbackIdLabel
+        }()
+
+        let resolvedName = synthesizedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !resolvedName.isEmpty else {
             return nil
         }
 
@@ -44,6 +64,7 @@ public enum ManualEnrollmentResolver {
         let model = matchedModelClue?.model
             ?? accumulatedIdentifiers.modelNumber?.nilIfBlank
             ?? matchedTypeClue?.title
+            ?? matchedCustomClue?.title
             ?? resolvedName
         let mac = selectedClues.last(where: { !($0.macAddress ?? "").isEmpty })?.macAddress
             ?? accumulatedIdentifiers.macAddress?.nilIfBlank

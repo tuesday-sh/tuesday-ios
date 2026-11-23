@@ -833,6 +833,25 @@ public struct AddNodeView: View {
                         }
                         .uiComponent("CandidateResultsList")
                     }
+
+                    // Progressive Discovery Escape Hatch: allow saving rough/guessed hardware even if exact model isn't listed
+                    Button(action: {
+                        Task { await enrollRoughGuessedDevice(from: result) }
+                    }) {
+                        Text("Not listed or not sure? Save as Rough Device")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundColor(palette.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .background(palette.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(palette.borderStrong, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSaving)
+                    .uiAction("saveRoughGuessedDevice")
                 }
                 .uiSlot("ai-discovery-panel")
             }
@@ -1290,7 +1309,7 @@ public struct AddNodeView: View {
             selectedClues: effectiveClues,
             accumulatedIdentifiers: accumulatedIdentifiers
         ) else {
-            manualError = "Enter a Device Name or pick a SureThingNet Insights Model clue."
+            manualError = "Enter a name or pick any device type, brand, or rough clue — you can refine details later."
             return
         }
 
@@ -1304,6 +1323,40 @@ public struct AddNodeView: View {
             agentToken: "manual-local",
             inventoryState: resolved.inventoryState,
             discoveredMetadata: resolved.metadata
+        )
+        dismiss()
+    }
+
+    private func enrollRoughGuessedDevice(from result: DeviceDiscoveryResult) async {
+        let topCandidate = result.candidates.first
+        let fallbackManual = ManualEnrollmentResolver.resolve(
+            manualHostname: manualDeviceName,
+            selectedClues: selectedClues,
+            accumulatedIdentifiers: accumulatedIdentifiers
+        )
+        let roughHostname = fallbackManual?.hostname
+            ?? topCandidate.map { "\($0.manufacturer) \($0.deviceCategory ?? "Device")".trimmingCharacters(in: .whitespacesAndNewlines) }
+            ?? "Unidentified Device"
+        let roughMetadata = fallbackManual?.metadata ?? DiscoveredDeviceMetadata(
+            manufacturer: topCandidate?.manufacturer ?? "Manual",
+            modelNumber: topCandidate?.deviceCategory ?? roughHostname,
+            deviceCategory: topCandidate?.deviceCategory,
+            serialNumber: accumulatedIdentifiers.serialNumber,
+            macAddress: accumulatedIdentifiers.macAddress,
+            barcodeOrQr: accumulatedIdentifiers.barcode
+        )
+        let roughSummary = fallbackManual?.osSummary ?? "Rough Entry • Refine via Check-Up"
+
+        isSaving = true
+        defer { isSaving = false }
+
+        await repository.enrollNode(
+            hostname: roughHostname,
+            osDetails: roughSummary,
+            packageManager: .firmware,
+            agentToken: "rough-discovery",
+            inventoryState: .incompleteOrGuessed,
+            discoveredMetadata: roughMetadata
         )
         dismiss()
     }

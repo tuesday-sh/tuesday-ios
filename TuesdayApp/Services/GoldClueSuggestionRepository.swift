@@ -447,6 +447,21 @@ public final class GoldClueIndexData {
             if results.count >= limit { break }
         }
 
+        // Always allow adding a free-form custom clue if not an exact Gold catalog match
+        let exactMatchExists = results.contains {
+            $0.title.caseInsensitiveCompare(trimmed) == .orderedSame ||
+            $0.chipLabel.caseInsensitiveCompare(trimmed) == .orderedSame
+        }
+        if !exactMatchExists && trimmed.count >= 2 {
+            let customItem = classifyFreeTextClue(trimmed)
+            if !selectedIds.contains(customItem.id) {
+                if results.count >= limit {
+                    results.removeLast()
+                }
+                results.append(customItem)
+            }
+        }
+
         return Array(results.prefix(limit))
     }
 
