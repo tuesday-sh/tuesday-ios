@@ -149,34 +149,6 @@ public struct SetupNetworkModalView: View {
                                 .buttonStyle(.plain)
                                 .uiAction("selectNetwork")
                             }
-                        } else {
-                            // Empty switcher placeholder only when single-site; keep interactive selectNetwork bound to active row
-                            Button(action: {
-                                if let activeSite {
-                                    onSelectNetwork(activeSite.id)
-                                }
-                                onDismiss()
-                            }) {
-                                HStack {
-                                    Text(activeSite?.name ?? "My Network")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(palette.textPrimary)
-                                    Spacer()
-                                    Text("Active Site")
-                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                        .foregroundColor(TuesdayTheme.ledOkGreen)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .background(palette.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
-                                        .stroke(palette.border, lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .uiAction("selectNetwork")
                         }
                     }
                     .uiSlot("available-networks-list")

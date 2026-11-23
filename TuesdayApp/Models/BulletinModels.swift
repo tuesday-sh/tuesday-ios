@@ -519,7 +519,6 @@ public struct OperationalCandle: Identifiable, Equatable {
 
 public enum ApiEndpointPreset: String, CaseIterable, Identifiable {
     case prodGcp = "https://api.tuesday.sh"
-    case tailscaleMac = "http://100.108.40.3:3000"
     case localDev = "http://127.0.0.1:3000"
 
     public var id: String { rawValue }
@@ -529,7 +528,6 @@ public enum ApiEndpointPreset: String, CaseIterable, Identifiable {
     public var shortBadge: String {
         switch self {
         case .prodGcp: return "☁️ PROD GCP"
-        case .tailscaleMac: return "🦊 TAILSCALE"
         case .localDev: return "💻 LOCAL"
         }
     }

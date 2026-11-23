@@ -475,17 +475,11 @@ public final class GoldClueIndexData {
         let selectedBrand = selected.last(where: { $0.kind == .brand })
 
         if selectedType == nil && selectedBrand == nil {
-            let priorityTypeIds = ["router", "ap", "switch", "nas", "camera", "doorbell", "printer", "modem", "thermostat", "ups"]
-            var ordered: [GoldTypeEntry] = []
-            for id in priorityTypeIds {
-                if let match = types.first(where: { $0.id == id }) {
-                    ordered.append(match)
-                }
-            }
-            for t in types where !ordered.contains(where: { $0.id == t.id }) {
-                ordered.append(t)
-            }
-            return ordered.prefix(limit).map(typeClue(from:))
+            return types
+                .map(typeClue(from:))
+                .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+                .prefix(limit)
+                .map { $0 }
         }
 
         if let selectedType, selectedBrand == nil {
@@ -495,13 +489,9 @@ public final class GoldClueIndexData {
                 vendorCounts[m.vendor, default: 0] += 1
             }
             let sortedBrands = brands.filter { (vendorCounts[$0.name] ?? 0) > 0 }
-                .sorted { lhs, rhs in
-                    let lc = vendorCounts[lhs.name] ?? 0
-                    let rc = vendorCounts[rhs.name] ?? 0
-                    if lc != rc { return lc > rc }
-                    return lhs.rank < rhs.rank
-                }
-            return sortedBrands.prefix(limit).map(brandClue(from:))
+                .map(brandClue(from:))
+                .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            return Array(sortedBrands.prefix(limit))
         }
 
         if let selectedBrand, let vendor = selectedBrand.vendor {
@@ -517,7 +507,11 @@ public final class GoldClueIndexData {
                 return true
             }
             let pool = filtered.isEmpty ? vendorModels : filtered
-            return pool.prefix(limit).map(modelClue(from:))
+            return Array(
+                pool.map(modelClue(from:))
+                    .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+                    .prefix(limit)
+            )
         }
 
         return []

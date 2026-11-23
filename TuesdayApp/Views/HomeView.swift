@@ -73,6 +73,7 @@ public struct HomeView: View {
     @State private var showingNetworkPicker = false
     @State private var showingTier1Upgrade = false
     @State private var showingReferenceGuide = false
+    @State private var settingsExpandFeeds = false
     @State private var showingProComingSoonModal = false
     @State private var timelineInitialModal: String? = nil
 
@@ -169,7 +170,10 @@ public struct HomeView: View {
                     notificationManager: notificationManager ?? .shared,
                     onTapAddDevice: { openAddDeviceWizard() },
                     onTapReferenceGuide: { showingReferenceGuide = true },
-                    onOpenFeedsSettings: { activeTab = .account },
+                    onOpenFeedsSettings: {
+                        settingsExpandFeeds = true
+                        activeTab = .account
+                    },
                     onInspectDevice: { targetId in
                         if let dev = visibleDevices.first(where: { $0.id == targetId }) ?? visibleDevices.first {
                             inspectedDevice = dev
@@ -229,6 +233,7 @@ public struct HomeView: View {
                     palette: palette,
                     initialExpandNetwork: settingsExpandNetwork,
                     initialExpandPlan: settingsExpandPlan,
+                    initialExpandFeeds: settingsExpandFeeds,
                     onOpenReferenceGuide: { showingReferenceGuide = true },
                     onOpenUpgradeModal: { showingTier1Upgrade = true },
                     onSwitchToFleetTab: { activeTab = .status }
@@ -323,6 +328,11 @@ public struct HomeView: View {
                 onApplyPatch: {
                     repository.markDeviceRemediated(id: dev.id)
                     inspectedDevice = nil
+                },
+                onOpenFeedsSettings: {
+                    inspectedDevice = nil
+                    settingsExpandFeeds = true
+                    activeTab = .account
                 }
             )
         }

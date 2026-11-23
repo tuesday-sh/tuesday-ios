@@ -174,6 +174,15 @@ public struct SwimlaneTimelineView: View {
                                         )
                                         .uiAction("setTimelineRange")
                                     }
+                                    SelectableFilterChip(
+                                        label: "Today",
+                                        selected: scrubberXNorm >= 0.98,
+                                        palette: palette,
+                                        action: {
+                                            scrubberXNorm = 1.0
+                                        }
+                                    )
+                                    .uiAction("snapTimelineToday")
                                 }
                                 .uiSlot("timeline-range-strip")
 

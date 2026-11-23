@@ -1255,6 +1255,12 @@ public struct AddNodeView: View {
             clueQuery = ""
         }
 
+        if capturedImages.isEmpty && selectedClues.isEmpty && scannedBarcodesList.isEmpty && manualDeviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            manualError = "Snap a photo, scan a barcode, or add a hardware clue before searching."
+            return
+        }
+        manualError = nil
+
         if capturedImages.isEmpty,
            let localMatch = GoldClueSuggestionRepository.shared.resolveLocalDiscoveryResult(
                selected: selectedClues,

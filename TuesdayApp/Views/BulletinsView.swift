@@ -4,6 +4,7 @@ private enum ExpandedBulletinModal {
     case inbox(BulletinInboxView, isCompleted: Bool)
     case welcome(isCompleted: Bool)
     case feed(MatchedFeedView)
+    case reminder(SiteNotificationItem)
 }
 
 /// Flow-wrapping row layout for multi-candidate hardware disambiguation chips.
@@ -124,53 +125,21 @@ public struct BulletinsView: View {
                     if !activeServerNotifs.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             SectionHeading(text: "Active Notifications & Reminders", palette: palette)
-                            ForEach(activeServerNotifs) { notif in
-                                VStack(alignment: .leading, spacing: 6) {
-                                    HStack(alignment: .top) {
-                                        Text(notif.title)
-                                            .font(.system(size: 13.5, weight: .bold))
-                                            .foregroundColor(palette.textPrimary)
-                                            .lineLimit(2)
-                                        Spacer()
-                                        Text(notif.surfaces.joined(separator: " · ").uppercased())
-                                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                            .foregroundColor(palette.accent)
-                                    }
-                                    Text(notif.body)
-                                        .font(.system(size: 12))
-                                        .foregroundColor(palette.textMuted)
-                                    HStack(spacing: 8) {
-                                        Button("Snooze") {
-                                            handleServerNotificationAction(id: notif.id, action: "snoozed")
-                                        }
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(palette.textMuted)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(palette.border, lineWidth: 1))
-
-                                        Button("Complete") {
-                                            handleServerNotificationAction(id: notif.id, action: "completed")
-                                        }
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundColor(palette.accent)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(palette.accent, lineWidth: 1))
-
-                                        Button("Dismiss") {
-                                            handleServerNotificationAction(id: notif.id, action: "dismissed")
-                                        }
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(palette.textMuted)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
+                            SurfaceListContainer(palette: palette) {
+                                ForEach(activeServerNotifs) { notif in
+                                    if notif.id != activeServerNotifs.first?.id { SurfaceListDivider(palette: palette) }
+                                    StatusListRow(
+                                        palette: palette,
+                                        dotColor: palette.accent,
+                                        title: notif.title,
+                                        onClick: { expandedModal = .reminder(notif) }
+                                    ) {
+                                        Text(notif.body)
+                                            .font(.system(size: 11.5))
+                                            .foregroundColor(palette.textMuted)
+                                            .lineLimit(1)
                                     }
                                 }
-                                .padding(12)
-                                .background(palette.surface)
-                                .cornerRadius(12)
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.border, lineWidth: 1))
                             }
                         }
                     }
@@ -358,6 +327,30 @@ public struct BulletinsView: View {
                                 onRejectModel: {
                                     expandedModal = nil
                                     repository.rejectProvisionalDeviceModel()
+                                }
+                            )
+
+                        case .reminder(let notif):
+                            NotchBulletinCard(
+                                palette: palette,
+                                title: notif.title,
+                                description: notif.body,
+                                leftNotchLabel: "REMINDER",
+                                leftNotchDotColor: palette.accent,
+                                rightNotchLabel: "ACTION",
+                                onRightNotchClick: {},
+                                steps: [],
+                                allStepsDone: false,
+                                primaryActionLabel: "Snooze",
+                                completeActionLabel: "Snooze",
+                                secondaryActionLabel: "Complete",
+                                onPrimaryAction: {
+                                    expandedModal = nil
+                                    handleServerNotificationAction(id: notif.id, action: "snoozed")
+                                },
+                                onSecondaryAction: {
+                                    expandedModal = nil
+                                    handleServerNotificationAction(id: notif.id, action: "completed")
                                 }
                             )
                         }
