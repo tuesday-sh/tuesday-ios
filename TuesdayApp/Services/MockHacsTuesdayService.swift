@@ -81,8 +81,8 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
     @Published public var bulletinSnoozed: Bool = false
     @Published public var bulletinMuted: Bool = false
     @Published public var welcomeCompleted: Bool = false
-    @Published public var showStateFilterStrip: Bool = true
-    @Published public var showZoneFilterStrip: Bool = true
+    @Published public var showStateFilterStrip: Bool = false
+    @Published public var showZoneFilterStrip: Bool = false
 
     private let defaults: UserDefaults
 
@@ -167,8 +167,8 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
         self.bulletinSnoozed = defaults.bool(forKey: Keys.bulletinSnoozed)
         self.bulletinMuted = defaults.bool(forKey: Keys.bulletinMuted)
         self.welcomeCompleted = defaults.bool(forKey: Keys.welcomeCompleted)
-        self.showStateFilterStrip = defaults.object(forKey: Keys.showStateStrip) as? Bool ?? true
-        self.showZoneFilterStrip = defaults.object(forKey: Keys.showZoneStrip) as? Bool ?? true
+        self.showStateFilterStrip = defaults.object(forKey: Keys.showStateStrip) as? Bool ?? false
+        self.showZoneFilterStrip = defaults.object(forKey: Keys.showZoneStrip) as? Bool ?? false
 
         let storedCount = defaults.object(forKey: Keys.activeCount) as? Int ?? rackDevices.count
         self.activeDeviceCount = min(storedCount, rackDevices.count)
@@ -807,8 +807,8 @@ public final class MockHacsTuesdayService: TuesdayRepositoryProtocol, Observable
         bulletinSnoozed = false
         bulletinMuted = false
         welcomeCompleted = false
-        showStateFilterStrip = true
-        showZoneFilterStrip = true
+        showStateFilterStrip = false
+        showZoneFilterStrip = false
         savedCorpusCount = 0
         hacsConfig = HacsConnectionConfig()
     }

@@ -254,7 +254,7 @@ public struct HacsPairingSheet: View {
                                     onOpenUpgrade()
                                 }
                             }) {
-                                Text(isProTier1 ? "PDF" : "⚡ PDF")
+                                Text("PDF")
                                     .font(.system(size: 11.5, weight: .bold))
                                     .foregroundColor(palette.textPrimary)
                                     .frame(maxWidth: .infinity, minHeight: 34)
@@ -277,7 +277,7 @@ public struct HacsPairingSheet: View {
                                     onOpenUpgrade()
                                 }
                             }) {
-                                Text(isProTier1 ? "CSV" : "⚡ CSV")
+                                Text("CSV")
                                     .font(.system(size: 11.5, weight: .bold))
                                     .foregroundColor(palette.textPrimary)
                                     .frame(maxWidth: .infinity, minHeight: 34)
@@ -300,7 +300,7 @@ public struct HacsPairingSheet: View {
                                     onOpenUpgrade()
                                 }
                             }) {
-                                Text(isProTier1 ? "Markdown" : "⚡ MD")
+                                Text(isProTier1 ? "Markdown" : "MD")
                                     .font(.system(size: 11.5, weight: .bold))
                                     .foregroundColor(palette.textPrimary)
                                     .frame(maxWidth: .infinity, minHeight: 34)
@@ -367,7 +367,7 @@ public struct HacsPairingSheet: View {
                                 onDismiss()
                                 onOpenUpgrade()
                             }) {
-                                Text("⚡ Unlock with Pro Tier 1")
+                                Text("Unlock with Tier 1")
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity, minHeight: 40)

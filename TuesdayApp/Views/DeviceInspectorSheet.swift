@@ -147,10 +147,10 @@ public struct DeviceInspectorSheet: View {
                     }
                     .uiSlot("device-details-stack")
 
-                    if device.portState != .ok && device.portState != .unassigned {
+                    if device.portState != .ok && device.portState != .unassigned && !matchingBulletins.isEmpty {
                         VStack(spacing: 0) {
                             Button(action: onApplyPatch) {
-                                Text(isStn ? "✓ Mark Remediation Complete (Set Device OK)" : "✓ Mark Remediation Complete (Set Port OK)")
+                                Text("✓ Mark Remediation Complete")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(isStn ? .white : .black)
                                     .frame(maxWidth: .infinity, minHeight: 44)

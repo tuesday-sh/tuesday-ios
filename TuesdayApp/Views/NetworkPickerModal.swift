@@ -320,16 +320,13 @@ public struct Tier1UpgradeModalView: View {
                 TuesdayModalCard(
                     palette: palette,
                     title: "Tuesday.sh Pro — Founding Member",
-                    subtitle: "Built at SURF Incubator in Seattle. Free includes 1 primary site, 15 devices, and 15 AI photo scans. Lock in Founding Member pricing for the full Pro suite:",
+                    subtitle: "Built at SURF Incubator in Seattle. Free includes 1 primary site, 15 devices, and 15 AI photo scans. Lock in Founding Member pricing for the full Tier 1 suite:",
                     borderColor: palette.accent.opacity(0.6),
                     componentName: "TuesdayModalCard",
                     closeActionName: "closeTier1UpgradeModal",
                     onDismiss: onDismiss,
                     leading: {
                         MondayBadgeMark(palette: palette)
-                    },
-                    headerTrailing: {
-                        MonospaceBadge(text: "FOUNDING", color: palette.accentText)
                     },
                     content: {
                         VStack(alignment: .leading, spacing: 6) {

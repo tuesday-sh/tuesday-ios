@@ -302,7 +302,7 @@ public final class GoldClueIndexData {
 
     public func classifyFreeTextClue(_ rawQuery: String) -> GoldClueItem {
         let trimmed = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let firstHit = querySuggestions(rawQuery: trimmed, selected: [], limit: 1).first,
+        if let firstHit = querySuggestions(rawQuery: trimmed, selected: [], limit: 1, includeCustomFallback: false).first,
            firstHit.chipLabel.caseInsensitiveCompare(trimmed) == .orderedSame {
             return firstHit
         }
@@ -318,7 +318,8 @@ public final class GoldClueIndexData {
     public func querySuggestions(
         rawQuery: String,
         selected: [GoldClueItem] = [],
-        limit: Int = 18
+        limit: Int = 18,
+        includeCustomFallback: Bool = true
     ) -> [GoldClueItem] {
         let trimmed = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -453,7 +454,7 @@ public final class GoldClueIndexData {
             $0.title.caseInsensitiveCompare(trimmed) == .orderedSame ||
             $0.chipLabel.caseInsensitiveCompare(trimmed) == .orderedSame
         }
-        if !exactMatchExists && trimmed.count >= 2 {
+        if includeCustomFallback && !exactMatchExists && trimmed.count >= 2 {
             let customItem = classifyFreeTextClue(trimmed)
             if !selectedIds.contains(customItem.id) {
                 if results.count >= limit {

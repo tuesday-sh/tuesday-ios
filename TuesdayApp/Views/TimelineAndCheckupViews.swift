@@ -160,7 +160,7 @@ public struct SwimlaneTimelineView: View {
                                     ForEach([("All time", CGFloat?.none), ("1yr", CGFloat?(560)), ("6mo", CGFloat?(840))], id: \.0) { label, widthPt in
                                         let isProLockedRange = (widthPt == nil && !isProTier1)
                                         SelectableFilterChip(
-                                            label: isProLockedRange ? "⚡ \(label)" : label,
+                                            label: label,
                                             selected: zoomWidthPt == widthPt,
                                             palette: palette,
                                             action: {
@@ -202,62 +202,39 @@ public struct SwimlaneTimelineView: View {
                             }
                             .padding(.horizontal, 2)
 
-                            // Multi-Year EOL Replacement Forecast & Full Attestation Audit Banner (Pro Tier 1)
-                            let isProForForecast = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
-                            let eolForecastCount = candles.filter { $0.vendorEolNorm <= 0.85 || $0.deployEndNorm >= $0.vendorEolNorm }.count
+                            // 6-State Visual Grammar Legend + Clickable Reports CTA (Feedback #20)
                             Button(action: {
-                                if !isProForForecast { onOpenUpgrade() }
+                                onOpenUpgrade()
                             }) {
-                                HStack(spacing: 8) {
-                                    Text(
-                                        isProForForecast
-                                            ? "EOL Forecast: \(eolForecastCount) device\(eolForecastCount == 1 ? "" : "s") nearing/past EOL • \(attestations.count) audit log\(attestations.count == 1 ? "" : "s")"
-                                            : "⚡ Multi-Year EOL Forecast & Full Audit Log — Unlock with Pro Tier 1"
-                                    )
-                                    .font(.system(size: 11.5, weight: .semibold))
-                                    .foregroundColor(isProForForecast ? palette.textPrimary : palette.accentText)
-                                    .multilineTextAlignment(.leading)
-                                    Spacer()
-                                    if isProForForecast {
-                                        MonospaceBadge(
-                                            text: "PRO",
-                                            color: TuesdayTheme.ledColor(for: .ok, isStn: isStn)
-                                        )
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Legend:")
+                                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                            .foregroundColor(palette.accentText)
+                                        Spacer()
+                                        Text("Reports →")
+                                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                                            .foregroundColor(palette.accentText)
+                                    }
+
+                                    HStack(spacing: 8) {
+                                        legendSwatch(fill: okColor, border: nil, label: "Solid: Active", labelColor: palette.textMuted)
+                                        legendSwatch(fill: nil, border: retiredColor, label: "Hollow: Retired", labelColor: palette.textMuted)
+                                        legendSwatch(fill: nil, border: lostColor, label: "Dashed: Lost", labelColor: lostColor)
+                                    }
+
+                                    HStack(spacing: 8) {
+                                        legendSwatch(fill: defectColor, border: nil, label: "Slash: Defect", labelColor: defectColor)
+                                        legendSwatch(fill: eolColor, border: nil, label: "Amber: EOL Nears", labelColor: palette.textMuted)
+                                        legendSwatch(fill: overhangColor, border: nil, label: "Hatched: Past EOL", labelColor: cveColor)
                                     }
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
-                                .background(isProForForecast ? palette.surface : palette.accent.opacity(0.10))
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(isProForForecast ? palette.border : palette.accent.opacity(0.45), lineWidth: 1)
-                                )
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(palette.elevated)
                             }
                             .buttonStyle(.plain)
-
-                            // 6-State Visual Grammar Legend
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Legend:")
-                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                    .foregroundColor(palette.accentText)
-
-                                HStack(spacing: 8) {
-                                    legendSwatch(fill: okColor, border: nil, label: "Solid: Active", labelColor: palette.textMuted)
-                                    legendSwatch(fill: nil, border: retiredColor, label: "Hollow: Retired", labelColor: palette.textMuted)
-                                    legendSwatch(fill: nil, border: lostColor, label: "Dashed: Lost", labelColor: lostColor)
-                                }
-
-                                HStack(spacing: 8) {
-                                    legendSwatch(fill: defectColor, border: nil, label: "Slash: Defect", labelColor: defectColor)
-                                    legendSwatch(fill: eolColor, border: nil, label: "Amber: EOL Nears", labelColor: palette.textMuted)
-                                    legendSwatch(fill: overhangColor, border: nil, label: "Hatched: Past EOL", labelColor: cveColor)
-                                }
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(palette.elevated)
                             .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
                             .overlay(
                                 RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
@@ -1145,7 +1122,7 @@ public struct SeasonalCheckupView: View {
                                     openURL(url)
                                 }
                             }) {
-                                Text(isProTier1 ? "✦ Ask Claude" : "✦ Ask Claude • PRO")
+                                Text("✦ Ask Claude")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(amberColor)
                                     .padding(.horizontal, 8)

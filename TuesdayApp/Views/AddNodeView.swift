@@ -253,13 +253,13 @@ public struct AddNodeView: View {
             if let remaining = remainingScans {
                 let isExhausted = remaining == 0
                 Button(action: {
-                    if isExhausted { onOpenUpgrade() }
+                    onOpenUpgrade()
                 }) {
                     HStack {
                         Text(
                             isExhausted
-                                ? "⚡ 0 / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left — Upgrade to Pro"
-                                : "⚡ \(remaining) / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left (Clues & Barcode always free)"
+                                ? "0 / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left — Upgrade to Tier 1"
+                                : "\(remaining) / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left (Clues & Barcode always free)"
                         )
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundColor(isExhausted ? palette.accentText : palette.textMuted)

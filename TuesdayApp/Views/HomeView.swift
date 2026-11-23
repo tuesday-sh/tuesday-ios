@@ -24,10 +24,10 @@ public enum MainNavigationTab: String, CaseIterable, Identifiable {
     public var systemIcon: String {
         switch self {
         case .status: return "square.grid.2x2.fill"
-        case .bulletins: return "bell.badge.fill"
-        case .timeline: return "chart.bar.xaxis"
-        case .checkup: return "checkmark.shield.fill"
-        case .account: return "gearshape.fill"
+        case .bulletins: return "bell.fill"
+        case .timeline: return "chart.xyaxis.line"
+        case .checkup: return "checklist"
+        case .account: return "slider.horizontal.3"
         }
     }
 }
@@ -397,13 +397,20 @@ public struct HomeView: View {
                     .uiSlot("brand-title")
 
                 Button(action: { showingProComingSoonModal = true }) {
-                    Text(repository.brandFlavor.badge)
+                    let isTier1Badge = EntitlementGatePolicy.isProTier1Entitled(repository.entitlementTier)
+                    let tier1Gold = Color(red: 0.961, green: 0.620, blue: 0.043)
+                    let tier1Border = Color(red: 0.851, green: 0.467, blue: 0.024)
+                    Text(isTier1Badge ? "◆ \(repository.brandFlavor.badge)" : repository.brandFlavor.badge)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(palette.accentText)
+                        .foregroundColor(isTier1Badge ? tier1Gold : palette.accentText)
                         .padding(.horizontal, 9)
                         .frame(minHeight: 30)
-                        .background(palette.elevated)
+                        .background(isTier1Badge ? tier1Gold.opacity(0.16) : palette.elevated)
                         .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                                .stroke(isTier1Badge ? tier1Border : Color.clear, lineWidth: 1)
+                        )
                         .uiSlot("brand-badge")
                 }
                 .buttonStyle(.plain)
@@ -416,9 +423,6 @@ public struct HomeView: View {
             HStack(spacing: 6) {
                 Button(action: { showingNetworkPicker = true }) {
                     HStack(spacing: 6) {
-                        Circle()
-                            .fill(palette.textMuted.opacity(0.75))
-                            .frame(width: 6, height: 6)
                         Text(activeNetwork.name.isEmpty ? "My Network" : activeNetwork.name)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(palette.textPrimary)
@@ -436,7 +440,7 @@ public struct HomeView: View {
                 Button(action: { showingHacsSheet = true }) {
                     HStack(spacing: 5) {
                         Circle()
-                            .fill(repository.hacsConfig.isConnected ? TuesdayTheme.ledColor(for: .ok, isStn: isStn) : palette.textMuted)
+                            .stroke(palette.textMuted, lineWidth: 1.5)
                             .frame(width: 6, height: 6)
                         Image(systemName: "line.3.horizontal")
                             .font(.system(size: 14, weight: .semibold))
