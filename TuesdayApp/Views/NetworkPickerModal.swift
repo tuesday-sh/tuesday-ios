@@ -320,7 +320,7 @@ public struct Tier1UpgradeModalView: View {
                 TuesdayModalCard(
                     palette: palette,
                     title: "Tuesday.sh Pro Tier 1",
-                    subtitle: "Free accounts include 1 primary network and 1 demo sandbox. Upgrade to Pro Tier 1 to unlock unlimited network locations, Family Site Management, and live cloud sync.",
+                    subtitle: "Free accounts include 1 primary network (up to 15 devices) and 1 demo sandbox. Upgrade to Pro Tier 1 for up to 128 devices per site and unlimited network locations.",
                     borderColor: palette.accent.opacity(0.6),
                     componentName: "TuesdayModalCard",
                     closeActionName: "closeTier1UpgradeModal",
@@ -329,17 +329,17 @@ public struct Tier1UpgradeModalView: View {
                         MondayBadgeMark(palette: palette)
                     },
                     headerTrailing: {
-                        MonospaceBadge(text: "MULTI-SITE", color: palette.accentText)
+                        MonospaceBadge(text: "PRO TIER 1", color: palette.accentText)
                     },
                     content: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("✓ Unlimited physical sites & remote locations")
+                            Text("✓ Up to 128 tracked devices per network site (15 on Free)")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("✓ Family & Team Site Delegation (QR & invite pairing)")
+                            Text("✓ Unlimited physical network sites & remote locations")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("✓ Live cross-site security bulletins & cloud sync")
+                            Text("✓ Separate inventory & advisories for home, cabin, or lab")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
                         }

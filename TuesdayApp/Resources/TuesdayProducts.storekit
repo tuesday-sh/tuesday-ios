@@ -16,7 +16,7 @@
       "id" : "tuesday_pro_group",
       "localizations" : [
         {
-          "description" : "Unlock unlimited network sites, family delegation, and live cross-site cloud sync.",
+          "description" : "Unlock up to 128 tracked devices per site and unlimited network locations.",
           "displayName" : "Tuesday.sh Pro Tier 1",
           "locale" : "en_US"
         }
@@ -37,7 +37,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited physical sites, family site delegation, and live cloud sync.",
+              "description" : "Up to 128 devices per site and unlimited physical network locations.",
               "displayName" : "Pro Tier 1 Monthly",
               "locale" : "en_US"
             }

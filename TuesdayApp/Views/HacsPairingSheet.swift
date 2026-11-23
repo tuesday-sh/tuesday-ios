@@ -204,14 +204,14 @@ public struct HacsPairingSheet: View {
                     )
                     .uiSlot("local-backup-panel")
 
-                    // Family Site Delegation
+                    // Multi-Site & 128-Device Capacity
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             HStack(spacing: 8) {
                                 Image(systemName: "person.2.fill")
                                     .font(.system(size: 16, weight: .semibold))
                                     .foregroundColor(isProTier1 ? okGreen : palette.accent)
-                                Text("Family Site Management")
+                                Text("Multi-Site & 128-Device Capacity")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundColor(palette.textPrimary)
                             }
@@ -224,54 +224,27 @@ public struct HacsPairingSheet: View {
 
                         Text(
                             isProTier1
-                                ? "Included with your Pro Tier 1 entitlement. Manage multiple household or family locations, delegate co-admin access, and share pairing invites for '\(activeNetworkName.isEmpty ? "My Network" : activeNetworkName)'."
-                                : "Part of Tuesday.sh Pro Tier 1. Remotely monitor parents' or family members' home networks, manage unlimited sites, and share delegated pairing invites."
+                                ? "Included with your Pro Tier 1 entitlement. Track up to 128 devices per site and manage unlimited household, cabin, or homelab locations alongside '\(activeNetworkName.isEmpty ? "My Network" : activeNetworkName)'."
+                                : "Free accounts include 1 primary network and up to 15 devices. Upgrade to Pro Tier 1 to unlock up to 128 devices per site and unlimited network locations."
                         )
                         .font(.system(size: 12))
                         .foregroundColor(palette.textMuted)
                         .lineSpacing(3)
 
                         if isProTier1 {
-                            HStack(spacing: 8) {
-                                Button(action: {
-                                    let encoded = activeNetworkName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "My%20Network"
-                                    UIPasteboard.general.string = "tuesday://join-site?site=\(encoded)&code=FAM-2026"
-                                    familyInviteFeedback = "✓ Copied Family Pairing Invite link to clipboard"
-                                }) {
-                                    Text("Copy Family Invite")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(palette.textPrimary)
-                                        .frame(maxWidth: .infinity, minHeight: 38)
-                                        .background(palette.elevated)
-                                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
-                                                .stroke(palette.borderStrong, lineWidth: 1)
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                                .uiAction("copyFamilySiteInvite")
-
-                                Button(action: {
-                                    onDismiss()
-                                    onOpenNetworkPicker()
-                                }) {
-                                    Text("Manage Sites")
-                                        .font(.system(size: 12, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity, minHeight: 38)
-                                        .background(palette.accent)
-                                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
-                                }
-                                .buttonStyle(.plain)
-                                .uiAction("manageFamilySites")
+                            Button(action: {
+                                onDismiss()
+                                onOpenNetworkPicker()
+                            }) {
+                                Text("Manage Sites")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity, minHeight: 38)
+                                    .background(palette.accent)
+                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                             }
-
-                            if let feedback = familyInviteFeedback {
-                                Text(feedback)
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(okGreen)
-                            }
+                            .buttonStyle(.plain)
+                            .uiAction("manageFamilySites")
                         } else {
                             Button(action: {
                                 onDismiss()

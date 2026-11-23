@@ -106,7 +106,7 @@ public struct AccountSettingsView: View {
                         onClick: { activeModal = .plan },
                         leading: { Image(systemName: "crown.fill").foregroundColor(isPro ? TuesdayTheme.ledOkGreen : palette.accentText) },
                         subtitle: {
-                            Text(isPro ? "Pro Tier 1 Active (Unlimited Sites)" : "Free Tier • 1 Site Included")
+                            Text(isPro ? "Pro Tier 1 Active (128 Devices • Unlimited Sites)" : "Free Tier • 1 Site • Up to 15 Devices")
                                 .font(.system(size: 12))
                                 .foregroundColor(isPro ? TuesdayTheme.ledOkGreen : palette.textMuted)
                         }
@@ -251,7 +251,7 @@ public struct AccountSettingsView: View {
                     TuesdayModalCard(
                         palette: palette,
                         title: "Plan & Subscription",
-                        subtitle: isPro ? "Pro Tier 1 Unlocked" : "Upgrade for multi-site & family management",
+                        subtitle: isPro ? "Pro Tier 1 Unlocked (128 devices/site • unlimited sites)" : "Upgrade for up to 128 devices per site & unlimited network locations",
                         componentName: "PlanSettingsModal",
                         closeActionName: "closePlanModal",
                         onDismiss: { activeModal = nil },

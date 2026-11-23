@@ -567,7 +567,7 @@ public struct HomeView: View {
                                 showingNetworkPicker = true
                             },
                             subtitle: {
-                                Text("Free accounts include 1 primary network and 1 demo sandbox. Upgrade to Pro Tier 1 to unlock unlimited network locations and manage your primary rack alongside a parent's home or cabin Wi-Fi.")
+                                Text("Free accounts include 1 primary network (up to 15 devices) and 1 demo sandbox. Upgrade to Pro Tier 1 to track up to 128 devices per site and unlock unlimited network locations.")
                                     .font(.system(size: 12))
                                     .foregroundColor(palette.textMuted)
                                     .lineSpacing(2)
@@ -599,6 +599,14 @@ public struct HomeView: View {
         clues: String? = nil,
         autoSearch: Bool = false
     ) {
+        if EntitlementGatePolicy.requiresUpgradeForNewDevice(
+            tier: repository.entitlementTier,
+            activeNetworkId: repository.activeNetworkId,
+            currentDeviceCount: repository.visibleRackDevices.count
+        ) {
+            showingTier1Upgrade = true
+            return
+        }
         addDeviceRequest = AddDeviceSheetRequest(
             mode: mode,
             synth: synth,
