@@ -62,13 +62,17 @@ public struct AccountSettingsView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text(isStn ? "SETTINGS & ACCOUNT" : "WORKSPACE SETTINGS")
-                        .font(.system(size: 11.5, weight: .heavy, design: .monospaced))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Settings & Preferences")
+                        .font(.system(size: 16, weight: .heavy))
+                        .foregroundColor(palette.textPrimary)
+                    Text("Configure network profiles, alert reminder preferences, matched firmware feeds, and developer diagnostics.")
+                        .font(.system(size: 12))
                         .foregroundColor(palette.textMuted)
-                        .uiSlot("account-header")
-                    Spacer()
+                        .lineSpacing(2)
                 }
+                .padding(.vertical, 2)
+                .uiSlot("account-header")
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(activeSite?.name ?? "My Network")
@@ -85,10 +89,19 @@ public struct AccountSettingsView: View {
                 .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
                 .uiSlot("account-profile-summary")
 
+                let matchedFeeds = BulletinsAndInventoryEngine.assembleBulletins(
+                    flavor: repository.brandFlavor,
+                    devices: repository.visibleRackDevices,
+                    mutedFeedSlugs: repository.mutedFeedSlugs,
+                    completedBulletinIds: repository.completedBulletinIds
+                ).matchedFeeds
+                let activeFeedsCount = matchedFeeds.filter { !$0.isMuted }.count
+                let mutedFeedsCount = matchedFeeds.filter { $0.isMuted }.count
+
                 SurfaceListContainer(palette: palette) {
                     TuesdayListRow(
                         palette: palette,
-                        title: isStn ? "Home Network Site" : "Active Network Site",
+                        title: "Network",
                         onClick: {
                             draftNetworkName = activeSite?.name ?? "My Network"
                             activeModal = .network
@@ -105,9 +118,9 @@ public struct AccountSettingsView: View {
 
                     TuesdayListRow(
                         palette: palette,
-                        title: "Subscription & Plan",
+                        title: "Plan & Subscription",
                         onClick: { activeModal = .plan },
-                        leading: { Image(systemName: "crown.fill").foregroundColor(isPro ? TuesdayTheme.ledOkGreen : palette.accentText) },
+                        leading: { Image(systemName: "star.fill").foregroundColor(isPro ? TuesdayTheme.ledOkGreen : palette.accentText) },
                         subtitle: {
                             Text(isPro ? "Pro Tier 1 Active (128 Devices • Unlimited Sites)" : "Free Tier • 1 Site • Up to 15 Devices")
                                 .font(.system(size: 12))
@@ -122,11 +135,11 @@ public struct AccountSettingsView: View {
                     let activeReminders = reminderKeys.filter { repository.reminderPreference(for: $0) }.count
                     TuesdayListRow(
                         palette: palette,
-                        title: "Patch Tuesday Reminders",
+                        title: "Reminders",
                         onClick: { activeModal = .reminders },
-                        leading: { Image(systemName: "bell.badge.fill").foregroundColor(palette.accentText) },
+                        leading: { Image(systemName: "bell.fill").foregroundColor(palette.accentText) },
                         subtitle: {
-                            Text("\(activeReminders) of 5 active • \(repository.remindersEnabled ? "Monthly 2nd Tuesday ON" : "Monthly paused")")
+                            Text("\(activeReminders) of 5 active")
                                 .font(.system(size: 12))
                                 .foregroundColor(palette.textMuted)
                         }
@@ -140,7 +153,7 @@ public struct AccountSettingsView: View {
                         onClick: { activeModal = .feeds },
                         leading: { Image(systemName: "antenna.radiowaves.left.and.right").foregroundColor(palette.accentText) },
                         subtitle: {
-                            Text("\(repository.mutedFeedSlugs.count) muted feed(s) • High-Sev Guardrail ON")
+                            Text("\(activeFeedsCount) active • \(mutedFeedsCount) muted")
                                 .font(.system(size: 12))
                                 .foregroundColor(palette.textMuted)
                         }
@@ -150,11 +163,11 @@ public struct AccountSettingsView: View {
 
                     TuesdayListRow(
                         palette: palette,
-                        title: "UI Filter Strip Preferences",
+                        title: "UI Filter Preferences",
                         onClick: { activeModal = .preferences },
                         leading: { Image(systemName: "slider.horizontal.3").foregroundColor(palette.accentText) },
                         subtitle: {
-                            Text("Customize state & zone strips on Home card")
+                            Text("Customize state & zone strips on Home")
                                 .font(.system(size: 12))
                                 .foregroundColor(palette.textMuted)
                         }
@@ -164,7 +177,7 @@ public struct AccountSettingsView: View {
 
                     TuesdayListRow(
                         palette: palette,
-                        title: "Ordinal Spine & Reference Guide",
+                        title: "Standards & Reference Guide",
                         onClick: onOpenReferenceGuide,
                         leading: { Image(systemName: "book.closed.fill").foregroundColor(palette.accentText) },
                         subtitle: {
@@ -178,14 +191,14 @@ public struct AccountSettingsView: View {
 
                     TuesdayListRow(
                         palette: palette,
-                        title: isStn ? "Household Scale Tester & Dev Tools" : "Developer Mode & State Simulator",
+                        title: "Developer Mode",
                         onClick: {
                             draftApiUrl = repository.tuesdayApiBaseUrl
                             activeModal = .developer
                         },
                         leading: { Image(systemName: "wrench.and.screwdriver.fill").foregroundColor(repository.isDeveloperMode ? palette.accent : palette.textMuted) },
                         subtitle: {
-                            Text(repository.isDeveloperMode ? "Enabled • API: \(repository.tuesdayApiBaseUrl)" : "Seed Pea/Garden/Forest & API diagnostics")
+                            Text(repository.isDeveloperMode ? "Enabled" : "Disabled")
                                 .font(.system(size: 12))
                                 .foregroundColor(palette.textMuted)
                         }
@@ -423,18 +436,30 @@ public struct AccountSettingsView: View {
                             .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
                             .uiSlot("feeds-guardrail-notice")
 
-                            ForEach(BulletinsAndInventoryEngine.defaultGoldFeeds()) { feed in
-                                let isMuted = repository.mutedFeedSlugs.contains(feed.slug)
-                                PreferenceToggleRow(
-                                    title: isStn ? feed.stnName : feed.proName,
-                                    description: isMuted ? "Routine releases muted" : "Subscribed",
-                                    isOn: Binding(
-                                        get: { !isMuted },
-                                        set: { _ in repository.toggleMuteFeed(feed.slug) }
-                                    ),
-                                    palette: palette,
-                                    actionName: "toggleFeed_\(feed.slug)"
-                                )
+                            let matchedFeeds = BulletinsAndInventoryEngine.assembleBulletins(
+                                flavor: repository.brandFlavor,
+                                devices: repository.visibleRackDevices,
+                                mutedFeedSlugs: repository.mutedFeedSlugs,
+                                completedBulletinIds: repository.completedBulletinIds
+                            ).matchedFeeds
+                            if matchedFeeds.isEmpty {
+                                Text("No feeds matched yet. Add devices to activate security feeds.")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(palette.textMuted)
+                                    .padding(.vertical, 6)
+                            } else {
+                                ForEach(matchedFeeds) { feed in
+                                    PreferenceToggleRow(
+                                        title: feed.name,
+                                        description: feed.isMuted ? "Routine releases muted • \(feed.matchedPorts.joined(separator: ", "))" : "Subscribed • \(feed.matchedPorts.joined(separator: ", "))",
+                                        isOn: Binding(
+                                            get: { !feed.isMuted },
+                                            set: { _ in repository.toggleMuteFeed(feed.slug) }
+                                        ),
+                                        palette: palette,
+                                        actionName: "toggleFeed_\(feed.slug)"
+                                    )
+                                }
                             }
                         }
                     )
@@ -481,7 +506,7 @@ public struct AccountSettingsView: View {
                 case .developer:
                     TuesdayModalCard(
                         palette: palette,
-                        title: isStn ? "Household Scale Tester" : "Developer Mode & Simulators",
+                        title: "Developer Mode",
                         componentName: "DeveloperSettingsModal",
                         closeActionName: "closeDevModal",
                         onDismiss: { activeModal = nil },
