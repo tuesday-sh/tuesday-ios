@@ -134,10 +134,10 @@ final class DomainEvaluatorsTests: XCTestCase {
         )
 
         XCTAssertTrue(proPosture.allSatisfy { $0.action != nil && $0.recommendation != nil })
-        XCTAssertTrue(proPosture[0].title.contains("NEW HARDWARE INTAKE"))
-        XCTAssertTrue(homePosture[0].title.contains("New Devices & Recognition"))
-        XCTAssertTrue(proPosture[3].recommendation?.contains("Guest VLAN") == true)
-        XCTAssertTrue(homePosture[3].recommendation?.contains("unplugging") == true)
+        XCTAssertTrue(proPosture[0].title.contains("HARDWARE LIFECYCLE"))
+        XCTAssertTrue(homePosture[0].title.contains("Hardware Lifecycle"))
+        XCTAssertTrue(proPosture[3].recommendation?.contains("end-of-life") == true)
+        XCTAssertTrue(homePosture[3].recommendation?.contains("end-of-life") == true)
 
         let shareReport = RhythmPostureEvaluator.formatShareReport(flavor: .tuesdayPro, items: proPosture)
         XCTAssertTrue(shareReport.contains("Tuesday.sh (STN-Pro) Fleet Check-Up"))
