@@ -491,24 +491,12 @@ public struct HomeView: View {
                             Image(systemName: tab.systemIcon)
                                 .font(.system(size: 17, weight: isSelected ? .bold : .medium))
 
-                            if tab == .bulletins {
-                                if unreadBulletinsCount > 0 {
-                                    Text("\(unreadBulletinsCount)")
-                                        .font(.system(size: 9, weight: .heavy))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 4)
-                                        .frame(minWidth: 14, minHeight: 14)
-                                        .background(TuesdayTheme.ledCveRed)
-                                        .clipShape(Capsule())
-                                        .offset(x: 9, y: -4)
-                                        .uiSlot("bulletins-badge")
-                                } else if showBulletinAttentionDot {
-                                    Circle()
-                                        .fill(TuesdayTheme.ledCveRed)
-                                        .frame(width: 6, height: 6)
-                                        .offset(x: 6, y: -2)
-                                        .uiSlot("bulletins-badge")
-                                }
+                            if tab == .bulletins && (unreadBulletinsCount > 0 || showBulletinAttentionDot) {
+                                Circle()
+                                    .fill(TuesdayTheme.ledCveRed)
+                                    .frame(width: 7, height: 7)
+                                    .offset(x: 6, y: -2)
+                                    .uiSlot("bulletins-badge")
                             }
                         }
 

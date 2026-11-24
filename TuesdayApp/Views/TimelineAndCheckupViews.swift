@@ -25,6 +25,7 @@ public struct SwimlaneTimelineView: View {
     @State private var zoomWidthPt: CGFloat?
     @State private var selectedDeviceForAttestation: RackPortDevice? = nil
     @State private var showBatchAuditModal: Bool = false
+    @State private var showReportsModal: Bool = false
 
     public init(
         devices: [RackPortDevice],
@@ -213,7 +214,7 @@ public struct SwimlaneTimelineView: View {
 
                             // 6-State Visual Grammar Legend + Clickable Reports CTA (Feedback #20)
                             Button(action: {
-                                onOpenUpgrade()
+                                showReportsModal = true
                             }) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     HStack {
@@ -362,6 +363,61 @@ public struct SwimlaneTimelineView: View {
         }
         .background(palette.bg.ignoresSafeArea())
         .uiComponent("SwimlaneTimelineScreen")
+        .overlay {
+            if showReportsModal {
+                let isProTier1 = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
+                let eolCount = candles.filter { $0.isPastEol || $0.isEolNearing }.count
+                ZStack {
+                    Color.black.opacity(0.6).ignoresSafeArea().onTapGesture { showReportsModal = false }
+                    TuesdayModalCard(
+                        palette: palette,
+                        title: "Lifecycle Reports & Dossiers",
+                        subtitle: "Multi-year EOL forecasting, full attestation audit history, and printable Home/Rack dossiers.",
+                        componentName: "TimelineReportsModal",
+                        closeActionName: "closeReportsModal",
+                        onDismiss: { showReportsModal = false },
+                        content: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("• Multi-Year EOL Forecast (\(eolCount) device\(eolCount == 1 ? "" : "s") nearing/past EOL)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                                Text("• Full Attestation Audit Log (\(attestations.count) recorded check-in\(attestations.count == 1 ? "" : "s"))")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                                Text("• Printable PDF, CSV & Markdown Home/Rack Dossiers")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(palette.elevated)
+                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
+                            .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard).stroke(palette.border, lineWidth: 1))
+
+                            if !isProTier1 {
+                                Button(action: {
+                                    showReportsModal = false
+                                    onOpenUpgrade()
+                                }) {
+                                    Text("Unlock Reports with Tier 1")
+                                        .font(.system(size: 13.5, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity, minHeight: 42)
+                                        .background(palette.accent)
+                                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Text("Tier 1 Active — export PDF, CSV, or Markdown dossiers anytime from the Backup & Export menu (☰).")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(okColor)
+                            }
+                        }
+                    )
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
         .onAppear { handleInitialModalIfNeeded(sortedDevices: sortedDevices) }
         .onChange(of: initialModal) { _, _ in handleInitialModalIfNeeded(sortedDevices: sortedDevices) }
         .sheet(item: $selectedDeviceForAttestation) { dev in
