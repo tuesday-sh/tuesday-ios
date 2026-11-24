@@ -17,6 +17,7 @@ public struct AccountSettingsView: View {
     public let palette: BrandPalette
     public var initialExpandNetwork: Bool = false
     public var initialExpandPlan: Bool = false
+    public var initialExpandFeeds: Bool = false
     public let onOpenReferenceGuide: () -> Void
     public var onOpenUpgradeModal: () -> Void = {}
     public let onSwitchToFleetTab: () -> Void
@@ -36,6 +37,7 @@ public struct AccountSettingsView: View {
         palette: BrandPalette,
         initialExpandNetwork: Bool = false,
         initialExpandPlan: Bool = false,
+        initialExpandFeeds: Bool = false,
         onOpenReferenceGuide: @escaping () -> Void,
         onOpenUpgradeModal: @escaping () -> Void = {},
         onSwitchToFleetTab: @escaping () -> Void
@@ -46,6 +48,7 @@ public struct AccountSettingsView: View {
         self.palette = palette
         self.initialExpandNetwork = initialExpandNetwork
         self.initialExpandPlan = initialExpandPlan
+        self.initialExpandFeeds = initialExpandFeeds
         self.onOpenReferenceGuide = onOpenReferenceGuide
         self.onOpenUpgradeModal = onOpenUpgradeModal
         self.onSwitchToFleetTab = onSwitchToFleetTab
@@ -106,7 +109,7 @@ public struct AccountSettingsView: View {
                         onClick: { activeModal = .plan },
                         leading: { Image(systemName: "crown.fill").foregroundColor(isPro ? TuesdayTheme.ledOkGreen : palette.accentText) },
                         subtitle: {
-                            Text(isPro ? "Pro Tier 1 Active (Unlimited Sites)" : "Free Tier • 1 Site Included")
+                            Text(isPro ? "Pro Tier 1 Active (128 Devices • Unlimited Sites)" : "Free Tier • 1 Site • Up to 15 Devices")
                                 .font(.system(size: 12))
                                 .foregroundColor(isPro ? TuesdayTheme.ledOkGreen : palette.textMuted)
                         }
@@ -201,11 +204,15 @@ public struct AccountSettingsView: View {
         .onAppear {
             guard !didConsumeInitialModal else { return }
             didConsumeInitialModal = true
-            if initialExpandPlan { activeModal = .plan }
+            if initialExpandFeeds { activeModal = .feeds }
+            else if initialExpandPlan { activeModal = .plan }
             else if initialExpandNetwork {
                 draftNetworkName = activeSite?.name ?? "My Network"
                 activeModal = .network
             }
+        }
+        .onChange(of: initialExpandFeeds) { _, expand in
+            if expand { activeModal = .feeds }
         }
         .overlay {
             if let modal = activeModal {
@@ -251,7 +258,7 @@ public struct AccountSettingsView: View {
                     TuesdayModalCard(
                         palette: palette,
                         title: "Plan & Subscription",
-                        subtitle: isPro ? "Pro Tier 1 Unlocked" : "Upgrade for multi-site & family management",
+                        subtitle: isPro ? "Pro Tier 1 Unlocked (128 devices/site • unlimited sites)" : "Upgrade for up to 128 devices per site & unlimited network locations",
                         componentName: "PlanSettingsModal",
                         closeActionName: "closePlanModal",
                         onDismiss: { activeModal = nil },
@@ -505,18 +512,6 @@ public struct AccountSettingsView: View {
                                 )
                                 .uiSlot("vision-debug-toggle-row")
 
-                                PreferenceToggleRow(
-                                    title: "Diagnostics Session Retention",
-                                    description: "Keep temporary capture diagnostics locally during session.",
-                                    isOn: Binding(
-                                        get: { repository.isDiagnosticsEnabled },
-                                        set: { repository.toggleDiagnosticsMode($0) }
-                                    ),
-                                    palette: palette,
-                                    actionName: "toggleDiagnosticsMode"
-                                )
-                                .uiSlot("diagnostics-toggle-row")
-
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("TUESDAY API ENDPOINT TARGET")
                                         .font(.system(size: 10.5, weight: .bold, design: .monospaced))
@@ -627,6 +622,20 @@ public struct AccountSettingsView: View {
                                 .buttonStyle(.plain)
                                 .uiAction("purgeGoldenCorpus")
                             }
+
+                            SurfaceListDivider(palette: palette)
+
+                            PreferenceToggleRow(
+                                title: "Diagnostics",
+                                description: "Enables diagnostic telemetry and local debug logs without changing your UI.",
+                                isOn: Binding(
+                                    get: { repository.isDiagnosticsEnabled },
+                                    set: { repository.toggleDiagnosticsMode($0) }
+                                ),
+                                palette: palette,
+                                actionName: "toggleDiagnosticsMode"
+                            )
+                            .uiSlot("diagnostics-toggle-row")
                         }
                     )
                     .uiSlot("developer-mode-card")

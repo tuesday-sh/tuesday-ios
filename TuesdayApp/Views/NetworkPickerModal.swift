@@ -149,34 +149,6 @@ public struct SetupNetworkModalView: View {
                                 .buttonStyle(.plain)
                                 .uiAction("selectNetwork")
                             }
-                        } else {
-                            // Empty switcher placeholder only when single-site; keep interactive selectNetwork bound to active row
-                            Button(action: {
-                                if let activeSite {
-                                    onSelectNetwork(activeSite.id)
-                                }
-                                onDismiss()
-                            }) {
-                                HStack {
-                                    Text(activeSite?.name ?? "My Network")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(palette.textPrimary)
-                                    Spacer()
-                                    Text("Active Site")
-                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                        .foregroundColor(TuesdayTheme.ledOkGreen)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .background(palette.surface)
-                                .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: TuesdayDimens.radiusCard)
-                                        .stroke(palette.border, lineWidth: 1)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .uiAction("selectNetwork")
                         }
                     }
                     .uiSlot("available-networks-list")
@@ -261,10 +233,10 @@ public struct SetupNetworkModalView: View {
                         .disabled(trimmedName.isEmpty)
                     } else {
                         VStack(spacing: 8) {
-                            Text("Family & Team Delegation")
+                            Text("Import an Existing Network")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("Joining existing networks via QR code invitation or pairing tokens is coming soon in M4 (Family Delegation Networks).")
+                            Text("To load a network inventory exported from another device, open Account → Backup & Restore and import a saved JSON backup file.")
                                 .font(.system(size: 12))
                                 .foregroundColor(palette.textMuted)
                                 .lineSpacing(3)
@@ -319,8 +291,8 @@ public struct Tier1UpgradeModalView: View {
             VStack(spacing: 0) {
                 TuesdayModalCard(
                     palette: palette,
-                    title: "Tuesday.sh Pro Tier 1",
-                    subtitle: "Free accounts include 1 primary network and 1 demo sandbox. Upgrade to Pro Tier 1 to unlock unlimited network locations, Family Site Management, and live cloud sync.",
+                    title: "Tuesday.sh Pro — Founding Member",
+                    subtitle: "Built at SURF Incubator in Seattle. Free includes 1 primary site, 15 devices, and 15 AI photo scans. Lock in Founding Member pricing for the full Tier 1 suite:",
                     borderColor: palette.accent.opacity(0.6),
                     componentName: "TuesdayModalCard",
                     closeActionName: "closeTier1UpgradeModal",
@@ -328,18 +300,18 @@ public struct Tier1UpgradeModalView: View {
                     leading: {
                         MondayBadgeMark(palette: palette)
                     },
-                    headerTrailing: {
-                        MonospaceBadge(text: "MULTI-SITE", color: palette.accentText)
-                    },
                     content: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("✓ Unlimited physical sites & remote locations")
+                            Text("✓ Up to 128 devices/site & unlimited network locations")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("✓ Family & Team Site Delegation (QR & invite pairing)")
+                            Text("✓ Unlimited AI photo hardware identification (15 free)")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
-                            Text("✓ Live cross-site security bulletins & cloud sync")
+                            Text("✓ Printable PDF, CSV & Markdown rack dossier exports")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(palette.textPrimary)
+                            Text("✓ Multi-year EOL forecast, audit log & Ask Claude briefs")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(palette.textPrimary)
                         }

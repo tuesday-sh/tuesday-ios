@@ -12,15 +12,17 @@ public struct SwimlaneTimelineView: View {
     public let attestations: [DeviceAttestation]
     public let flavor: AppBrandFlavor
     public let palette: BrandPalette
+    public var entitlementTier: String = "free"
     public var initialModal: String? = nil
     public var onConsumeInitialModal: () -> Void = {}
     public var onOpenReferenceGuide: () -> Void = {}
+    public var onOpenUpgrade: () -> Void = {}
     public let onInspectDevice: (RackPortDevice) -> Void
     public let onRecordAttestation: (String, AttestationType, DevicePresenceState, String, String?) -> Void
     public let onRecordBatchAttestation: ([String], String, String, String?) -> Void
 
     @State private var scrubberXNorm: Double = 0.72
-    @State private var zoomWidthPt: CGFloat? = nil
+    @State private var zoomWidthPt: CGFloat?
     @State private var selectedDeviceForAttestation: RackPortDevice? = nil
     @State private var showBatchAuditModal: Bool = false
 
@@ -29,9 +31,11 @@ public struct SwimlaneTimelineView: View {
         attestations: [DeviceAttestation] = [],
         flavor: AppBrandFlavor,
         palette: BrandPalette,
+        entitlementTier: String = "free",
         initialModal: String? = nil,
         onConsumeInitialModal: @escaping () -> Void = {},
         onOpenReferenceGuide: @escaping () -> Void = {},
+        onOpenUpgrade: @escaping () -> Void = {},
         onInspectDevice: @escaping (RackPortDevice) -> Void,
         onRecordAttestation: @escaping (String, AttestationType, DevicePresenceState, String, String?) -> Void = { _, _, _, _, _ in },
         onRecordBatchAttestation: @escaping ([String], String, String, String?) -> Void = { _, _, _, _ in }
@@ -40,12 +44,16 @@ public struct SwimlaneTimelineView: View {
         self.attestations = attestations
         self.flavor = flavor
         self.palette = palette
+        self.entitlementTier = entitlementTier
         self.initialModal = initialModal
         self.onConsumeInitialModal = onConsumeInitialModal
         self.onOpenReferenceGuide = onOpenReferenceGuide
+        self.onOpenUpgrade = onOpenUpgrade
         self.onInspectDevice = onInspectDevice
         self.onRecordAttestation = onRecordAttestation
         self.onRecordBatchAttestation = onRecordBatchAttestation
+        let isPro = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
+        _zoomWidthPt = State(initialValue: isPro ? nil : 560)
     }
 
     public var body: some View {
@@ -147,19 +155,34 @@ public struct SwimlaneTimelineView: View {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(spacing: 6) {
+                                let isProTier1 = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
                                 HStack(spacing: 6) {
                                     ForEach([("All time", CGFloat?.none), ("1yr", CGFloat?(560)), ("6mo", CGFloat?(840))], id: \.0) { label, widthPt in
+                                        let isProLockedRange = (widthPt == nil && !isProTier1)
                                         SelectableFilterChip(
                                             label: label,
                                             selected: zoomWidthPt == widthPt,
                                             palette: palette,
                                             action: {
-                                                zoomWidthPt = widthPt
-                                                scrubberXNorm = 0.72
+                                                if isProLockedRange {
+                                                    onOpenUpgrade()
+                                                } else {
+                                                    zoomWidthPt = widthPt
+                                                    scrubberXNorm = 0.72
+                                                }
                                             }
                                         )
                                         .uiAction("setTimelineRange")
                                     }
+                                    SelectableFilterChip(
+                                        label: "Today",
+                                        selected: scrubberXNorm >= 0.98,
+                                        palette: palette,
+                                        action: {
+                                            scrubberXNorm = 1.0
+                                        }
+                                    )
+                                    .uiAction("snapTimelineToday")
                                 }
                                 .uiSlot("timeline-range-strip")
 
@@ -188,28 +211,39 @@ public struct SwimlaneTimelineView: View {
                             }
                             .padding(.horizontal, 2)
 
-                            // 6-State Visual Grammar Legend
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Legend:")
-                                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                    .foregroundColor(palette.accentText)
+                            // 6-State Visual Grammar Legend + Clickable Reports CTA (Feedback #20)
+                            Button(action: {
+                                onOpenUpgrade()
+                            }) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("Legend:")
+                                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                            .foregroundColor(palette.accentText)
+                                        Spacer()
+                                        Text("Reports →")
+                                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                                            .foregroundColor(palette.accentText)
+                                    }
 
-                                HStack(spacing: 8) {
-                                    legendSwatch(fill: okColor, border: nil, label: "Solid: Active", labelColor: palette.textMuted)
-                                    legendSwatch(fill: nil, border: retiredColor, label: "Hollow: Retired", labelColor: palette.textMuted)
-                                    legendSwatch(fill: nil, border: lostColor, label: "Dashed: Lost", labelColor: lostColor)
-                                }
+                                    HStack(spacing: 8) {
+                                        legendSwatch(fill: okColor, border: nil, label: "Solid: Active", labelColor: palette.textMuted)
+                                        legendSwatch(fill: nil, border: retiredColor, label: "Hollow: Retired", labelColor: palette.textMuted)
+                                        legendSwatch(fill: nil, border: lostColor, label: "Dashed: Lost", labelColor: lostColor)
+                                    }
 
-                                HStack(spacing: 8) {
-                                    legendSwatch(fill: defectColor, border: nil, label: "Slash: Defect", labelColor: defectColor)
-                                    legendSwatch(fill: eolColor, border: nil, label: "Amber: EOL Nears", labelColor: palette.textMuted)
-                                    legendSwatch(fill: overhangColor, border: nil, label: "Hatched: Past EOL", labelColor: cveColor)
+                                    HStack(spacing: 8) {
+                                        legendSwatch(fill: defectColor, border: nil, label: "Slash: Defect", labelColor: defectColor)
+                                        legendSwatch(fill: eolColor, border: nil, label: "Amber: EOL Nears", labelColor: palette.textMuted)
+                                        legendSwatch(fill: overhangColor, border: nil, label: "Hatched: Past EOL", labelColor: cveColor)
+                                    }
                                 }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 6)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(palette.elevated)
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(palette.elevated)
+                            .buttonStyle(.plain)
                             .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
                             .overlay(
                                 RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
@@ -228,28 +262,9 @@ public struct SwimlaneTimelineView: View {
                             sectionSpacing: 10,
                             title: isStn ? "Device Lifespan & Supported Versions" : "Hardware Lifecycles",
                             showHeader: true,
-                            showHeaderTrailing: !sortedDevices.isEmpty,
+                            showHeaderTrailing: false,
                             showEmpty: true,
-                            headerTrailing: {
-                                if !sortedDevices.isEmpty {
-                                    Button(action: { showBatchAuditModal = true }) {
-                                        Text("Batch Check-In")
-                                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                            .foregroundColor(palette.accentText)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 4)
-                                            .frame(minHeight: 28)
-                                            .background(palette.accent.opacity(0.14))
-                                            .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                                                    .stroke(palette.accent, lineWidth: 1)
-                                            )
-                                    }
-                                    .buttonStyle(.plain)
-                                    .uiAction("openBatchAuditModal")
-                                }
-                            },
+                            headerTrailing: { EmptyView() },
                             itemContent: { pair in
                                 let dev = pair.0
                                 let candle = pair.1
@@ -1032,7 +1047,9 @@ public struct SeasonalCheckupView: View {
     public let flavor: AppBrandFlavor
     public let palette: BrandPalette
     public var welcomeComplete: Bool = false
+    public var entitlementTier: String = "free"
     public var onOpenReferenceGuide: () -> Void = {}
+    public var onOpenUpgrade: () -> Void = {}
 
     @Environment(\.openURL) private var openURL
 
@@ -1042,14 +1059,18 @@ public struct SeasonalCheckupView: View {
         flavor: AppBrandFlavor,
         palette: BrandPalette,
         welcomeComplete: Bool = false,
-        onOpenReferenceGuide: @escaping () -> Void = {}
+        entitlementTier: String = "free",
+        onOpenReferenceGuide: @escaping () -> Void = {},
+        onOpenUpgrade: @escaping () -> Void = {}
     ) {
         self.devices = devices
         self.bulletins = bulletins
         self.flavor = flavor
         self.palette = palette
         self.welcomeComplete = welcomeComplete
+        self.entitlementTier = entitlementTier
         self.onOpenReferenceGuide = onOpenReferenceGuide
+        self.onOpenUpgrade = onOpenUpgrade
     }
 
     private func accentColorForRhythm(_ id: String, isStn: Bool) -> Color {
@@ -1094,9 +1115,15 @@ public struct SeasonalCheckupView: View {
 
                         Spacer()
 
+                        let isProTier1 = EntitlementGatePolicy.isProTier1Entitled(entitlementTier)
                         HStack(spacing: 6) {
                             Button(action: {
-                                let prompt = "I am reviewing my network check-up:\n\n" + shareReport
+                                if !isProTier1 {
+                                    onOpenUpgrade()
+                                    return
+                                }
+                                let fleetList = devices.prefix(30).map { "- \($0.name) (\($0.category.code), \($0.version), \($0.portState.rawValue.uppercased()))" }.joined(separator: "\n")
+                                let prompt = "I am reviewing my Tuesday.sh Pro network check-up (\(devices.count) devices):\n\n" + shareReport + (fleetList.isEmpty ? "" : "\n\nTracked Fleet:\n\(fleetList)")
                                 var allowed = CharacterSet.urlQueryAllowed
                                 allowed.remove(charactersIn: "&+=#")
                                 let encoded = prompt.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""

@@ -16,7 +16,7 @@
       "id" : "tuesday_pro_group",
       "localizations" : [
         {
-          "description" : "Unlock unlimited network sites, family delegation, and live cross-site cloud sync.",
+          "description" : "Founding Member Pro Tier 1: up to 128 devices/site, unlimited sites, unlimited AI photo scans, PDF/CSV/MD dossiers, EOL forecast & Ask Claude briefs.",
           "displayName" : "Tuesday.sh Pro Tier 1",
           "locale" : "en_US"
         }
@@ -30,15 +30,15 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "4.99",
+          "displayPrice" : "2.99",
           "familyShareable" : true,
           "groupNumber" : 1,
           "internalID" : "pro_tier1_monthly_001",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Unlimited physical sites, family site delegation, and live cloud sync.",
-              "displayName" : "Pro Tier 1 Monthly",
+              "description" : "Founding Member Monthly: up to 128 devices/site, unlimited sites, unlimited AI photo scans, dossier exports & EOL forecast.",
+              "displayName" : "Pro Tier 1 Founding Monthly",
               "locale" : "en_US"
             }
           ],
@@ -55,15 +55,15 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "49.00",
+          "displayPrice" : "29.00",
           "familyShareable" : true,
           "groupNumber" : 1,
           "internalID" : "pro_tier1_annual_001",
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "Annual Tuesday.sh Pro Tier 1 plan (Save 18%).",
-              "displayName" : "Pro Tier 1 Annual",
+              "description" : "Founding Member Annual Tuesday.sh Pro Tier 1 plan (Save 19%).",
+              "displayName" : "Pro Tier 1 Founding Annual",
               "locale" : "en_US"
             }
           ],

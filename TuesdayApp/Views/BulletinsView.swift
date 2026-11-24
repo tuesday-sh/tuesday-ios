@@ -4,6 +4,7 @@ private enum ExpandedBulletinModal {
     case inbox(BulletinInboxView, isCompleted: Bool)
     case welcome(isCompleted: Bool)
     case feed(MatchedFeedView)
+    case reminder(SiteNotificationItem)
 }
 
 /// Flow-wrapping row layout for multi-candidate hardware disambiguation chips.
@@ -69,6 +70,7 @@ public struct BulletinsView: View {
     @Environment(\.openURL) private var openURL
     @State private var showingPreferencesDialog = false
     @State private var expandedModal: ExpandedBulletinModal? = nil
+    @State private var serverNotifications: [SiteNotificationItem] = []
 
     public init(
         repository: MockHacsTuesdayService,
@@ -119,6 +121,29 @@ public struct BulletinsView: View {
                     .frame(width: 0, height: 0)
                     .uiComponent("AiSummaryCard")
 
+                    let activeServerNotifs = serverNotifications.filter { $0.isUnresolved }
+                    if !activeServerNotifs.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            SectionHeading(text: "Active Notifications & Reminders", palette: palette)
+                            SurfaceListContainer(palette: palette) {
+                                ForEach(activeServerNotifs) { notif in
+                                    if notif.id != activeServerNotifs.first?.id { SurfaceListDivider(palette: palette) }
+                                    StatusListRow(
+                                        palette: palette,
+                                        dotColor: palette.accent,
+                                        title: notif.title,
+                                        onClick: { expandedModal = .reminder(notif) }
+                                    ) {
+                                        Text(notif.body)
+                                            .font(.system(size: 11.5))
+                                            .foregroundColor(palette.textMuted)
+                                            .lineLimit(1)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Section 1: Bulletin Inbox
                     HStack {
                         SectionHeading(text: "Bulletin Inbox", palette: palette)
@@ -168,49 +193,43 @@ public struct BulletinsView: View {
                         )
                     }
 
-                    // Section 2: Matched Feeds
-                    TuesdayListSection(
-                        palette: palette,
-                        items: payload.matchedFeeds,
-                        id: \.id,
-                        layoutStyle: .surfaceGrouped,
-                        sectionSpacing: 8,
-                        title: "Matched Feeds",
-                        showHeader: true,
-                        showHeaderTrailing: true,
-                        showEmpty: true,
-                        headerTrailing: {
-                            Button(action: onOpenFeedsSettings) {
-                                Image(systemName: "gearshape.fill")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(palette.textPrimary)
-                                    .frame(width: TuesdayDimens.hitTargetCompact, height: TuesdayDimens.hitTargetCompact)
-                                    .background(palette.elevated)
-                                    .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge)
-                                            .stroke(palette.border, lineWidth: 1)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Feeds settings")
-                            .uiAction("openFeedsSettings")
-                        },
-                        itemContent: { feed in
-                            MatchedFeedListRow(
-                                palette: palette,
-                                feed: feed,
-                                onClick: { expandedModal = .feed(feed) }
-                            )
-                        },
-                        emptyContent: {
+                    // Section 2: Compact Advisory Feeds Link (Full toggles live in Settings)
+                    Group {
+                        if payload.matchedFeeds.isEmpty {
                             TuesdayListEmptyBanner(
                                 message: "Add devices to your inventory to get feeds",
                                 palette: palette
                             )
                             .uiSlot("matched-feeds-empty-banner")
+                        } else {
+                            let activeCount = payload.matchedFeeds.filter { !$0.isMuted }.count
+                            let mutedCount = payload.matchedFeeds.filter { $0.isMuted }.count
+                            let mutedSuffix = mutedCount > 0 ? " (\(mutedCount) muted)" : ""
+                            Button(action: onOpenFeedsSettings) {
+                                HStack(spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("📡 \(activeCount) Active Global Feeds\(mutedSuffix)")
+                                            .font(.system(size: 12.5, weight: .bold))
+                                            .foregroundColor(palette.textPrimary)
+                                        Text("Filtering manufacturer & security notices to your inventory")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(palette.textMuted)
+                                    }
+                                    Spacer()
+                                    Text("Manage →")
+                                        .font(.system(size: 11.5, weight: .bold))
+                                        .foregroundColor(palette.accent)
+                                }
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 11)
+                                .background(palette.surface)
+                                .cornerRadius(12)
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(palette.border, lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .uiAction("openFeedsSettings")
                         }
-                    )
+                    }
                     .padding(.top, 14)
                     .uiComponent("MatchedFeedsSection")
 
@@ -310,6 +329,30 @@ public struct BulletinsView: View {
                                     repository.rejectProvisionalDeviceModel()
                                 }
                             )
+
+                        case .reminder(let notif):
+                            NotchBulletinCard(
+                                palette: palette,
+                                title: notif.title,
+                                description: notif.body,
+                                leftNotchLabel: "REMINDER",
+                                leftNotchDotColor: palette.accent,
+                                rightNotchLabel: "ACTION",
+                                onRightNotchClick: {},
+                                steps: [],
+                                allStepsDone: false,
+                                primaryActionLabel: "Snooze",
+                                completeActionLabel: "Snooze",
+                                secondaryActionLabel: "Complete",
+                                onPrimaryAction: {
+                                    expandedModal = nil
+                                    handleServerNotificationAction(id: notif.id, action: "snoozed")
+                                },
+                                onSecondaryAction: {
+                                    expandedModal = nil
+                                    handleServerNotificationAction(id: notif.id, action: "completed")
+                                }
+                            )
                         }
                     }
                     .uiComponent("BulletinDetailModal")
@@ -335,6 +378,9 @@ public struct BulletinsView: View {
         }
         .onAppear { handleInitialBulletinIfNeeded() }
         .onChange(of: initialBulletinId) { _, _ in handleInitialBulletinIfNeeded() }
+        .task {
+            await loadServerNotifications()
+        }
     }
 
     private func handleInitialBulletinIfNeeded() {
@@ -454,6 +500,31 @@ public struct BulletinsView: View {
                     expandedModal = nil
                     showingPreferencesDialog = true
                 }
+            )
+        }
+    }
+
+    private func loadServerNotifications() async {
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "ios-default"
+        if let feed = try? await SiteNotificationFeedClient.shared.fetchFeed(
+            ownerKey: deviceId,
+            deviceId: deviceId
+        ) {
+            await MainActor.run {
+                serverNotifications = feed.notifications
+            }
+        }
+    }
+
+    private func handleServerNotificationAction(id: Int, action: String) {
+        serverNotifications.removeAll { $0.id == id }
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "ios-default"
+        Task {
+            _ = try? await SiteNotificationFeedClient.shared.updateState(
+                notificationId: id,
+                actionType: action,
+                ownerKey: deviceId,
+                deviceId: deviceId
             )
         }
     }

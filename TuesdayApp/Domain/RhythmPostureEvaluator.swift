@@ -87,43 +87,41 @@ public enum RhythmPostureEvaluator {
         let r3Action: String? = (isDayZero || r3Parts.isEmpty) ? nil : r3Parts.joined(separator: " • ")
         let r3Rec: String? = r3Action != nil
             ? (isStn
-                ? "Verify your Wi-Fi router admin password is not the factory default (\"admin\") and resolve active recalls."
-                : "Check router admin password, disable WAN management, and resolve active recalls.")
+                ? "Do a 5-minute seasonal check: reboot & dust your router, confirm backups, and review who has Wi-Fi or household access."
+                : "Reboot & dust core networking gear, confirm backups ran recently, and review Wi-Fi & C8 People access.")
             : nil
 
         let r4Action: String? = (isDayZero || eolDevices.isEmpty) ? nil : {
             let count = eolDevices.count
             let labels = eolDevices.map(\.name).joined(separator: ", ")
-            return "\(count) EOL device\(count == 1 ? "" : "s") past vendor support (\(labels))"
+            return "\(count) aging device\(count == 1 ? "" : "s") past vendor support (\(labels))"
         }()
         let r4Rec: String? = r4Action != nil
-            ? (isStn
-                ? "Consider upgrading or unplugging unsupported hardware."
-                : "Isolate EOL hardware to Guest VLAN or replace with supported gear.")
+            ? "Plan replacements for aging devices approaching end-of-life, save a local copy of your network list, and share your summary with a trusted helper."
             : nil
 
         return [
             RhythmPostureItem(
                 id: "r1",
-                title: isStn ? "R1 • New Devices & Recognition" : "R1 • NEW HARDWARE INTAKE & ATTESTATION",
+                title: isStn ? "R1 • Hardware Lifecycle (Buy, Install, Retire)" : "R1 • HARDWARE LIFECYCLE & ENROLLMENT",
                 action: r1Action,
                 recommendation: r1Rec
             ),
             RhythmPostureItem(
                 id: "r2",
-                title: isStn ? "R2 • Monthly Patch Tuesday (2nd Tuesday)" : "R2 • MONTHLY PATCH TUESDAY READINESS",
+                title: isStn ? "R2 • Monthly Patch Tuesday Check-Up" : "R2 • MONTHLY PATCH TUESDAY CHECK-UP",
                 action: r2Action,
                 recommendation: r2Rec
             ),
             RhythmPostureItem(
                 id: "r3",
-                title: isStn ? "R3 • Quarterly Safety Check (Jan / Apr / Jul / Oct)" : "R3 • SEASONAL SAFETY, PASSWORDS & DRIFT AUDIT",
+                title: isStn ? "R3 • Seasonal Home Check-Up (Quarterly)" : "R3 • SEASONAL CHECK-UP (QUARTERLY)",
                 action: r3Action,
                 recommendation: r3Rec
             ),
             RhythmPostureItem(
                 id: "r4",
-                title: isStn ? "R4 • Annual Hardware Lifespan (January)" : "R4 • YEARLY HARDWARE LIFESPAN & EOL",
+                title: isStn ? "R4 • Yearly Gear & Lifespan Check-In" : "R4 • YEARLY GEAR & LIFESPAN CHECK-IN",
                 action: r4Action,
                 recommendation: r4Rec
             )

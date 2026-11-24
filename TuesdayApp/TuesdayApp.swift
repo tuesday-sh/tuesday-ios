@@ -1,7 +1,25 @@
 import SwiftUI
+import UIKit
+
+final class TuesdayAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        let hexToken = deviceToken.map { String(format: "%02x", $0) }.joined()
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "ios-default"
+        Task {
+            await SiteNotificationFeedClient.shared.registerDeviceToken(
+                apnsTokenHex: hexToken,
+                deviceId: deviceId
+            )
+        }
+    }
+}
 
 @main
 struct TuesdayApp: App {
+    @UIApplicationDelegateAdaptor(TuesdayAppDelegate.self) private var appDelegate
     @StateObject private var repository: MockHacsTuesdayService
     @StateObject private var networkMonitor = NetworkMonitorService()
     @StateObject private var notificationManager = TuesdayNotificationManager.shared
@@ -42,6 +60,13 @@ struct TuesdayApp: App {
                 await GoldClueSuggestionRepository.shared.refreshFromServerIfNeeded(
                     baseUrl: repository.tuesdayApiBaseUrl
                 )
+                // Only register for remote notifications on cold launch if permission was ALREADY granted.
+                // Never fire the one-shot OS permission dialog before the Pre-Permission Primer.
+                await notificationManager.refreshAuthorizationStatus()
+                if notificationManager.authorizationStatus == .authorized ||
+                    notificationManager.authorizationStatus == .provisional {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
             }
         }
     }

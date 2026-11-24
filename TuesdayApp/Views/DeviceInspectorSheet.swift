@@ -7,6 +7,7 @@ public struct DeviceInspectorSheet: View {
     public let onDismiss: () -> Void
     public let onEditDevice: (RackPortDevice) -> Void
     public var onApplyPatch: () -> Void = {}
+    public var onOpenFeedsSettings: () -> Void = {}
 
     @Environment(\.openURL) private var openURL
 
@@ -16,7 +17,8 @@ public struct DeviceInspectorSheet: View {
         palette: BrandPalette,
         onDismiss: @escaping () -> Void,
         onEditDevice: @escaping (RackPortDevice) -> Void,
-        onApplyPatch: @escaping () -> Void = {}
+        onApplyPatch: @escaping () -> Void = {},
+        onOpenFeedsSettings: @escaping () -> Void = {}
     ) {
         self.device = device
         self.flavor = flavor
@@ -24,6 +26,7 @@ public struct DeviceInspectorSheet: View {
         self.onDismiss = onDismiss
         self.onEditDevice = onEditDevice
         self.onApplyPatch = onApplyPatch
+        self.onOpenFeedsSettings = onOpenFeedsSettings
     }
 
     public var body: some View {
@@ -147,10 +150,43 @@ public struct DeviceInspectorSheet: View {
                     }
                     .uiSlot("device-details-stack")
 
-                    if device.portState != .ok && device.portState != .unassigned {
+                    let relatedFeeds = BulletinsAndInventoryEngine.assembleBulletins(
+                        flavor: flavor,
+                        devices: [device],
+                        mutedFeedSlugs: [],
+                        completedBulletinIds: []
+                    ).matchedFeeds
+
+                    Button(action: onOpenFeedsSettings) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("RELATED ADVISORY FEEDS")
+                                    .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                                    .tracking(0.5)
+                                    .foregroundColor(palette.textMuted)
+                                Text(relatedFeeds.isEmpty ? "Manage manufacturer & security feeds" : relatedFeeds.map(\.name).joined(separator: " • "))
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(palette.textPrimary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Text("Manage →")
+                                .font(.system(size: 11.5, weight: .bold))
+                                .foregroundColor(palette.accentText)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(palette.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge))
+                        .overlay(RoundedRectangle(cornerRadius: TuesdayDimens.radiusBadge).stroke(palette.border, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .uiAction("openDeviceRelatedFeeds")
+
+                    if device.portState != .ok && device.portState != .unassigned && !matchingBulletins.isEmpty {
                         VStack(spacing: 0) {
                             Button(action: onApplyPatch) {
-                                Text(isStn ? "✓ Mark Remediation Complete (Set Device OK)" : "✓ Mark Remediation Complete (Set Port OK)")
+                                Text("✓ Mark Remediation Complete")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(isStn ? .white : .black)
                                     .frame(maxWidth: .infinity, minHeight: 44)

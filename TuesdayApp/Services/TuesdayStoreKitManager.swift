@@ -37,15 +37,15 @@ public final class TuesdayStoreKitManager: ObservableObject {
         [
             SubscriptionPlanOffer(
                 productId: skuProTier1Annual,
-                title: "Annual",
-                formattedPrice: "$49.00",
+                title: "Founding Annual",
+                formattedPrice: "$29.00",
                 periodLabel: "/ year",
-                badge: "SAVE 18%"
+                badge: "SAVE 19%"
             ),
             SubscriptionPlanOffer(
                 productId: skuProTier1Monthly,
-                title: "Monthly",
-                formattedPrice: "$4.99",
+                title: "Founding Monthly",
+                formattedPrice: "$2.99",
                 periodLabel: "/ month",
                 badge: nil
             )
@@ -114,10 +114,10 @@ public final class TuesdayStoreKitManager: ObservableObject {
                     updatedOffers.append(
                         SubscriptionPlanOffer(
                             productId: product.id,
-                            title: isAnnual ? "Annual" : "Monthly",
+                            title: isAnnual ? "Founding Annual" : "Founding Monthly",
                             formattedPrice: product.displayPrice,
                             periodLabel: isAnnual ? "/ year" : "/ month",
-                            badge: isAnnual ? "SAVE 18%" : nil
+                            badge: isAnnual ? "SAVE 19%" : nil
                         )
                     )
                 }

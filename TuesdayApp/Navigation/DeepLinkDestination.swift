@@ -161,8 +161,7 @@ public enum DeepLinkDestination: Equatable {
         case "api-endpoint":
             let target = pathSegments.first?.lowercased() ?? "prod"
             switch target {
-            case "local": return .setApiEndpoint(ApiEndpointPreset.localDev.url)
-            case "dev", "tailscale": return .setApiEndpoint(ApiEndpointPreset.tailscaleMac.url)
+            case "local", "dev", "tailscale": return .setApiEndpoint(ApiEndpointPreset.localDev.url)
             default: return .setApiEndpoint(ApiEndpointPreset.prodGcp.url)
             }
 

@@ -24,10 +24,10 @@ public enum MainNavigationTab: String, CaseIterable, Identifiable {
     public var systemIcon: String {
         switch self {
         case .status: return "square.grid.2x2.fill"
-        case .bulletins: return "bell.badge.fill"
-        case .timeline: return "chart.bar.xaxis"
-        case .checkup: return "checkmark.shield.fill"
-        case .account: return "gearshape.fill"
+        case .bulletins: return "bell.fill"
+        case .timeline: return "chart.xyaxis.line"
+        case .checkup: return "checklist"
+        case .account: return "slider.horizontal.3"
         }
     }
 }
@@ -38,6 +38,8 @@ public struct HomeView: View {
     var notificationManager: TuesdayNotificationManager?
     var storeKitManager: TuesdayStoreKitManager?
     @Binding var pendingDeepLink: DeepLinkDestination?
+    @State private var showNotificationPrimer = false
+    @State private var primerDeviceName: String? = nil
 
     public init(
         repository: MockHacsTuesdayService,
@@ -71,6 +73,7 @@ public struct HomeView: View {
     @State private var showingNetworkPicker = false
     @State private var showingTier1Upgrade = false
     @State private var showingReferenceGuide = false
+    @State private var settingsExpandFeeds = false
     @State private var showingProComingSoonModal = false
     @State private var timelineInitialModal: String? = nil
 
@@ -133,6 +136,32 @@ public struct HomeView: View {
                     .background(palette.bg.ignoresSafeArea())
                 }
                 .tag(MainNavigationTab.status)
+                .onChange(of: visibleDevices.count) { oldCount, newCount in
+                    if oldCount == 0 && newCount > 0 && notificationManager?.authorizationStatus == .notDetermined {
+                        primerDeviceName = visibleDevices.first?.name
+                        showNotificationPrimer = true
+                    }
+                }
+                .sheet(isPresented: $showNotificationPrimer) {
+                    NotificationPrimerSheet(
+                        palette: palette,
+                        appName: isStn ? "SureThingNet" : "Tuesday.sh",
+                        deviceName: primerDeviceName,
+                        onEnableSelected: { _, patchTuesdayEnabled in
+                            showNotificationPrimer = false
+                            Task {
+                                if let mgr = notificationManager, await mgr.requestAuthorizationIfNeeded() {
+                                    await MainActor.run {
+                                        UIApplication.shared.registerForRemoteNotifications()
+                                        repository.setRemindersEnabled(patchTuesdayEnabled)
+                                    }
+                                }
+                            }
+                        },
+                        onDismiss: { showNotificationPrimer = false }
+                    )
+                    .presentationDetents([.medium, .large])
+                }
 
                 BulletinsView(
                     repository: repository,
@@ -141,7 +170,10 @@ public struct HomeView: View {
                     notificationManager: notificationManager ?? .shared,
                     onTapAddDevice: { openAddDeviceWizard() },
                     onTapReferenceGuide: { showingReferenceGuide = true },
-                    onOpenFeedsSettings: { activeTab = .account },
+                    onOpenFeedsSettings: {
+                        settingsExpandFeeds = true
+                        activeTab = .account
+                    },
                     onInspectDevice: { targetId in
                         if let dev = visibleDevices.first(where: { $0.id == targetId }) ?? visibleDevices.first {
                             inspectedDevice = dev
@@ -156,9 +188,11 @@ public struct HomeView: View {
                     attestations: repository.attestations,
                     flavor: repository.brandFlavor,
                     palette: palette,
+                    entitlementTier: repository.entitlementTier,
                     initialModal: timelineInitialModal,
                     onConsumeInitialModal: { timelineInitialModal = nil },
                     onOpenReferenceGuide: { showingReferenceGuide = true },
+                    onOpenUpgrade: { showingTier1Upgrade = true },
                     onInspectDevice: { inspectedDevice = $0 },
                     onRecordAttestation: { devId, type, presence, date, notes in
                         repository.recordAttestation(
@@ -186,7 +220,9 @@ public struct HomeView: View {
                     flavor: repository.brandFlavor,
                     palette: palette,
                     welcomeComplete: repository.welcomeCompleted || repository.bulletinDismissed,
-                    onOpenReferenceGuide: { showingReferenceGuide = true }
+                    entitlementTier: repository.entitlementTier,
+                    onOpenReferenceGuide: { showingReferenceGuide = true },
+                    onOpenUpgrade: { showingTier1Upgrade = true }
                 )
                 .tag(MainNavigationTab.checkup)
 
@@ -197,6 +233,7 @@ public struct HomeView: View {
                     palette: palette,
                     initialExpandNetwork: settingsExpandNetwork,
                     initialExpandPlan: settingsExpandPlan,
+                    initialExpandFeeds: settingsExpandFeeds,
                     onOpenReferenceGuide: { showingReferenceGuide = true },
                     onOpenUpgradeModal: { showingTier1Upgrade = true },
                     onSwitchToFleetTab: { activeTab = .status }
@@ -291,6 +328,11 @@ public struct HomeView: View {
                 onApplyPatch: {
                     repository.markDeviceRemediated(id: dev.id)
                     inspectedDevice = nil
+                },
+                onOpenFeedsSettings: {
+                    inspectedDevice = nil
+                    settingsExpandFeeds = true
+                    activeTab = .account
                 }
             )
         }
@@ -328,7 +370,11 @@ public struct HomeView: View {
                 initialSynthPreset: req.synth,
                 initialQuery: req.query,
                 initialCluesCsv: req.clues,
-                autoSearch: req.autoSearch
+                autoSearch: req.autoSearch,
+                onOpenUpgrade: {
+                    addDeviceRequest = nil
+                    showingTier1Upgrade = true
+                }
             )
         }
         .sheet(isPresented: $showingReferenceGuide) {
@@ -361,13 +407,20 @@ public struct HomeView: View {
                     .uiSlot("brand-title")
 
                 Button(action: { showingProComingSoonModal = true }) {
-                    Text(repository.brandFlavor.badge)
+                    let isTier1Badge = EntitlementGatePolicy.isProTier1Entitled(repository.entitlementTier)
+                    let tier1Gold = Color(red: 0.961, green: 0.620, blue: 0.043)
+                    let tier1Border = Color(red: 0.851, green: 0.467, blue: 0.024)
+                    Text(isTier1Badge ? "◆ \(repository.brandFlavor.badge)" : repository.brandFlavor.badge)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundColor(palette.accentText)
+                        .foregroundColor(isTier1Badge ? tier1Gold : palette.accentText)
                         .padding(.horizontal, 9)
                         .frame(minHeight: 30)
-                        .background(palette.elevated)
+                        .background(isTier1Badge ? tier1Gold.opacity(0.16) : palette.elevated)
                         .clipShape(RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: TuesdayDimens.radiusControl)
+                                .stroke(isTier1Badge ? tier1Border : Color.clear, lineWidth: 1)
+                        )
                         .uiSlot("brand-badge")
                 }
                 .buttonStyle(.plain)
@@ -380,9 +433,6 @@ public struct HomeView: View {
             HStack(spacing: 6) {
                 Button(action: { showingNetworkPicker = true }) {
                     HStack(spacing: 6) {
-                        Circle()
-                            .fill(palette.textMuted.opacity(0.75))
-                            .frame(width: 6, height: 6)
                         Text(activeNetwork.name.isEmpty ? "My Network" : activeNetwork.name)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(palette.textPrimary)
@@ -400,7 +450,7 @@ public struct HomeView: View {
                 Button(action: { showingHacsSheet = true }) {
                     HStack(spacing: 5) {
                         Circle()
-                            .fill(repository.hacsConfig.isConnected ? TuesdayTheme.ledColor(for: .ok, isStn: isStn) : palette.textMuted)
+                            .stroke(palette.textMuted, lineWidth: 1.5)
                             .frame(width: 6, height: 6)
                         Image(systemName: "line.3.horizontal")
                             .font(.system(size: 14, weight: .semibold))
@@ -492,42 +542,42 @@ public struct HomeView: View {
 
             TuesdayModalCard(
                 palette: palette,
-                title: "Coming Soon",
-                subtitle: "Tuesday.sh (PRO) and SureThingNet (HOME) pair deep homelab telemetry with a calm household view so technical operators and families can share one inventory without the jargon.",
+                title: "Tuesday.sh Pro",
+                subtitle: "Tuesday.sh tracks hardware lifecycles, firmware advisories, and seasonal check-ups across your home and homelab networks.",
                 componentName: "ProComingSoonModal",
                 closeActionName: "closeProComingSoon",
                 onDismiss: { showingProComingSoonModal = false },
                 leading: { TuesdayCalendarHeartIcon(tint: palette.accent, size: 18) },
                 headerTrailing: {
-                    MonospaceBadge(text: "PRO ↔ HOME", color: palette.accent)
+                    MonospaceBadge(text: "PRO", color: palette.accent)
                 },
                 content: {
                     SurfaceListContainer(palette: palette) {
                         TuesdayListRow(
                             palette: palette,
-                            title: "SureThingNet (HOME) Companion View",
+                            title: "Plain-English Security & Recall Advisories",
                             subtitle: {
-                                Text("Translates technical CVEs and PURLs into plain-English CPSC Safety Recalls, End-of-Life (EOL) replacement alerts, and guided Seasonal Home Check-Ups.")
+                                Text("Tracks manufacturer and security researcher notices from global feeds and filters only the CVEs, firmware updates, recalls, and End-of-Life alerts that match your inventory.")
                                     .font(.system(size: 12))
                                     .foregroundColor(palette.textMuted)
                                     .lineSpacing(2)
                             },
                             trailing: {
-                                MonospaceBadge(text: "v1.2", color: palette.accent)
+                                MonospaceBadge(text: "LIVE", color: TuesdayTheme.ledOkGreen)
                             }
                         )
                         SurfaceListDivider(palette: palette)
                         TuesdayListRow(
                             palette: palette,
-                            title: "Household Sharing & Quiet Notifications",
+                            title: "Seasonal Check-Ups & Printable Summaries",
                             subtitle: {
-                                Text("Invite a partner or family member with a read-only household view so everyone knows when smart-home, kitchen, or nursery gear needs an update or recall check.")
+                                Text("Run guided seasonal check-ups and share a clean plain-text or printable network check-up report with a partner or household helper.")
                                     .font(.system(size: 12))
                                     .foregroundColor(palette.textMuted)
                                     .lineSpacing(2)
                             },
                             trailing: {
-                                MonospaceBadge(text: "SOON", color: palette.accent)
+                                MonospaceBadge(text: "LIVE", color: TuesdayTheme.ledOkGreen)
                             }
                         )
                         SurfaceListDivider(palette: palette)
@@ -539,13 +589,13 @@ public struct HomeView: View {
                                 showingNetworkPicker = true
                             },
                             subtitle: {
-                                Text("Free accounts include 1 primary network and 1 demo sandbox. Upgrade to Pro Tier 1 to unlock unlimited network locations and manage your primary rack alongside a parent's home or cabin Wi-Fi.")
+                                Text("Free accounts include 1 primary network (up to 15 devices) and 1 demo sandbox. Upgrade to Pro Tier 1 to track up to 128 devices per site and unlock unlimited network locations.")
                                     .font(.system(size: 12))
                                     .foregroundColor(palette.textMuted)
                                     .lineSpacing(2)
                             },
                             trailing: {
-                                MonospaceBadge(text: "LIVE", color: TuesdayTheme.ledOkGreen)
+                                MonospaceBadge(text: "PRO", color: palette.accent)
                             }
                         )
                     }
@@ -571,6 +621,14 @@ public struct HomeView: View {
         clues: String? = nil,
         autoSearch: Bool = false
     ) {
+        if EntitlementGatePolicy.requiresUpgradeForNewDevice(
+            tier: repository.entitlementTier,
+            activeNetworkId: repository.activeNetworkId,
+            currentDeviceCount: repository.visibleRackDevices.count
+        ) {
+            showingTier1Upgrade = true
+            return
+        }
         addDeviceRequest = AddDeviceSheetRequest(
             mode: mode,
             synth: synth,

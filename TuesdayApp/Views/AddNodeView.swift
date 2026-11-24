@@ -18,6 +18,7 @@ public struct AddNodeView: View {
     public var initialQuery: String? = nil
     public var initialCluesCsv: String? = nil
     public var autoSearch: Bool = false
+    public var onOpenUpgrade: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -52,7 +53,8 @@ public struct AddNodeView: View {
         initialSynthPreset: String? = nil,
         initialQuery: String? = nil,
         initialCluesCsv: String? = nil,
-        autoSearch: Bool = false
+        autoSearch: Bool = false,
+        onOpenUpgrade: @escaping () -> Void = {}
     ) {
         self.repository = repository
         self.palette = palette
@@ -61,6 +63,7 @@ public struct AddNodeView: View {
         self.initialQuery = initialQuery
         self.initialCluesCsv = initialCluesCsv
         self.autoSearch = autoSearch
+        self.onOpenUpgrade = onOpenUpgrade
     }
 
     public var body: some View {
@@ -169,9 +172,7 @@ public struct AddNodeView: View {
                         devControlsSection()
                     }
 
-                    if isAnalyzing {
-                        analyzingProgressCard()
-                    }
+                    // Search in progress is rendered inline via spinner inside the Search button (no extra callout card).
 
                     if let result = discoveryResult {
                         candidateResultsSection(result: result, isStn: isStn)
@@ -243,8 +244,39 @@ public struct AddNodeView: View {
     @ViewBuilder
     private func photoModeControls(isStn: Bool) -> some View {
         let camDenied = (AVCaptureDevice.authorizationStatus(for: .video) == .denied)
+        let remainingScans = EntitlementGatePolicy.remainingFreeAiPhotoScans(
+            tier: repository.entitlementTier,
+            scansUsed: repository.aiPhotoScansUsed
+        )
 
         VStack(alignment: .leading, spacing: 8) {
+            if let remaining = remainingScans {
+                let isExhausted = remaining == 0
+                Button(action: {
+                    onOpenUpgrade()
+                }) {
+                    HStack {
+                        Text(
+                            isExhausted
+                                ? "0 / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left — Upgrade to Tier 1"
+                                : "\(remaining) / \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans left (Clues & Barcode always free)"
+                        )
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundColor(isExhausted ? palette.accentText : palette.textMuted)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(isExhausted ? palette.accent.opacity(0.14) : palette.elevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(isExhausted ? palette.accent.opacity(0.55) : palette.border, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
             HStack(spacing: 10) {
                 Button(action: {
                     if AVCaptureDevice.default(for: .video) != nil {
@@ -491,10 +523,15 @@ public struct AddNodeView: View {
                 Task { await runDeferredDiscoverySearch() }
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14, weight: .bold))
-                    Text(totalSignals > 0 ? "Search (\(totalSignals))" : "Search")
-                        .font(.system(size: 14, weight: .bold))
+                    if isAnalyzing {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14, weight: .bold))
+                        Text(totalSignals > 0 ? "Search (\(totalSignals))" : "Search")
+                            .font(.system(size: 14, weight: .bold))
+                    }
                 }
                 .foregroundColor(.black)
                 .frame(maxWidth: .infinity, minHeight: 42)
@@ -830,6 +867,25 @@ public struct AddNodeView: View {
                         }
                         .uiComponent("CandidateResultsList")
                     }
+
+                    // Progressive Discovery Escape Hatch: allow saving rough/guessed hardware even if exact model isn't listed
+                    Button(action: {
+                        Task { await enrollRoughGuessedDevice(from: result) }
+                    }) {
+                        Text("Not listed or not sure? Save as Rough Device")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundColor(palette.textPrimary)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .background(palette.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(palette.borderStrong, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSaving)
+                    .uiAction("saveRoughGuessedDevice")
                 }
                 .uiSlot("ai-discovery-panel")
             }
@@ -1199,6 +1255,12 @@ public struct AddNodeView: View {
             clueQuery = ""
         }
 
+        if capturedImages.isEmpty && selectedClues.isEmpty && scannedBarcodesList.isEmpty && manualDeviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            manualError = "Snap a photo, scan a barcode, or add a hardware clue before searching."
+            return
+        }
+        manualError = nil
+
         if capturedImages.isEmpty,
            let localMatch = GoldClueSuggestionRepository.shared.resolveLocalDiscoveryResult(
                selected: selectedClues,
@@ -1208,6 +1270,18 @@ public struct AddNodeView: View {
             discoveryResult = localMatch
             debugLogs.append("[Gold 0-Turn] Resolved \(localMatch.candidates.first?.displayName ?? "SKU")")
             return
+        }
+
+        if !capturedImages.isEmpty {
+            if EntitlementGatePolicy.requiresUpgradeForAiPhotoScan(
+                tier: repository.entitlementTier,
+                scansUsed: repository.aiPhotoScansUsed
+            ) {
+                manualError = "You've used all \(EntitlementGatePolicy.freeAiPhotoScanLimit) free AI photo scans. Upgrade to Pro Tier 1 for unlimited AI photo identification — or use Barcode / Manual Clues free."
+                onOpenUpgrade()
+                return
+            }
+            repository.recordAiPhotoScanUsed()
         }
 
         let isElastix = (repository.hacsConfig.aiProvider == .elastix)
@@ -1287,7 +1361,7 @@ public struct AddNodeView: View {
             selectedClues: effectiveClues,
             accumulatedIdentifiers: accumulatedIdentifiers
         ) else {
-            manualError = "Enter a Device Name or pick a SureThingNet Insights Model clue."
+            manualError = "Enter a name or pick any device type, brand, or rough clue — you can refine details later."
             return
         }
 
@@ -1301,6 +1375,40 @@ public struct AddNodeView: View {
             agentToken: "manual-local",
             inventoryState: resolved.inventoryState,
             discoveredMetadata: resolved.metadata
+        )
+        dismiss()
+    }
+
+    private func enrollRoughGuessedDevice(from result: GeminiDiscoveryTurnResult) async {
+        let topCandidate = result.candidates.first
+        let fallbackManual = ManualEnrollmentResolver.resolve(
+            manualHostname: manualDeviceName,
+            selectedClues: selectedClues,
+            accumulatedIdentifiers: accumulatedIdentifiers
+        )
+        let roughHostname = fallbackManual?.hostname
+            ?? topCandidate.map { "\($0.manufacturer) \($0.deviceCategory ?? "Device")".trimmingCharacters(in: .whitespacesAndNewlines) }
+            ?? "Unidentified Device"
+        let roughMetadata = fallbackManual?.metadata ?? DiscoveredDeviceMetadata(
+            manufacturer: topCandidate?.manufacturer ?? "Manual",
+            modelNumber: topCandidate?.deviceCategory ?? roughHostname,
+            deviceCategory: topCandidate?.deviceCategory,
+            serialNumber: accumulatedIdentifiers.serialNumber,
+            macAddress: accumulatedIdentifiers.macAddress,
+            barcodeOrQr: accumulatedIdentifiers.barcode
+        )
+        let roughSummary = fallbackManual?.osSummary ?? "Rough Entry • Refine via Check-Up"
+
+        isSaving = true
+        defer { isSaving = false }
+
+        await repository.enrollNode(
+            hostname: roughHostname,
+            osDetails: roughSummary,
+            packageManager: .firmware,
+            agentToken: "rough-discovery",
+            inventoryState: .incompleteOrGuessed,
+            discoveredMetadata: roughMetadata
         )
         dismiss()
     }
