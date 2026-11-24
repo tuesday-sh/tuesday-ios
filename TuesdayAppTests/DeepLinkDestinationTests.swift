@@ -61,7 +61,7 @@ final class DeepLinkDestinationTests: XCTestCase {
 
         XCTAssertEqual(DeepLinkDestination.fromUri("tuesday://api-endpoint/local"), .setApiEndpoint("http://127.0.0.1:3000"))
         XCTAssertEqual(DeepLinkDestination.fromUri("tuesday://api-endpoint/prod"), .setApiEndpoint("https://api.tuesday.sh"))
-        XCTAssertEqual(DeepLinkDestination.fromUri("tuesday://api-endpoint/dev"), .setApiEndpoint("http://100.108.40.3:3000"))
+        XCTAssertEqual(DeepLinkDestination.fromUri("tuesday://api-endpoint/dev"), .setApiEndpoint("http://127.0.0.1:3000"))
     }
 
     func testRejectsMalformedOrForeignSchemes() {
