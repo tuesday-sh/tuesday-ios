@@ -1,4 +1,4 @@
-# App Store Listing Copy (en-US) — Tuesday.sh v1.0.0 (Build 9)
+# App Store Listing Copy (en-US) — Tuesday.sh v1.0.0 (Build 14)
 
 ## App Name
 Tuesday.sh — Home Gear & Security
@@ -10,27 +10,30 @@ Router, Firmware & EOL Guard
 Keep your home Wi-Fi router, smart TVs, cameras, and homelab gear patched before attackers notice—with zero mandatory accounts and zero photo retention.
 
 ## Keywords (100 chars max)
-router,wifi,firmware,cve,security,homelab,iot,eol,inventory,patch tuesday,home assistant,network
+router,wifi,firmware,cve,security,homelab,iot,eol,inventory,patch tuesday,network,smart home
 
 ## Description
 Tuesday.sh is a local-first hardware lifecycle, firmware advisory, and Patch Tuesday readiness companion for homeowners and homelab builders.
 
-Instead of noisy real-time alerts or mandatory cloud accounts, Tuesday.sh helps you build an accurate inventory of the networked gear inside your home—from your Wi-Fi router and mesh access points to NAS servers, cameras, smart TVs, and printers—and check them on a calm monthly Patch Tuesday cadence.
+Build an accurate inventory of the networked gear inside your home—from Wi-Fi routers and mesh access points to NAS boxes, cameras, smart TVs, and printers—and check them on a calm monthly Patch Tuesday cadence.
 
 KEY FEATURES
-- Sovereign Local-First Inventory: Your device list, custom names, locations, and audit check-ins stay on your iPhone in plain-text-portable JSON. Export or import backups anytime.
-- Instant Offline Gold Catalog Lookup: Search thousands of consumer and prosumer devices by brand, model, UPC retail barcode, IEEE MAC OUI prefix, or FCC grantee ID right on device.
-- Live Barcode, QR & Camera Label Discovery: Scan retail UPC barcodes or QR codes with the camera, extract codes from existing photos using on-device Vision, or identify tricky chassis labels ephemerally in RAM (`none_ephemeral_ram_only`).
-- Action-First Advisories & End-of-Life Guard: Matches CISA KEV vulnerabilities, safety recalls, vendor End-of-Life (EOL) cutoffs, and firmware updates directly to your devices.
-- Interactive Hardware Lifespan Swimlane: Visualize vendor support windows, post-EOL overhangs, and record seasonal physical check-ins.
-- 4-Rhythm Home & Fleet Check-Up: Export a clean summary of action items across New Devices, Monthly Patch Tuesday, Quarterly Safety Audits, and Annual Lifespan Reviews.
-- Home Assistant (HACS) Integration: Optional local Wi-Fi pairing with Home Assistant setups.
+• Sovereign Local-First Inventory: Your device list, custom names, locations, and audit check-ins stay on your iPhone in portable JSON. Export or import backups anytime with zero mandatory accounts.
+• Instant Offline Catalog Lookup: Search consumer and prosumer devices by brand, model, UPC retail barcode, MAC OUI prefix, or FCC ID right on device.
+• Live Barcode, QR & Photo Discovery: Scan retail UPC barcodes or QR codes with your camera, or identify tricky chassis labels ephemerally in RAM with zero photo retention.
+• Action-First Advisories & End-of-Life Guard: Matches CISA KEV vulnerabilities, safety recalls, vendor End-of-Life (EOL) cutoffs, and firmware updates directly to your gear.
+• Interactive Hardware Lifespan Timeline: Visualize vendor support windows, post-EOL overhangs, and record seasonal check-ins.
+• Seasonal Check-Up & Dossier Exports: Stay on top of new gear, monthly Patch Tuesday reviews, quarterly safety checks, and annual lifespan audits.
 
-TUESDAY.SH PRO TIER 1 (OPTIONAL SUBSCRIPTION)
-- Free includes full tracking for 1 primary network site.
-- Upgrade to Tuesday.sh Pro Tier 1 ($4.99/month or $49.00/year, Save 18%) to manage unlimited physical sites, family homes, and shared site delegation.
-- Payment is charged to your Apple Account at confirmation of purchase. Subscriptions automatically renew unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings > Apple Account > Subscriptions.
+TUESDAY.SH PRO (OPTIONAL FOUNDING MEMBER SUBSCRIPTION)
+• Free includes 1 primary network site (up to 15 devices), 15 AI photo scans, all security/recall/EOL advisories, and local JSON backup.
+• Upgrade to Tuesday.sh Pro ($2.99/month or $29.00/year, Save 19%) for up to 128 devices per site, unlimited physical locations, unlimited AI photo scans, printable PDF/CSV/Markdown dossiers, multi-year EOL forecasts, and full-fleet remediation briefs.
+• Payment is charged to your Apple Account at confirmation of purchase. Subscriptions automatically renew unless canceled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings > Apple Account > Subscriptions.
 
 Privacy Policy: https://tuesday.sh/privacy
 Terms of Use: https://tuesday.sh/terms
-Support: https://tuesday.sh/support (support@packablock.com)
+Support: https://tuesday.sh/support
+
+## Retention Messaging (App Store Connect)
+- **Header**: Stay covered across every site & device
+- **Body**: Canceling removes multi-site tracking, 128-device capacity, unlimited AI photo scans, dossier exports, and multi-year EOL forecasts.
